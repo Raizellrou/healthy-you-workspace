@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AxionHR
 
-## Getting Started
+A from-scratch Next.js port of the AxionHR HR wellbeing prototype: a single-page,
+client-only demo with one sidebar shell and nine screens (Dashboard, Directory,
+Attendance, Burnout Risk Analytics, Nudges, Track the Mood, Boundary/Right to
+Disconnect, Kudos, Focus Mode). No backend, no persistence, no external
+dependencies — everything is in-memory React state that resets on reload.
 
-First, run the development server:
+## Stack
+
+Next.js 16 (App Router) + TypeScript + Tailwind CSS v4. Real routes per pillar
+(`/dashboard`, `/directory`, `/attendance`, `/burnout`, `/nudges`, `/mood`,
+`/boundary`, `/kudos`, `/focus`); `/` redirects to `/dashboard`.
+
+## Getting started
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/*/page.tsx` — one route per pillar, plus client components colocated
+  alongside each (`*Client.tsx`) for interactive pieces.
+- `app/layout.tsx` — shell: sidebar + main slot + toast dock, wrapped in the
+  Nudges context provider.
+- `app/globals.css` — design tokens (light/dark via `prefers-color-scheme` and
+  an explicit `data-theme` override) exposed to Tailwind via `@theme inline`,
+  plus shared keyframes.
+- `components/shell` — `Sidebar` (collapses to a horizontal scroll bar under
+  `md`), nav item list.
+- `components/ui` — `Card`, `Chip`, `Button`, `Switch`, `Stat`, `PageHead`,
+  `EmptyState`, `Avatar`.
+- `components/icons` — a hand-built inline SVG `<symbol>` sprite (16 icons,
+  stroke-based, no icon library) + an `Icon` component.
+- `components/burnout`, `components/nudges`, `components/mood` — pillar-specific
+  pieces (score bars, sparkline, toast card/dock, the Axolotl component).
+- `lib/employees.ts` — the 8-employee roster + avatar color assignment (fixed
+  8-color palette by roster index, not hashed by name).
+- `lib/burnout.ts` — `computeBurnout`, `dominantDriver`, `trendFor` (seeded
+  sparkline fabrication), `sparkPath`.
+- `lib/boundary.ts` — `evaluateBoundary` (the single decision function used by
+  both the live preview and the actual send), `nextWorkStart`, `isWorkday`.
+- `lib/time.ts` — `parseTimeInput`, `fmtClock`.
+- `lib/nudge-context.tsx` — the Nudges simulation, provided above route level
+  (session timer, log, toast state, unseen badge, title flash, Notification
+  permission) since with real routing "another panel" becomes "another route."
+- `lib/constants.ts` — days, nudge metadata, moods, kudos tags, focus timeline.
+- `types/*.ts` — shared interfaces.
 
-## Learn More
+## Notes on a few implementation choices
 
-To learn more about Next.js, take a look at the following resources:
+The source spec didn't pin down some purely cosmetic details, so these were
+decided during the build rather than left as open questions:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Mood axolotl palette** — the five mood colors (body/light/frill/line per
+  mood) and the specific face-mark shapes per mood aren't specified beyond
+  "hand-built pixel-art," so a five-color palette and a distinct eye/mouth
+  style per mood were designed fresh.
+- **Team trend / burnout sparkline "end" values** — `trendFor(seed, end)` is
+  generic per the spec; Burnout detail passes the employee's composite score,
+  Mood team trends pass the team's fabricated average scaled to 0–100.
+- **Boundary default message** — the spec calls for the *default state* to
+  demonstrate the "warned" path (default recipient is Burnout Bob, on PTO),
+  which requires a non-empty starting message; a short filler message is
+  pre-filled for that reason.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Verification
 
-## Deploy on Vercel
+`tsc --noEmit`, `eslint .`, and `next build` all pass clean. All nine screens
+were exercised in-browser against the feature spec (search/filter, sort +
+selection persistence on Burnout, the Nudges session timer firing and
+resolving nudges via Snooze/Done, the mood one-time pick and reset, the full
+Boundary decision matrix — blocked/warned/delivered/delayed, including the
+Friday-evening-skips-the-weekend case — Kudos submit + progress cap, and the
+Focus auto-suggestion/manual-override interaction).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+One real bug was caught and fixed during verification: the Nudges session
+timer used to call side-effecting `setState` calls from inside another
+`setState` updater function, which React's Strict Mode double-invokes in dev
+to catch exactly this kind of impurity — it caused two nudges to fire (and
+log) per 50-minute cycle instead of one. Fixed by moving the counters to refs
+and keeping the `setState` updaters pure.
