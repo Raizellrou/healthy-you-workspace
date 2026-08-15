@@ -1,29 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { Icon } from "@/components/icons/Icon";
-import {
-  KUDOS_HR_FLAGGED,
-  KUDOS_PROGRESS_CAP,
-  KUDOS_PROGRESS_START,
-  KUDOS_TAGS,
-} from "@/lib/constants";
-import { getEmployee } from "@/lib/employees";
+import { KUDOS_PROGRESS_CAP, KUDOS_TAGS } from "@/lib/constants";
+import { submitKudos } from "./actions";
+import type { Employee } from "@/types/employee";
 
-const BUDDY = getEmployee("beatriz-haddad")!;
 const CYCLE = "2026-Q3";
 
-export function KudosClient() {
+export interface HrViewItem {
+  team: string;
+  note: string;
+}
+
+export function KudosClient({
+  buddy,
+  alreadySubmitted,
+  initialProgress,
+  hrView,
+}: {
+  buddy: Employee;
+  alreadySubmitted: boolean;
+  initialProgress: number;
+  hrView: HrViewItem[];
+}) {
   const [tag, setTag] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [flagToHR, setFlagToHR] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [progress, setProgress] = useState(KUDOS_PROGRESS_START);
+  const [submitted, setSubmitted] = useState(alreadySubmitted);
+  const [progress, setProgress] = useState(initialProgress);
   const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function handleSubmit() {
     if (submitted) return;
@@ -32,17 +43,24 @@ export function KudosClient() {
       return;
     }
     setError(null);
-    setSubmitted(true);
-    setProgress((p) => Math.min(KUDOS_PROGRESS_CAP, p + 1));
+    startTransition(async () => {
+      const result = await submitKudos(buddy.id, tag, note, flagToHR);
+      if (!result.ok) {
+        setError(result.error ?? "Something went wrong.");
+        return;
+      }
+      setSubmitted(true);
+      setProgress((p) => Math.min(KUDOS_PROGRESS_CAP, p + 1));
+    });
   }
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
       <Card>
         <div className="flex items-center gap-3 border-b border-line pb-4">
-          <Avatar name={BUDDY.name} color={BUDDY.avatarColor} size={40} />
+          <Avatar name={buddy.name} color={buddy.avatarColor} size={40} />
           <div>
-            <div className="text-sm font-semibold text-ink">You &amp; {BUDDY.name}</div>
+            <div className="text-sm font-semibold text-ink">You &amp; {buddy.name}</div>
             <div className="text-xs text-ink-mute">Buddy pairing · cycle {CYCLE}</div>
           </div>
         </div>
@@ -98,17 +116,24 @@ export function KudosClient() {
             <div className="text-sm text-ink">Flag to HR</div>
             <div className="text-xs text-ink-mute">Surface this in the unlinked HR view</div>
           </div>
-          <Switch checked={flagToHR} onChange={setFlagToHR} label="Flag to HR" id="flag-hr" />
+          <Switch
+            checked={flagToHR}
+            onChange={setFlagToHR}
+            label="Flag to HR"
+            id="flag-hr"
+          />
         </div>
 
         <div className="mt-5">
           {submitted ? (
             <div className="flex items-center gap-2 rounded-lg bg-success-bg px-3 py-2.5 text-sm text-success">
               <Icon name="check" size={16} />
-              Kudos sent to {BUDDY.name}.
+              Kudos sent to {buddy.name}.
             </div>
           ) : (
-            <Button onClick={handleSubmit}>Send kudos</Button>
+            <Button onClick={handleSubmit} disabled={isPending}>
+              {isPending ? "Sending…" : "Send kudos"}
+            </Button>
           )}
         </div>
       </Card>
@@ -131,16 +156,20 @@ export function KudosClient() {
 
         <Card>
           <div className="mb-2 text-sm font-semibold text-ink">HR view — unlinked</div>
-          <ul className="space-y-2 text-sm">
-            {KUDOS_HR_FLAGGED.map((item, i) => (
-              <li key={i} className="rounded-lg border border-line p-2.5">
-                <div className="text-xs font-medium uppercase tracking-wide text-ink-mute">
-                  {item.team}
-                </div>
-                <p className="mt-0.5 text-ink-soft">{item.note}</p>
-              </li>
-            ))}
-          </ul>
+          {hrView.length === 0 ? (
+            <p className="text-sm text-ink-mute">No flagged kudos yet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {hrView.map((item, i) => (
+                <li key={i} className="rounded-lg border border-line p-2.5">
+                  <div className="text-xs font-medium uppercase tracking-wide text-ink-mute">
+                    {item.team}
+                  </div>
+                  <p className="mt-0.5 text-ink-soft">{item.note}</p>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="mt-3 text-xs text-ink-mute">
             Flagged kudos are never linked back to the sender — HR only ever sees the
             team and the note.

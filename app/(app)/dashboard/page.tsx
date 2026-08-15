@@ -3,13 +3,14 @@ import { PageHead } from "@/components/ui/PageHead";
 import { Card } from "@/components/ui/Card";
 import { Stat } from "@/components/ui/Stat";
 import { Icon } from "@/components/icons/Icon";
-import { EMPLOYEES, TEAMS } from "@/lib/employees";
+import { getEmployees } from "@/lib/supabase/queries";
 import { PILLARS } from "@/lib/pillars";
 
-export default function DashboardPage() {
-  const headcount = EMPLOYEES.length;
-  const teamCount = TEAMS.length;
-  const workingToday = EMPLOYEES.filter((e) => e.worked).length;
+export default async function DashboardPage() {
+  const employees = await getEmployees();
+  const headcount = employees.length;
+  const teamCount = new Set(employees.map((e) => e.team)).size;
+  const workingToday = employees.filter((e) => e.worked).length;
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">

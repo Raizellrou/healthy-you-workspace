@@ -4,13 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
 import { NAV_ITEMS } from "@/components/shell/navItems";
-import { EMPLOYEES } from "@/lib/employees";
-import { computeBurnout } from "@/lib/burnout";
 import { useNudges } from "@/lib/nudge-context";
 
-const HAS_CRITICAL = EMPLOYEES.some((e) => computeBurnout(e).band === "critical");
-
-export function Sidebar() {
+export function Sidebar({ hasCritical }: { hasCritical: boolean }) {
   const pathname = usePathname();
   const { unseenCount } = useNudges();
 
@@ -28,7 +24,7 @@ export function Sidebar() {
 
       {NAV_ITEMS.map((item) => {
         const active = pathname === item.href;
-        const showCriticalDot = item.href === "/burnout" && HAS_CRITICAL;
+        const showCriticalDot = item.href === "/burnout" && hasCritical;
         const showBadge = item.href === "/nudges" && unseenCount > 0;
         return (
           <Link

@@ -1,23 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/icons/Icon";
 import { Axolotl } from "@/components/mood/Axolotl";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { MOODS } from "@/lib/constants";
-import { seedFrom } from "@/lib/burnout";
-import { TEAMS } from "@/lib/employees";
+import { submitMoodCheckin } from "./actions";
 
-function teamAverage(team: string): number {
-  const seed = seedFrom(team);
-  const base = 3 + Math.sin(seed * 0.7) * 1.4;
-  return Math.min(5, Math.max(1, base));
+export interface TeamAggregate {
+  avgMood: number | null;
+  checkinCount: number;
 }
 
-export function MoodClient() {
-  const [picked, setPicked] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+export function MoodClient({
+  initialPicked,
+  teamAggregates,
+}: {
+  initialPicked: 1 | 2 | 3 | 4 | 5 | null;
+  teamAggregates: Record<string, TeamAggregate>;
+}) {
+  const [picked, setPicked] = useState<1 | 2 | 3 | 4 | 5 | null>(initialPicked);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const pickedMood = picked ? MOODS[picked - 1] : null;
+
+  function handlePick(value: 1 | 2 | 3 | 4 | 5) {
+    setError(null);
+    setPicked(value);
+    startTransition(async () => {
+      const result = await submitMoodCheckin(value);
+      if (!result.ok) {
+        setPicked(initialPicked);
+        setError(result.error ?? "Something went wrong.");
+      }
+    });
+  }
 
   return (
     <div>
@@ -28,9 +46,9 @@ export function MoodClient() {
             <button
               key={mood.value}
               type="button"
-              disabled={picked !== null}
+              disabled={picked !== null || isPending}
               aria-pressed={isPicked}
-              onClick={() => setPicked(mood.value)}
+              onClick={() => handlePick(mood.value)}
               className={`group flex w-24 flex-col items-center gap-2 rounded-xl border px-3 py-4 transition-colors disabled:cursor-not-allowed ${
                 isPicked
                   ? "border-brand bg-brand-soft"
@@ -43,6 +61,8 @@ export function MoodClient() {
           );
         })}
       </div>
+
+      {error ? <p className="mb-4 text-sm text-risk-critical">{error}</p> : null}
 
       {pickedMood ? (
         <Card className="mb-10">
@@ -59,35 +79,42 @@ export function MoodClient() {
               {pickedMood.kicker ? (
                 <p className="mt-3 text-sm font-medium text-brand-ink">{pickedMood.kicker}</p>
               ) : null}
-              <button
-                type="button"
-                onClick={() => setPicked(null)}
-                className="mt-4 text-sm font-medium text-brand hover:underline"
-              >
-                Check in again
-              </button>
+              <p className="mt-4 text-sm text-ink-mute">
+                That&apos;s today&apos;s check-in — see you back here tomorrow.
+              </p>
             </div>
           </div>
         </Card>
       ) : null}
 
-      <h2 className="mb-4 text-lg font-semibold text-ink">Team trends — 14 days</h2>
+      <h2 className="mb-4 text-lg font-semibold text-ink">Team trends — today</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {TEAMS.map((team) => {
-          const avg = teamAverage(team);
-          const repMood = MOODS[Math.round(avg) - 1];
+        {Object.entries(teamAggregates).map(([team, agg]) => {
+          const repMood = agg.avgMood !== null ? MOODS[Math.round(agg.avgMood) - 1] : MOODS[2];
           return (
             <Card key={team}>
               <div className="flex items-center gap-3">
                 <Axolotl mood={repMood} size={40} />
                 <div>
                   <div className="text-sm font-semibold text-ink">{team}</div>
-                  <div className="font-mono text-xs text-ink-mute">avg {avg.toFixed(1)} / 5</div>
+                  {agg.avgMood !== null ? (
+                    <div className="font-mono text-xs text-ink-mute">avg {agg.avgMood.toFixed(1)} / 5</div>
+                  ) : (
+                    <div className="text-xs text-ink-mute">Not enough check-ins yet</div>
+                  )}
                 </div>
               </div>
-              <div className="mt-3">
-                <Sparkline seed={team} end={(avg / 5) * 100} width={160} height={40} stroke={repMood.body} />
-              </div>
+              {agg.avgMood !== null ? (
+                <div className="mt-3">
+                  <Sparkline
+                    seed={team}
+                    end={(agg.avgMood / 5) * 100}
+                    width={160}
+                    height={40}
+                    stroke={repMood.body}
+                  />
+                </div>
+              ) : null}
             </Card>
           );
         })}

@@ -123,11 +123,6 @@ export const KUDOS_TAGS = [
 export const KUDOS_PROGRESS_START = 5;
 export const KUDOS_PROGRESS_CAP = 8;
 
-export const KUDOS_HR_FLAGGED = [
-  { team: "Engineering", note: "Recognized for stepping up during an on-call incident." },
-  { team: "Support", note: "Recognized for going above and beyond with a difficult customer." },
-];
-
 export type TimelineKind = "meeting" | "deep_work" | "gap" | "high_stress";
 
 export interface TimelineBlock {

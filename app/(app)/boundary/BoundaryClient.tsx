@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { DAY_NAMES, WORK_START_MIN, WORK_END_MIN } from "@/lib/constants";
 import { evaluateBoundary } from "@/lib/boundary";
 import { fmtClock, parseTimeInput } from "@/lib/time";
+import { sendBoundaryMessage } from "./actions";
 import type { Employee } from "@/types/employee";
 import type { ActivityEntry, BoundaryStatus } from "@/types/boundary";
 
@@ -29,16 +30,23 @@ const STATUS_LABEL: Record<BoundaryStatus, string> = {
 
 const SLIDER_MAX = 1425;
 
-function makeId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+export function BoundaryClient({
+  employees,
+  currentEmployeeId,
+  initialActivity,
+}: {
+  employees: Employee[];
+  currentEmployeeId: string | null;
+  initialActivity: ActivityEntry[];
+}) {
+  const sender =
+    employees.find((e) => e.id === currentEmployeeId) ?? employees[0];
+  const bob = employees.find((e) => e.name === "Burnout Bob");
+  const defaultRecipient =
+    bob && bob.id !== sender.id
+      ? bob
+      : employees.find((e) => e.id !== sender.id) ?? employees[1];
 
-export function BoundaryClient({ employees }: { employees: Employee[] }) {
-  const defaultRecipient = employees.find((e) => e.id === "burnout-bob") ?? employees[1];
-  const defaultSender = employees.find((e) => e.id !== defaultRecipient.id) ?? employees[0];
-
-  const [senderId, setSenderId] = useState(defaultSender.id);
   const [recipientId, setRecipientId] = useState(defaultRecipient.id);
   const [day, setDay] = useState(3); // Thursday
   const [channel, setChannel] = useState<(typeof CHANNELS)[number]>("Slack");
@@ -47,10 +55,11 @@ export function BoundaryClient({ employees }: { employees: Employee[] }) {
   const [message, setMessage] = useState(
     "Hey — no rush, just following up on the Q3 handoff doc when you're back."
   );
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>(initialActivity);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  const sender = employees.find((e) => e.id === senderId) ?? employees[0];
   const recipient = employees.find((e) => e.id === recipientId) ?? employees[1];
 
   const preview = useMemo(
@@ -70,18 +79,19 @@ export function BoundaryClient({ employees }: { employees: Employee[] }) {
   }
 
   function handleSend() {
-    const result = evaluateBoundary(sender, recipient, day, minutes, message);
-    const entry: ActivityEntry = {
-      id: makeId(),
-      preview: message.length > 40 ? `${message.slice(0, 40)}…` : message,
-      status: result.status,
-      message: result.message,
-      timestamp: Date.now(),
-    };
-    setActivity((prev) => [entry, ...prev]);
-    setFlashId(entry.id);
-    setMessage("");
-    window.setTimeout(() => setFlashId((cur) => (cur === entry.id ? null : cur)), 1400);
+    setError(null);
+    startTransition(async () => {
+      const result = await sendBoundaryMessage(recipientId, day, minutes, channel, message);
+      if (!result.ok || !result.entry) {
+        setError(result.error ?? "Something went wrong.");
+        return;
+      }
+      const entry = result.entry;
+      setActivity((prev) => [entry, ...prev]);
+      setFlashId(entry.id);
+      setMessage("");
+      window.setTimeout(() => setFlashId((cur) => (cur === entry.id ? null : cur)), 1400);
+    });
   }
 
   const leftPct = (WORK_START_MIN / SLIDER_MAX) * 100;
@@ -94,21 +104,13 @@ export function BoundaryClient({ employees }: { employees: Employee[] }) {
       <Card>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="from" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
+            <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
               From
-            </label>
-            <select
-              id="from"
-              value={senderId}
-              onChange={(e) => setSenderId(e.target.value)}
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-            >
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
+            </span>
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2">
+              <Avatar name={sender.name} color={sender.avatarColor} size={22} />
+              <span className="text-sm text-ink">{sender.name}</span>
+            </div>
           </div>
           <div>
             <label htmlFor="to" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
@@ -136,7 +138,9 @@ export function BoundaryClient({ employees }: { employees: Employee[] }) {
             <div className="truncate text-xs text-ink-mute">{recipient.role}</div>
           </div>
           {recipient.onPto ? (
-            <Chip tone="warning">On PTO · back {recipient.returnIn}</Chip>
+            <Chip tone="warning">
+              On PTO{recipient.returnIn ? ` · back ${recipient.returnIn}` : ""}
+            </Chip>
           ) : (
             <Chip tone="success">Working hours 9:00 AM–6:00 PM</Chip>
           )}
@@ -235,13 +239,15 @@ export function BoundaryClient({ employees }: { employees: Employee[] }) {
           />
         </div>
 
+        {error ? <p className="mt-3 text-sm text-risk-critical">{error}</p> : null}
+
         <div className="mt-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm">
             <Chip tone={STATUS_TONE[preview.status]}>{STATUS_LABEL[preview.status]}</Chip>
             <span className="text-ink-soft">{preview.message}</span>
           </div>
-          <Button onClick={handleSend} disabled={preview.status === "blocked"}>
-            Send via {channel}
+          <Button onClick={handleSend} disabled={preview.status === "blocked" || isPending}>
+            {isPending ? "Sending…" : `Send via ${channel}`}
           </Button>
         </div>
       </Card>

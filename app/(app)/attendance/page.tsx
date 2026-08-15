@@ -1,9 +1,10 @@
 import { PageHead } from "@/components/ui/PageHead";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
-import { EMPLOYEES } from "@/lib/employees";
+import { getEmployees } from "@/lib/supabase/queries";
 
-export default function AttendancePage() {
+export default async function AttendancePage() {
+  const employees = await getEmployees();
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       <PageHead
@@ -22,7 +23,7 @@ export default function AttendancePage() {
             </tr>
           </thead>
           <tbody>
-            {EMPLOYEES.map((e) => (
+            {employees.map((e) => (
               <tr key={e.id} className="border-t border-line">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">

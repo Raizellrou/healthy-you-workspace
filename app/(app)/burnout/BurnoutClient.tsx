@@ -7,6 +7,7 @@ import { BandChip } from "@/components/burnout/BandChip";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { computeBurnout, dominantDriver } from "@/lib/burnout";
+import type { BurnoutHistoryPoint } from "@/lib/supabase/queries";
 import type { Employee } from "@/types/employee";
 import type { BurnoutBand, SortDirection, SortKey } from "@/types/burnout";
 
@@ -53,7 +54,13 @@ function compareRows(a: Row, b: Row, key: SortKey): number {
   }
 }
 
-export function BurnoutClient({ employees }: { employees: Employee[] }) {
+export function BurnoutClient({
+  employees,
+  historyByEmployee,
+}: {
+  employees: Employee[];
+  historyByEmployee: Record<string, BurnoutHistoryPoint[]>;
+}) {
   const rows = useMemo<Row[]>(
     () => employees.map((employee) => ({ employee, scores: computeBurnout(employee) })),
     [employees]
@@ -222,7 +229,9 @@ export function BurnoutClient({ employees }: { employees: Employee[] }) {
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">
                   14-day trend
                 </div>
-                <Sparkline seed={selected.employee.name} end={selected.scores.composite} />
+                <Sparkline
+                  values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
+                />
               </div>
             </div>
           </div>

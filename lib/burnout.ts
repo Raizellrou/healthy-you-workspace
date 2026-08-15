@@ -12,7 +12,12 @@ export function bandFor(composite: number): BurnoutBand {
   return "low";
 }
 
-export function computeBurnout(e: Employee): BurnoutScores {
+export type BurnoutInputs = Pick<
+  Employee,
+  "streakDays" | "meetingAvg" | "available" | "offHoursWeekly" | "daysSincePto" | "onPto"
+>;
+
+export function computeBurnout(e: BurnoutInputs): BurnoutScores {
   const streak = Math.min(100, e.streakDays * 8);
   const meeting = Math.min(100, (e.meetingAvg / e.available) * 100);
   const offHours = Math.min(100, (e.offHoursWeekly / 15) * 100);
