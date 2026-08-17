@@ -15,5 +15,6 @@ export const NAV_ITEMS: NavItemDef[] = [
   { href: "/mood", label: "Mood", icon: "smile" },
   { href: "/boundary", label: "Boundary", icon: "shield" },
   { href: "/kudos", label: "Kudos", icon: "coffee" },
+  { href: "/tasks", label: "Tasks", icon: "list" },
   { href: "/focus", label: "Focus", icon: "focus" },
 ];

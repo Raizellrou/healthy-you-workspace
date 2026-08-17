@@ -11,6 +11,7 @@ import { submitMoodCheckin } from "./actions";
 export interface TeamAggregate {
   avgMood: number | null;
   checkinCount: number;
+  avgMoodLastWeek: number | null;
 }
 
 export function MoodClient({
@@ -50,10 +51,9 @@ export function MoodClient({
               aria-pressed={isPicked}
               onClick={() => handlePick(mood.value)}
               className={`group flex w-24 flex-col items-center gap-2 rounded-xl border px-3 py-4 transition-colors disabled:cursor-not-allowed ${
-                isPicked
-                  ? "border-brand bg-brand-soft"
-                  : "border-line bg-surface hover:bg-surface-2"
+                isPicked ? "bg-surface" : "border-line bg-surface hover:bg-surface-2"
               } ${picked !== null && !isPicked ? "opacity-40" : ""}`}
+              style={isPicked ? { borderColor: mood.body, background: `${mood.body}14` } : undefined}
             >
               <Axolotl mood={mood} active={isPicked} size={56} />
               <span className="text-xs font-medium text-ink-soft">{mood.label}</span>
@@ -91,6 +91,8 @@ export function MoodClient({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Object.entries(teamAggregates).map(([team, agg]) => {
           const repMood = agg.avgMood !== null ? MOODS[Math.round(agg.avgMood) - 1] : MOODS[2];
+          const delta =
+            agg.avgMood !== null && agg.avgMoodLastWeek !== null ? agg.avgMood - agg.avgMoodLastWeek : null;
           return (
             <Card key={team}>
               <div className="flex items-center gap-3">
@@ -98,7 +100,17 @@ export function MoodClient({
                 <div>
                   <div className="text-sm font-semibold text-ink">{team}</div>
                   {agg.avgMood !== null ? (
-                    <div className="font-mono text-xs text-ink-mute">avg {agg.avgMood.toFixed(1)} / 5</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs text-ink-mute">avg {agg.avgMood.toFixed(1)} / 5</span>
+                      {delta !== null && Math.abs(delta) >= 0.05 ? (
+                        <span
+                          className="text-[11px] font-semibold"
+                          style={{ color: delta > 0 ? "#87D380" : "#FF8C73" }}
+                        >
+                          {delta > 0 ? "↑" : "↓"} {Math.abs(delta).toFixed(1)} vs last wk
+                        </span>
+                      ) : null}
+                    </div>
                   ) : (
                     <div className="text-xs text-ink-mute">Not enough check-ins yet</div>
                   )}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
+import { PetalLogo } from "@/components/shell/PetalLogo";
 import { NAV_ITEMS } from "@/components/shell/navItems";
 import { useNudges } from "@/lib/nudge-context";
 
@@ -16,9 +17,7 @@ export function Sidebar({ hasCritical }: { hasCritical: boolean }) {
       className="sticky top-0 z-20 flex shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2 md:h-screen md:w-[216px] md:flex-col md:items-stretch md:gap-1 md:overflow-y-auto md:overflow-x-visible md:border-b-0 md:border-r md:px-3 md:py-4"
     >
       <div className="hidden shrink-0 items-center gap-2 px-2 pb-4 md:flex">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white">
-          <Icon name="shield" size={16} />
-        </span>
+        <PetalLogo size={28} />
         <span className="text-base font-semibold text-ink">AxionHR</span>
       </div>
 

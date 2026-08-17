@@ -9,6 +9,12 @@ import type { Employee } from "@/types/employee";
 
 const STATE_BUTTONS: WorkspaceState[] = ["standard", "focus", "calm"];
 
+const STATE_ACCENT: Record<WorkspaceState, string> = {
+  standard: "#6F49A6",
+  focus: "#87CEEB",
+  calm: "#A8D592",
+};
+
 const TIMELINE_TONE: Record<TimelineKind, ChipTone> = {
   meeting: "brand",
   deep_work: "success",
@@ -68,30 +74,40 @@ export function FocusClient({ employees }: { employees: Employee[] }) {
           </div>
 
           <div className="flex gap-2">
-            {STATE_BUTTONS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                aria-pressed={activeState === s}
-                onClick={() => setManualState(s)}
-                className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                  activeState === s
-                    ? "border-brand bg-brand-soft text-brand-ink"
-                    : "border-line bg-surface text-ink-soft hover:bg-surface-2"
-                }`}
-              >
-                {WORKSPACE_COPY[s].label}
-              </button>
-            ))}
+            {STATE_BUTTONS.map((s) => {
+              const active = activeState === s;
+              const accent = STATE_ACCENT[s];
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setManualState(s)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    active ? "" : "border-line bg-surface text-ink-soft hover:bg-surface-2"
+                  }`}
+                  style={active ? { borderColor: accent, background: `${accent}18`, color: accent } : undefined}
+                >
+                  {WORKSPACE_COPY[s].label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card>
+        <Card style={activeState === "standard" ? { borderColor: STATE_ACCENT.standard } : undefined}>
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-ink">{WORKSPACE_COPY.standard.label}</div>
-            {activeState === "standard" ? <Chip tone="brand">Active now</Chip> : null}
+            {activeState === "standard" ? (
+              <span
+                className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                style={{ background: `${STATE_ACCENT.standard}18`, color: STATE_ACCENT.standard }}
+              >
+                Active now
+              </span>
+            ) : null}
           </div>
           <ul className="mt-3 space-y-2 text-sm text-ink-soft">
             {WORKSPACE_COPY.standard.bullets.map((b) => (
@@ -103,10 +119,17 @@ export function FocusClient({ employees }: { employees: Employee[] }) {
           </ul>
         </Card>
 
-        <Card>
+        <Card style={activeState === alternateState ? { borderColor: STATE_ACCENT[alternateState] } : undefined}>
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold text-ink">{WORKSPACE_COPY[alternateState].label}</div>
-            {activeState === alternateState ? <Chip tone="brand">Active now</Chip> : null}
+            {activeState === alternateState ? (
+              <span
+                className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                style={{ background: `${STATE_ACCENT[alternateState]}18`, color: STATE_ACCENT[alternateState] }}
+              >
+                Active now
+              </span>
+            ) : null}
           </div>
           <ul className="mt-3 space-y-2 text-sm text-ink-soft">
             {WORKSPACE_COPY[alternateState].bullets.map((b) => (

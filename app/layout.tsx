@@ -11,7 +11,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "AxionHR",
-  description: "HR wellbeing prototype — burnout analytics, nudges, mood, boundaries, kudos, and focus mode.",
+  description: "HR wellbeing prototype — burnout analytics, nudges, mood, boundaries, kudos, tasks, and focus mode.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

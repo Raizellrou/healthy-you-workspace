@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --brand: #0ea5e9;
-  --brand-dark: #0369a1;
-  --brand-soft: #e0f2fe;
-  --brand-ink: #075985;
+  --brand: #6f49a6;
+  --brand-dark: #4e3378;
+  --brand-soft: #f1ebfa;
+  --brand-ink: #4a2e73;
 
-  --risk-low: #22c55e;
-  --risk-medium: #eab308;
-  --risk-high: #f97316;
-  --risk-critical: #ef4444;
+  --risk-low: #87d380;
+  --risk-medium: #ffd700;
+  --risk-high: #ff8c73;
+  --risk-critical: #d9463e;
 
   --bg: #f6f9fc;
   --surface: #ffffff;
@@ -30,10 +30,10 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #38bdf8;
-    --brand-dark: #7dd3fc;
-    --brand-soft: rgba(56, 189, 248, 0.14);
-    --brand-ink: #bae6fd;
+    --brand: #c7a2e5;
+    --brand-dark: #ddbfef;
+    --brand-soft: rgba(199, 162, 229, 0.16);
+    --brand-ink: #e4d4f5;
 
     --bg: #0a0f1a;
     --surface: #111a29;
@@ -52,10 +52,10 @@
 }
 
 :root[data-theme="dark"] {
-  --brand: #38bdf8;
-  --brand-dark: #7dd3fc;
-  --brand-soft: rgba(56, 189, 248, 0.14);
-  --brand-ink: #bae6fd;
+  --brand: #c7a2e5;
+  --brand-dark: #ddbfef;
+  --brand-soft: rgba(199, 162, 229, 0.16);
+  --brand-ink: #e4d4f5;
 
   --bg: #0a0f1a;
   --surface: #111a29;
@@ -73,10 +73,10 @@
 }
 
 :root[data-theme="light"] {
-  --brand: #0ea5e9;
-  --brand-dark: #0369a1;
-  --brand-soft: #e0f2fe;
-  --brand-ink: #075985;
+  --brand: #6f49a6;
+  --brand-dark: #4e3378;
+  --brand-soft: #f1ebfa;
+  --brand-ink: #4a2e73;
 
   --bg: #f6f9fc;
   --surface: #ffffff;

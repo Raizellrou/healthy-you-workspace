@@ -19,6 +19,12 @@ const BAND_LABEL: Record<BurnoutBand, string> = {
   high: "High",
   critical: "Critical",
 };
+const BAND_COLOR: Record<BurnoutBand, string> = {
+  low: "#87D380",
+  medium: "#6F49A6",
+  high: "#FFD700",
+  critical: "#FF8C73",
+};
 
 interface Row {
   employee: Employee;
@@ -72,18 +78,30 @@ export function BurnoutClient({
     return counts;
   }, [rows]);
 
+  const avgScore = useMemo(
+    () => (rows.length === 0 ? 0 : Math.round(rows.reduce((s, r) => s + r.scores.composite, 0) / rows.length)),
+    [rows]
+  );
+
+  const teams = useMemo(() => Array.from(new Set(employees.map((e) => e.team))).sort(), [employees]);
+
+  const [teamFilter, setTeamFilter] = useState<string | "All">("All");
   const [activeBand, setActiveBand] = useState<BurnoutBand | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("composite");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
   const visibleRows = useMemo(() => {
-    const filtered = activeBand ? rows.filter((r) => r.scores.band === activeBand) : rows;
+    const filtered = rows.filter((r) => {
+      const matchesBand = !activeBand || r.scores.band === activeBand;
+      const matchesTeam = teamFilter === "All" || r.employee.team === teamFilter;
+      return matchesBand && matchesTeam;
+    });
     const sorted = [...filtered].sort((a, b) => {
       const cmp = compareRows(a, b, sortKey);
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [rows, activeBand, sortKey, sortDir]);
+  }, [rows, activeBand, teamFilter, sortKey, sortDir]);
 
   const [selectedId, setSelectedId] = useState<string | null>(
     () => visibleRows[0]?.employee.id ?? null
@@ -102,6 +120,37 @@ export function BurnoutClient({
 
   return (
     <div>
+      <div className="mb-6 flex flex-wrap gap-3">
+        {[
+          { label: "Avg score", value: avgScore, color: "#6F49A6" },
+          { label: "Critical", value: bandCounts.critical, color: "#FF8C73" },
+          { label: "High risk", value: bandCounts.high, color: "#FFD700" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg border border-line bg-surface px-4 py-2 text-center">
+            <div className="text-xl font-bold" style={{ color: s.color }}>
+              {s.value}
+            </div>
+            <div className="text-[10px] text-ink-mute">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {(["All", ...teams] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={teamFilter === t}
+            onClick={() => setTeamFilter(t)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+              teamFilter === t ? "bg-ink text-white" : "border border-line text-ink-mute hover:bg-surface-2"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
       <div className="mb-6 flex flex-wrap gap-2">
         {BANDS.map((band) => (
           <button
@@ -178,7 +227,7 @@ export function BurnoutClient({
                       <span className="font-medium text-ink">{row.employee.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-ink-soft">
+                  <td className="px-4 py-3 font-mono font-semibold" style={{ color: BAND_COLOR[row.scores.band] }}>
                     {Math.round(row.scores.composite)}
                   </td>
                   <td className="px-4 py-3">
@@ -231,10 +280,24 @@ export function BurnoutClient({
                 </div>
                 <Sparkline
                   values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
+                  stroke={BAND_COLOR[selected.scores.band]}
+                  filled
+                  height={64}
                 />
               </div>
             </div>
           </div>
+
+          {selected.scores.band === "high" || selected.scores.band === "critical" ? (
+            <div className="mt-5 rounded-lg border border-risk-critical/25 bg-risk-critical/10 p-3">
+              <div className="mb-1 text-xs font-bold text-risk-critical">Recommended action</div>
+              <p className="text-xs leading-relaxed text-ink-soft">
+                {selected.scores.band === "critical"
+                  ? `Consider a 1:1 check-in this week — driven mainly by ${dominantDriver(selected.scores).label}.`
+                  : `Monitor closely and encourage a short break — driven mainly by ${dominantDriver(selected.scores).label}.`}
+              </p>
+            </div>
+          ) : null}
         </Card>
       ) : null}
     </div>

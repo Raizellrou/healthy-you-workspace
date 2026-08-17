@@ -28,6 +28,13 @@ const STATUS_LABEL: Record<BoundaryStatus, string> = {
   delayed: "Delayed",
 };
 
+const STATUS_ACCENT: Record<BoundaryStatus, string> = {
+  blocked: "#FF8C73",
+  warned: "#FFD700",
+  delivered: "#87D380",
+  delayed: "#87CEEB",
+};
+
 const SLIDER_MAX = 1425;
 
 export function BoundaryClient({
@@ -239,13 +246,19 @@ export function BoundaryClient({
           />
         </div>
 
+        <div
+          className="mt-5 rounded-lg border p-3"
+          style={{ borderColor: `${STATUS_ACCENT[preview.status]}40`, background: `${STATUS_ACCENT[preview.status]}12` }}
+        >
+          <div className="flex items-center gap-2">
+            <Chip tone={STATUS_TONE[preview.status]}>{STATUS_LABEL[preview.status]}</Chip>
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">{preview.message}</p>
+        </div>
+
         {error ? <p className="mt-3 text-sm text-risk-critical">{error}</p> : null}
 
-        <div className="mt-5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm">
-            <Chip tone={STATUS_TONE[preview.status]}>{STATUS_LABEL[preview.status]}</Chip>
-            <span className="text-ink-soft">{preview.message}</span>
-          </div>
+        <div className="mt-4 flex justify-end">
           <Button onClick={handleSend} disabled={preview.status === "blocked" || isPending}>
             {isPending ? "Sending…" : `Send via ${channel}`}
           </Button>
@@ -261,9 +274,8 @@ export function BoundaryClient({
             {activity.map((entry) => (
               <li
                 key={entry.id}
-                className={`rounded-lg border border-line p-2.5 text-sm ${
-                  flashId === entry.id ? "animate-row-flash" : ""
-                }`}
+                className={`rounded-lg border p-2.5 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
+                style={{ borderColor: "var(--line)", borderLeftColor: STATUS_ACCENT[entry.status], borderLeftWidth: 3 }}
               >
                 <div className="flex items-center justify-between gap-2">
                   <Chip tone={STATUS_TONE[entry.status]}>{STATUS_LABEL[entry.status]}</Chip>

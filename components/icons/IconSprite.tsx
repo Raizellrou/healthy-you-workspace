@@ -135,6 +135,13 @@ export function IconSprite() {
             <path d="M5 5l14 14M19 5 5 19" />
           </g>
         </symbol>
+
+        <symbol id="i-list" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <path d="M4 6.5h.01M4 12h.01M4 17.5h.01" />
+            <path d="M9 6.5h11M9 12h11M9 17.5h11" />
+          </g>
+        </symbol>
       </defs>
     </svg>
   );

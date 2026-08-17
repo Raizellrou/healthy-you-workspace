@@ -9,7 +9,7 @@ import { Icon } from "@/components/icons/Icon";
 import { NudgeToastCard } from "@/components/nudges/NudgeToastCard";
 import { useNudges } from "@/lib/nudge-context";
 import { NUDGE_DAILY_CAP, NUDGE_META, NUDGE_SESSION_MINUTES } from "@/lib/constants";
-import type { NudgeResult } from "@/types/nudge";
+import type { NudgeResult, NudgeType } from "@/types/nudge";
 
 const RESULT_LABEL: Record<NudgeResult, string> = {
   sent: "Sent",
@@ -23,6 +23,13 @@ const RESULT_TONE: Record<NudgeResult, "success" | "warning" | "neutral" | "bran
   suppressed: "warning",
   done: "neutral",
   snoozed: "brand",
+};
+
+const NUDGE_ACCENT: Record<NudgeType, string> = {
+  stretch: "#C7A2E5",
+  hydrate: "#87CEEB",
+  eye_rest: "#A8D592",
+  posture: "#FFB5C5",
 };
 
 function permissionCopy(state: string): string {
@@ -58,13 +65,37 @@ export default function NudgesPage() {
   } = useNudges();
 
   const progressPct = Math.round((sessionMinutes / NUDGE_SESSION_MINUTES) * 100);
+  const sentCount = log.filter((l) => l.result === "sent").length;
+  const suppressedCount = log.filter((l) => l.result === "suppressed").length;
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#C7A2E5" }} />
+        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#C7A2E5" }}>
+          Energize · Wellbeing
+        </span>
+      </div>
       <PageHead
         title="Nudges"
         description="Simulated wellness nudges — quiet-hours-aware, capped, and snoozable."
       />
+
+      <div className="mb-6 flex flex-wrap gap-3">
+        {[
+          { label: "Today", value: dailyCount, color: "#C7A2E5" },
+          { label: "Sent", value: sentCount, color: "#87D380" },
+          { label: "Suppressed", value: suppressedCount, color: "var(--ink-mute)" },
+          { label: "Daily cap", value: NUDGE_DAILY_CAP, color: "#6F49A6" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg border border-line bg-surface px-4 py-2 text-center">
+            <div className="text-xl font-bold" style={{ color: s.color }}>
+              {s.value}
+            </div>
+            <div className="text-[10px] text-ink-mute">{s.label}</div>
+          </div>
+        ))}
+      </div>
 
       <Card className="mb-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -143,13 +174,27 @@ export default function NudgesPage() {
         {log.length === 0 ? (
           <p className="text-sm text-ink-mute">Nothing yet — start a session to begin.</p>
         ) : (
-          <ul aria-live="polite" className="divide-y divide-line">
+          <ul aria-live="polite" className="flex flex-col gap-2">
             {log.map((entry) => {
               const meta = NUDGE_META[entry.type];
+              const accent = NUDGE_ACCENT[entry.type];
+              const suppressed = entry.result === "suppressed";
               return (
-                <li key={entry.id} className="flex items-center gap-3 py-2.5 text-sm">
+                <li
+                  key={entry.id}
+                  className="flex items-center gap-3 rounded-lg border py-2.5 pl-3 pr-3 text-sm"
+                  style={{
+                    borderColor: suppressed ? "var(--line)" : `${accent}40`,
+                    borderLeftColor: suppressed ? "var(--line)" : accent,
+                    borderLeftWidth: 3,
+                    opacity: suppressed ? 0.7 : 1,
+                  }}
+                >
                   <span className="w-16 shrink-0 font-mono text-xs text-ink-mute">{entry.time}</span>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-2 text-ink-soft">
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: `${accent}20`, color: accent }}
+                  >
                     <Icon name={meta.icon as never} size={14} />
                   </span>
                   <span className="flex-1 text-ink-soft">{meta.title}</span>

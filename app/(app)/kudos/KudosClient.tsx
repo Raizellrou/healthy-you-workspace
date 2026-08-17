@@ -12,6 +12,13 @@ import type { Employee } from "@/types/employee";
 
 const CYCLE = "2026-Q3";
 
+const TAG_ACCENT: Record<string, string> = {
+  "Great teammate": "#87D380",
+  "Made my day": "#FFB5C5",
+  "Went above and beyond": "#6F49A6",
+  "Really listened": "#87CEEB",
+};
+
 export interface HrViewItem {
   team: string;
   note: string;
@@ -72,6 +79,7 @@ export function KudosClient({
           <div className="flex flex-wrap gap-2">
             {KUDOS_TAGS.map((t) => {
               const active = tag === t;
+              const accent = TAG_ACCENT[t] ?? "#6F49A6";
               return (
                 <button
                   key={t}
@@ -83,10 +91,9 @@ export function KudosClient({
                     setError(null);
                   }}
                   className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                    active
-                      ? "border-brand bg-brand-soft text-brand-ink"
-                      : "border-line bg-surface text-ink-soft hover:bg-surface-2"
+                    active ? "" : "border-line bg-surface text-ink-soft hover:bg-surface-2"
                   }`}
+                  style={active ? { borderColor: accent, background: `${accent}18`, color: accent } : undefined}
                 >
                   {t}
                 </button>
@@ -126,7 +133,10 @@ export function KudosClient({
 
         <div className="mt-5">
           {submitted ? (
-            <div className="flex items-center gap-2 rounded-lg bg-success-bg px-3 py-2.5 text-sm text-success">
+            <div
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm"
+              style={{ background: "#87D38018", color: "#2A7A26" }}
+            >
               <Icon name="check" size={16} />
               Kudos sent to {buddy.name}.
             </div>
@@ -148,8 +158,8 @@ export function KudosClient({
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2">
             <div
-              className="h-full rounded-full bg-brand"
-              style={{ width: `${(progress / KUDOS_PROGRESS_CAP) * 100}%` }}
+              className="h-full rounded-full"
+              style={{ width: `${(progress / KUDOS_PROGRESS_CAP) * 100}%`, background: "#87D380" }}
             />
           </div>
         </Card>
