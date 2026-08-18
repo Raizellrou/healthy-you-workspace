@@ -37,22 +37,45 @@ export default async function MoodPage() {
         avgMood: row.avg_mood as number | null,
         checkinCount: row.checkin_count as number,
         avgMoodLastWeek: priorRow.avg_mood as number | null,
+        checkinCountLastWeek: priorRow.checkin_count as number,
       };
       return [team, aggregate] as const;
     })
   );
   const teamAggregates = Object.fromEntries(aggregateEntries);
 
+  const allAggregates = aggregateEntries.map(([, agg]) => agg);
+  const totalCheckinsToday = allAggregates.reduce((s, a) => s + a.checkinCount, 0);
+  const avgEligible = allAggregates.filter((a) => a.avgMood !== null);
+  const orgAvgToday =
+    avgEligible.length > 0
+      ? avgEligible.reduce((s, a) => s + a.avgMood! * a.checkinCount, 0) /
+        avgEligible.reduce((s, a) => s + a.checkinCount, 0)
+      : null;
+  const lastWeekEligible = allAggregates.filter((a) => a.avgMoodLastWeek !== null);
+  const orgAvgLastWeek =
+    lastWeekEligible.length > 0
+      ? lastWeekEligible.reduce((s, a) => s + a.avgMoodLastWeek! * a.checkinCountLastWeek, 0) /
+        lastWeekEligible.reduce((s, a) => s + a.checkinCountLastWeek, 0)
+      : null;
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-1 flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#FFB5C5" }} />
-        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#FFB5C5" }}>
-          Tune In · Wellbeing
+        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#D4728A" }}>
+          Tune In · Pillar 3
         </span>
       </div>
       <PageHead title="Track the Mood" description="A quick, private daily check-in." />
-      <MoodClient initialPicked={initialPicked} teamAggregates={teamAggregates} />
+      <MoodClient
+        initialPicked={initialPicked}
+        teamAggregates={teamAggregates}
+        orgAvgToday={orgAvgToday}
+        orgAvgLastWeek={orgAvgLastWeek}
+        totalCheckinsToday={totalCheckinsToday}
+        headcount={employees.length}
+      />
     </div>
   );
 }

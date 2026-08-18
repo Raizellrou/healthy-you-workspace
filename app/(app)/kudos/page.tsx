@@ -49,7 +49,7 @@ export default async function KudosPage() {
       <div className="mb-1 flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#87D380" }} />
         <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#2A7A26" }}>
-          Link · Culture
+          Link · Pillar 5
         </span>
       </div>
       <PageHead title="Give Me a Coffee" description="Send your buddy a quick note of thanks." />

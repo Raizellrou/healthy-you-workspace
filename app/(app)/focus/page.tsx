@@ -9,7 +9,7 @@ export default async function FocusPage() {
       <div className="mb-1 flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#87CEEB" }} />
         <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#3B8FB0" }}>
-          Adapt · Productivity
+          Adapt · Pillar 6
         </span>
       </div>
       <PageHead

@@ -72,8 +72,8 @@ export default function NudgesPage() {
     <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="mb-1 flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#C7A2E5" }} />
-        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#C7A2E5" }}>
-          Energize · Wellbeing
+        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#9B7BC4" }}>
+          Energize · Pillar 2
         </span>
       </div>
       <PageHead
@@ -182,7 +182,7 @@ export default function NudgesPage() {
               return (
                 <li
                   key={entry.id}
-                  className="flex items-center gap-3 rounded-lg border py-2.5 pl-3 pr-3 text-sm"
+                  className="flex items-start gap-3 rounded-lg border p-3 text-sm"
                   style={{
                     borderColor: suppressed ? "var(--line)" : `${accent}40`,
                     borderLeftColor: suppressed ? "var(--line)" : accent,
@@ -190,14 +190,19 @@ export default function NudgesPage() {
                     opacity: suppressed ? 0.7 : 1,
                   }}
                 >
-                  <span className="w-16 shrink-0 font-mono text-xs text-ink-mute">{entry.time}</span>
                   <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
                     style={{ background: `${accent}20`, color: accent }}
                   >
-                    <Icon name={meta.icon as never} size={14} />
+                    <Icon name={meta.icon as never} size={16} />
                   </span>
-                  <span className="flex-1 text-ink-soft">{meta.title}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-ink">{meta.title}</span>
+                      <span className="font-mono text-xs text-ink-mute">{entry.time}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">{meta.body}</p>
+                  </div>
                   <Chip tone={RESULT_TONE[entry.result]}>
                     {RESULT_LABEL[entry.result]}
                     {entry.reason ? ` — ${entry.reason}` : ""}

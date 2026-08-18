@@ -78,11 +78,6 @@ export function BurnoutClient({
     return counts;
   }, [rows]);
 
-  const avgScore = useMemo(
-    () => (rows.length === 0 ? 0 : Math.round(rows.reduce((s, r) => s + r.scores.composite, 0) / rows.length)),
-    [rows]
-  );
-
   const teams = useMemo(() => Array.from(new Set(employees.map((e) => e.team))).sort(), [employees]);
 
   const [teamFilter, setTeamFilter] = useState<string | "All">("All");
@@ -120,22 +115,7 @@ export function BurnoutClient({
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap gap-3">
-        {[
-          { label: "Avg score", value: avgScore, color: "#6F49A6" },
-          { label: "Critical", value: bandCounts.critical, color: "#FF8C73" },
-          { label: "High risk", value: bandCounts.high, color: "#FFD700" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-lg border border-line bg-surface px-4 py-2 text-center">
-            <div className="text-xl font-bold" style={{ color: s.color }}>
-              {s.value}
-            </div>
-            <div className="text-[10px] text-ink-mute">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         {(["All", ...teams] as const).map((t) => (
           <button
             key={t}
@@ -149,27 +129,26 @@ export function BurnoutClient({
             {t}
           </button>
         ))}
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-2">
+        <span className="mx-1 hidden h-6 w-px bg-line sm:inline-block" aria-hidden="true" />
         {BANDS.map((band) => (
           <button
             key={band}
             type="button"
             aria-pressed={activeBand === band}
             onClick={() => setActiveBand((cur) => (cur === band ? null : band))}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
               activeBand === band
                 ? "border-brand bg-brand-soft text-brand-ink"
                 : "border-line bg-surface text-ink-soft hover:bg-surface-2"
             }`}
           >
             {BAND_LABEL[band]}
-            <span className="ml-2 font-mono text-xs text-ink-mute">{bandCounts[band]}</span>
+            <span className="ml-1.5 font-mono text-[10px] text-ink-mute">{bandCounts[band]}</span>
           </button>
         ))}
       </div>
 
+      <div className={`grid grid-cols-1 items-start gap-5 ${selected ? "lg:grid-cols-[1fr_320px]" : ""}`}>
       <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-surface-2 text-xs font-medium uppercase tracking-wide text-ink-mute">
@@ -245,46 +224,49 @@ export function BurnoutClient({
       </div>
 
       {selected ? (
-        <Card className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Avatar name={selected.employee.name} color={selected.employee.avatarColor} size={40} />
-              <div>
-                <div className="font-semibold text-ink">{selected.employee.name}</div>
-                <div className="text-xs text-ink-mute">
-                  {selected.employee.role} · {selected.employee.team}
-                </div>
+        <Card>
+          <div className="flex items-center gap-3">
+            <Avatar name={selected.employee.name} color={selected.employee.avatarColor} size={44} />
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-ink">{selected.employee.name}</div>
+              <div className="truncate text-xs text-ink-mute">
+                {selected.employee.role} · {selected.employee.team}
               </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2.5">
+            <div className="rounded-lg bg-surface-2 px-4 py-3 text-center">
+              <div className="text-2xl font-bold" style={{ color: BAND_COLOR[selected.scores.band] }}>
+                {Math.round(selected.scores.composite)}
+              </div>
+              <div className="text-[10px] text-ink-mute">Burnout score</div>
             </div>
             <BandChip band={selected.scores.band} />
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="mt-5">
+            <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
+              14-day trend
+            </div>
+            <Sparkline
+              values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
+              stroke={BAND_COLOR[selected.scores.band]}
+              filled
+              width={272}
+              height={56}
+            />
+          </div>
+
+          <div className="mt-5">
+            <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
+              Contributing factors
+            </div>
             <div className="space-y-3">
               <ScoreBar label="Work streak" value={selected.scores.streak} />
               <ScoreBar label="Meeting load" value={selected.scores.meeting} />
               <ScoreBar label="Off-hours messages" value={selected.scores.offHours} />
               <ScoreBar label="Time since PTO" value={selected.scores.pto} />
-            </div>
-            <div>
-              <p className="text-sm text-ink-soft">
-                {selected.employee.name}&apos;s composite score is{" "}
-                <span className="font-mono font-semibold text-ink">
-                  {Math.round(selected.scores.composite)}
-                </span>
-                , driven mainly by {dominantDriver(selected.scores).label}.
-              </p>
-              <div className="mt-4">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">
-                  14-day trend
-                </div>
-                <Sparkline
-                  values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
-                  stroke={BAND_COLOR[selected.scores.band]}
-                  filled
-                  height={64}
-                />
-              </div>
             </div>
           </div>
 
@@ -300,6 +282,7 @@ export function BurnoutClient({
           ) : null}
         </Card>
       ) : null}
+      </div>
     </div>
   );
 }

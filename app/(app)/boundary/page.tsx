@@ -51,7 +51,7 @@ export default async function BoundaryPage() {
       <div className="mb-1 flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#A8D592" }} />
         <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#6B9459" }}>
-          Anchor · Wellbeing
+          Anchor · Pillar 4
         </span>
       </div>
       <PageHead
