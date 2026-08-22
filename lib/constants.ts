@@ -68,7 +68,7 @@ export const MOODS: Mood[] = [
     frill: "#475569",
     line: "#1e293b",
     quote: "It's okay to not be okay. Reach out — support is one message away.",
-    attribution: "AxionHR Wellbeing Team",
+    attribution: "PETAL Wellbeing Team",
   },
   {
     value: 2,
@@ -78,7 +78,7 @@ export const MOODS: Mood[] = [
     frill: "#3b82f6",
     line: "#1e3a8a",
     quote: "Rough patches pass. Be a little gentler with yourself today.",
-    attribution: "AxionHR Wellbeing Team",
+    attribution: "PETAL Wellbeing Team",
   },
   {
     value: 3,
@@ -88,7 +88,7 @@ export const MOODS: Mood[] = [
     frill: "#ca8a04",
     line: "#713f12",
     quote: "Steady is good. Small wins still count.",
-    attribution: "AxionHR Wellbeing Team",
+    attribution: "PETAL Wellbeing Team",
   },
   {
     value: 4,
@@ -98,7 +98,7 @@ export const MOODS: Mood[] = [
     frill: "#14b8a6",
     line: "#134e4a",
     quote: "Nice momentum — keep noticing what's working.",
-    attribution: "AxionHR Wellbeing Team",
+    attribution: "PETAL Wellbeing Team",
   },
   {
     value: 5,
@@ -108,7 +108,7 @@ export const MOODS: Mood[] = [
     frill: "#9333ea",
     line: "#581c87",
     quote: "Fantastic! Bottle this feeling and share some of it around.",
-    attribution: "AxionHR Wellbeing Team",
+    attribution: "PETAL Wellbeing Team",
     kicker: "Consider giving a teammate kudos today — good moods are contagious.",
   },
 ];

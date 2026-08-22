@@ -12,7 +12,7 @@ export function Logo({ size = 28, className }: { size?: number; className?: stri
   return (
     <Image
       src="/logo.webp"
-      alt="AxionHR"
+      alt="PETAL"
       width={size}
       height={size}
       className={className}

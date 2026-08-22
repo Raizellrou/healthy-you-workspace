@@ -11,8 +11,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AxionHR",
-  description: "HR wellbeing prototype — burnout analytics, nudges, mood, boundaries, kudos, tasks, and focus mode.",
+  title: "PETAL",
+  description: "HR wellbeing platform — burnout analytics, nudges, mood, boundaries, kudos, tasks, and focus mode.",
+  icons: {
+    icon: "/logo.webp",
+  },
 };
 
 const THEME_INIT_SCRIPT = `
