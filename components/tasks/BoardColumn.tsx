@@ -6,20 +6,29 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Icon } from "@/components/icons/Icon";
 import { TaskCard } from "@/components/tasks/TaskCard";
+import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { renameSection, deleteSection } from "@/app/(app)/tasks/actions";
-import type { BoardSection, Task } from "@/types/task";
+import type { BoardSection, Label, Task } from "@/types/task";
+import type { Employee } from "@/types/employee";
 
 export function BoardColumn({
   section,
+  allSections,
   projectId,
   tasks,
+  employees,
+  labels,
 }: {
   section: BoardSection;
+  allSections: BoardSection[];
   projectId: string;
   tasks: Task[];
+  employees: Employee[];
+  labels: Label[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: section.id });
   const [name, setName] = useState(section.name);
+  const [composerOpen, setComposerOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -71,7 +80,24 @@ export function BoardColumn({
             <TaskCard key={task.id} task={task} />
           ))}
         </SortableContext>
+        <button
+          type="button"
+          onClick={() => setComposerOpen(true)}
+          className="shrink-0 rounded-lg px-2 py-1.5 text-left text-sm font-medium text-ink-mute transition-colors hover:bg-surface hover:text-ink"
+        >
+          + Add task
+        </button>
       </div>
+
+      <TaskComposer
+        open={composerOpen}
+        onClose={() => setComposerOpen(false)}
+        projectId={projectId}
+        sections={allSections}
+        defaultSectionId={section.id}
+        employees={employees}
+        labels={labels}
+      />
     </div>
   );
 }

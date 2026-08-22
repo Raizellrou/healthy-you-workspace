@@ -16,7 +16,9 @@ export type IconName =
   | "lock"
   | "focus"
   | "x"
-  | "list";
+  | "list"
+  | "inbox"
+  | "settings";
 
 export function Icon({
   name,

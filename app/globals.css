@@ -137,6 +137,40 @@ body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* --- ui_preferences (P7) — applied via components/shell/UiPreferencesApplier.tsx
+   setting attributes/custom properties on <html>, the same mechanism
+   ThemeToggle already uses for data-theme. Placed after the theme blocks
+   above so these win regardless of light/dark by source order (equal
+   specificity, single root-attribute selectors). */
+
+html {
+  font-size: calc(1rem * var(--font-scale, 1));
+}
+
+[data-reduced-motion="true"] *,
+[data-reduced-motion="true"] *::before,
+[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+:root[data-high-contrast="true"] {
+  --ink-mute: var(--ink-soft);
+  --line: var(--line-strong);
+}
+
+:root[data-muted-palette="true"] {
+  --brand: #8a8fa3;
+  --brand-dark: #6b7086;
+  --brand-soft: #eceef2;
+  --brand-ink: #4a4e5e;
+  --risk-low: #8fa88c;
+  --risk-medium: #b8ab7a;
+  --risk-high: #b98f7c;
+  --risk-critical: #a8635c;
+}
+
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;

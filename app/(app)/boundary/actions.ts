@@ -2,7 +2,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployee } from "@/lib/supabase/queries";
-import { evaluateBoundary, nextCalendarDate } from "@/lib/boundary";
+import { evaluateBoundaryV2 } from "@/lib/boundary-v2";
+import { nextWorkStart, DEFAULT_QUIET_START_MIN, DEFAULT_QUIET_END_MIN, type WorkSchedule } from "@/lib/schedule";
+import { DEFAULT_TIMEZONE } from "@/lib/date";
+import { enqueue } from "@/lib/notify";
 import type { ActivityEntry } from "@/types/boundary";
 
 export interface SendBoundaryResult {
@@ -11,10 +14,44 @@ export interface SendBoundaryResult {
   entry?: ActivityEntry;
 }
 
+interface AvailabilityRow {
+  timezone: string;
+  workdays: number[];
+  start_min: number;
+  end_min: number;
+  on_pto: boolean;
+  pto_return_date: string | null;
+}
+
+/** get_recipient_availability doesn't carry quiet-hours minutes — Right to
+ *  Disconnect's send-time evaluation only ever checks working hours
+ *  (isWithinWorkingHours), never isQuietHours, matching the frozen
+ *  lib/boundary.ts's original semantics. These two fields exist purely so
+ *  the object satisfies WorkSchedule's shape; nothing here reads them. */
+function toSchedule(row: AvailabilityRow | null): WorkSchedule {
+  if (!row) {
+    return {
+      timezone: DEFAULT_TIMEZONE,
+      workdays: [1, 2, 3, 4, 5],
+      startMin: 9 * 60,
+      endMin: 18 * 60,
+      quietStartMin: DEFAULT_QUIET_START_MIN,
+      quietEndMin: DEFAULT_QUIET_END_MIN,
+    };
+  }
+  return {
+    timezone: row.timezone,
+    workdays: row.workdays as WorkSchedule["workdays"],
+    startMin: row.start_min,
+    endMin: row.end_min,
+    quietStartMin: DEFAULT_QUIET_START_MIN,
+    quietEndMin: DEFAULT_QUIET_END_MIN,
+  };
+}
+
 export async function sendBoundaryMessage(
   recipientId: string,
-  day: number,
-  timeMinutes: number,
+  sendAtIso: string,
   channel: "Slack" | "Email",
   message: string
 ): Promise<SendBoundaryResult> {
@@ -23,25 +60,36 @@ export async function sendBoundaryMessage(
     return { ok: false, error: "Not signed in." };
   }
 
-  const [sender, recipient] = await Promise.all([
-    getEmployee(senderId),
-    getEmployee(recipientId),
-  ]);
+  const [sender, recipient] = await Promise.all([getEmployee(senderId), getEmployee(recipientId)]);
   if (!sender || !recipient) {
     return { ok: false, error: "Employee not found." };
   }
 
-  // Re-run the exact same pure decision function used for the live preview,
-  // so the persisted outcome and what the user saw before hitting Send can
-  // never diverge.
-  const result = evaluateBoundary(sender, recipient, day, timeMinutes, message);
+  const supabase = await createClient();
+  const { data: availability } = await supabase
+    .rpc("get_recipient_availability", { target_employee_id: recipientId })
+    .maybeSingle<AvailabilityRow>();
+  const schedule = toSchedule(availability ?? null);
+
+  const instant = new Date(sendAtIso);
+  if (Number.isNaN(instant.getTime())) {
+    return { ok: false, error: "Invalid send time." };
+  }
+
+  const result = evaluateBoundaryV2({
+    senderId,
+    recipientId,
+    recipientSchedule: schedule,
+    recipientOnPto: availability?.on_pto ?? false,
+    recipientReturnDate: availability?.pto_return_date ?? null,
+    instant,
+    message,
+  });
 
   const preview = message.length > 40 ? `${message.slice(0, 40)}…` : message;
   const sentAt = new Date();
-  const scheduledDelivery =
-    result.status === "delayed" ? nextCalendarDate(day, timeMinutes) : null;
+  const scheduledDelivery = result.status === "delayed" ? nextWorkStart(schedule, instant) : null;
 
-  const supabase = await createClient();
   const { data, error } = await supabase
     .from("boundary_events")
     .insert({
@@ -58,6 +106,19 @@ export async function sendBoundaryMessage(
 
   if (error) {
     return { ok: false, error: error.message };
+  }
+
+  if (result.status === "delayed") {
+    await enqueue({
+      recipientId,
+      actorId: senderId,
+      kind: "message_held",
+      title: `A message from ${sender.name} is held until you're back`,
+      body: preview,
+      link: "/boundary",
+      entityType: "boundary_event",
+      entityId: data.id as string,
+    });
   }
 
   return {

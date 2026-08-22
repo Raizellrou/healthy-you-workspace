@@ -1,10 +1,8 @@
 import { Card } from "@/components/ui/Card";
 import { WorkloadBar } from "@/components/tasks/WorkloadBar";
-import type { WorkloadEntry } from "@/lib/tasks";
+import type { CapacityWorkloadEntry } from "@/lib/tasks";
 
-export function WorkloadClient({ entries }: { entries: WorkloadEntry[] }) {
-  const maxCount = entries.reduce((max, e) => Math.max(max, e.open_count), 0);
-
+export function WorkloadClient({ entries }: { entries: CapacityWorkloadEntry[] }) {
   return (
     <Card>
       <div className="space-y-4">
@@ -13,9 +11,11 @@ export function WorkloadClient({ entries }: { entries: WorkloadEntry[] }) {
             key={e.employee_id}
             name={e.name}
             avatarColor={e.avatar_color}
+            committedHours={e.committed_hours}
+            capacityHours={e.capacity_hours}
+            loadPct={e.load_pct}
             openCount={e.open_count}
-            highCount={e.high_count}
-            maxCount={maxCount}
+            overdueCount={e.overdue_count}
           />
         ))}
       </div>

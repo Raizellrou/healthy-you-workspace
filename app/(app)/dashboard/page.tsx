@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/icons/Icon";
 import { BandChip } from "@/components/burnout/BandChip";
 import { Sparkline } from "@/components/burnout/Sparkline";
-import { PetalLogo } from "@/components/shell/PetalLogo";
+import { Logo } from "@/components/shell/Logo";
 import { NudgeStat } from "./NudgeStat";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployees, getBurnoutHistory, getWorkload } from "@/lib/supabase/queries";
@@ -356,7 +356,7 @@ export default async function DashboardPage() {
           </Card>
 
           <div className="flex flex-col gap-2.5 rounded-xl p-4" style={{ background: "#1F1F1F" }}>
-            <PetalLogo size={22} />
+            <Logo size={22} />
             <p className="text-xs leading-relaxed" style={{ color: "#9CA3AF" }}>
               Small changes can create healthier and more sustainable workdays.
             </p>

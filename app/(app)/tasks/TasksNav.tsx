@@ -6,6 +6,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { createProject } from "./actions";
 import type { Project } from "@/types/task";
 
+// A project's canonical URL used to always be its Board view. P7's
+// ui_preferences.default_task_view makes that the person's own preferred
+// lens instead — pathname.startsWith still covers every view under a
+// project (list/calendar/timeline too), so the tab reads "active" no
+// matter which lens you're actually on.
+function projectHref(projectId: string, defaultView: string): string {
+  return `/tasks/project/${projectId}/${defaultView}`;
+}
+
 const PROJECT_COLORS = ["#0ea5e9", "#7c3aed", "#0d9488", "#c026d3", "#4338ca"];
 
 function TabLink({ href, active, children }: { href: string; active: boolean; children: ReactNode }) {
@@ -21,7 +30,7 @@ function TabLink({ href, active, children }: { href: string; active: boolean; ch
   );
 }
 
-export function TasksNav({ projects }: { projects: Project[] }) {
+export function TasksNav({ projects, defaultView = "board" }: { projects: Project[]; defaultView?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -37,7 +46,7 @@ export function TasksNav({ projects }: { projects: Project[] }) {
       if (result.ok && result.id) {
         setName("");
         setCreating(false);
-        router.push(`/tasks/board/${result.id}`);
+        router.push(projectHref(result.id, defaultView));
       }
     });
   }
@@ -49,7 +58,11 @@ export function TasksNav({ projects }: { projects: Project[] }) {
           My Tasks
         </TabLink>
         {projects.map((p) => (
-          <TabLink key={p.id} href={`/tasks/board/${p.id}`} active={pathname === `/tasks/board/${p.id}`}>
+          <TabLink
+            key={p.id}
+            href={projectHref(p.id, defaultView)}
+            active={pathname.startsWith(`/tasks/project/${p.id}`)}
+          >
             {p.name}
           </TabLink>
         ))}

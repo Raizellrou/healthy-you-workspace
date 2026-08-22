@@ -5,6 +5,8 @@ export interface NavItemDef {
   label: string;
   icon: IconName;
   accent?: string;
+  /** Hidden from the nav unless the signed-in person's app_role is "hr". */
+  hrOnly?: boolean;
 }
 
 export interface NavGroup {
@@ -15,13 +17,18 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: "grid" }],
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: "grid" },
+      { href: "/inbox", label: "Inbox", icon: "inbox" },
+    ],
   },
   {
     label: "People",
     items: [
       { href: "/directory", label: "Directory", icon: "users" },
       { href: "/attendance", label: "Attendance", icon: "calendar" },
+      { href: "/time-off", label: "Time Off", icon: "timer" },
+      { href: "/teams", label: "Teams", icon: "users", hrOnly: true },
     ],
   },
   {
@@ -39,8 +46,23 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Productivity",
     items: [{ href: "/tasks", label: "Tasks", icon: "list" }],
   },
+  {
+    label: "Account",
+    items: [
+      { href: "/settings/schedule", label: "Schedule", icon: "settings" },
+      { href: "/settings/appearance", label: "Appearance", icon: "eye" },
+    ],
+  },
 ];
 
 // Flat list retained for callers that just need "every route" (e.g. active-tab
 // checks) without the grouping/accent metadata.
 export const NAV_ITEMS: NavItemDef[] = NAV_GROUPS.flatMap((g) => g.items);
+
+/** Drops hrOnly items when the viewer isn't HR, and any group left empty. */
+export function navGroupsFor(isHr: boolean): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.hrOnly || isHr),
+  })).filter((group) => group.items.length > 0);
+}

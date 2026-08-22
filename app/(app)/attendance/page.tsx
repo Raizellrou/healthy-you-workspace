@@ -1,17 +1,24 @@
 import { PageHead } from "@/components/ui/PageHead";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
-import { getEmployees } from "@/lib/supabase/queries";
-import type { Employee } from "@/types/employee";
+import { TimesheetBars } from "@/components/attendance/TimesheetBars";
+import { getCurrentEmployeeId } from "@/lib/supabase/queries";
+import { getCurrentPerson, getVisibleEmployees, getTeams } from "@/lib/supabase/people";
+import { getVisibleOpenSessions, getAttendanceSignals, getMyRollups } from "@/lib/supabase/attendance";
+import { visibleTo, scopeLabel } from "@/lib/authz";
+import { todayInTz, fmtDuration } from "@/lib/date";
+import type { Person } from "@/types/person";
 
-function StatusGroup({
+function PersonGroup({
   label,
   color,
-  employees,
+  people,
+  meta,
 }: {
   label: string;
   color: string;
-  employees: Employee[];
+  people: Person[];
+  meta?: (p: Person) => string;
 }) {
   return (
     <Card className="overflow-hidden p-0">
@@ -22,39 +29,26 @@ function StatusGroup({
           className="ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-bold"
           style={{ background: `${color}20`, color }}
         >
-          {employees.length}
+          {people.length}
         </span>
       </div>
-      {employees.length === 0 ? (
-        <p className="px-4 py-4 text-xs text-ink-mute">Nobody in this group today.</p>
+      {people.length === 0 ? (
+        <p className="px-4 py-4 text-xs text-ink-mute">Nobody here right now.</p>
       ) : (
         <div>
-          {employees.map((e, i) => {
-            const meetingPct = e.available > 0 ? Math.round((e.meetingAvg / e.available) * 100) : 0;
-            return (
-              <div
-                key={e.id}
-                className={`flex items-center gap-3 px-4 py-2.5 ${i < employees.length - 1 ? "border-b border-line" : ""}`}
-              >
-                <Avatar name={e.name} color={e.avatarColor} size={32} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold text-ink">{e.name}</div>
-                  <div className="text-xs text-ink-mute">{e.team}</div>
-                </div>
-                <div className="text-right">
-                  <div
-                    className="text-xs font-semibold"
-                    style={{
-                      color: meetingPct > 65 ? "#FF8C73" : meetingPct > 45 ? "#FFD700" : "var(--ink-mute)",
-                    }}
-                  >
-                    {meetingPct}%
-                  </div>
-                  <div className="text-[10px] text-ink-mute">meetings</div>
-                </div>
+          {people.map((p, i) => (
+            <div
+              key={p.id}
+              className={`flex items-center gap-3 px-4 py-2.5 ${i < people.length - 1 ? "border-b border-line" : ""}`}
+            >
+              <Avatar name={p.name} color={p.avatarColor} size={32} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-ink">{p.name}</div>
+                <div className="text-xs text-ink-mute">{p.team}</div>
               </div>
-            );
-          })}
+              {meta ? <div className="text-right text-xs font-semibold text-ink-mute">{meta(p)}</div> : null}
+            </div>
+          ))}
         </div>
       )}
     </Card>
@@ -62,11 +56,39 @@ function StatusGroup({
 }
 
 export default async function AttendancePage() {
-  const employees = await getEmployees();
-  const working = employees.filter((e) => e.worked);
-  const onPto = employees.filter((e) => e.onPto);
-  const off = employees.filter((e) => !e.worked && !e.onPto);
-  const topStreaks = [...employees].sort((a, b) => b.streakDays - a.streakDays).slice(0, 5);
+  const [currentPerson, people, teams, currentEmployeeId] = await Promise.all([
+    getCurrentPerson(),
+    getVisibleEmployees(),
+    getTeams(),
+    getCurrentEmployeeId(),
+  ]);
+
+  // `getVisibleEmployees()` reads the `employees` table, whose SELECT policy
+  // is deliberately org-wide (0002 — the Directory needs to list everyone),
+  // so it always returns all 24 regardless of role. The pure `visibleTo`
+  // mirror of the RLS scoping (0010) is what narrows the ROSTER shown here
+  // to self/team/org — the P2 plan flagged this "scoped to your team"
+  // mitigation as needed for exactly this kind of screen and it was never
+  // implemented; this is that fix, applied here and on the burnout page.
+  const visiblePeople = currentPerson ? visibleTo(currentPerson, people, (p) => p, teams) : [];
+  const visibleIds = visiblePeople.map((p) => p.id);
+  const today = todayInTz(currentPerson?.timezone);
+
+  const [openSessions, signals, myRollups] = await Promise.all([
+    getVisibleOpenSessions(),
+    getAttendanceSignals(
+      visibleIds,
+      new Map(visiblePeople.map((p) => [p.id, p.timezone])),
+      today
+    ),
+    currentEmployeeId ? getMyRollups(currentEmployeeId, 14) : Promise.resolve([]),
+  ]);
+
+  const openByEmployeeId = new Map(openSessions.map((s) => [s.employeeId, s]));
+  const onPto = visiblePeople.filter((p) => signals.get(p.id)?.onPto);
+  const onPtoIds = new Set(onPto.map((p) => p.id));
+  const working = visiblePeople.filter((p) => openByEmployeeId.has(p.id));
+  const off = visiblePeople.filter((p) => !openByEmployeeId.has(p.id) && !onPtoIds.has(p.id));
 
   const dateStr = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -76,14 +98,19 @@ export default async function AttendancePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
-      <PageHead title="Attendance" description={`${dateStr} · Today's working status across the org`} />
+      <PageHead
+        title="Attendance"
+        description={`${dateStr} · Real clock-in data, ${
+          currentPerson ? scopeLabel(currentPerson.appRole).toLowerCase() : "scoped to you"
+        }`}
+      />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          { label: "Working", value: working.length, color: "#87D380" },
+          { label: "Clocked in now", value: working.length, color: "#87D380" },
           { label: "On PTO", value: onPto.length, color: "#C7A2E5" },
           { label: "Off today", value: off.length, color: "#FF8C73" },
-          { label: "Total", value: employees.length, color: "#6F49A6" },
+          { label: "Total", value: visiblePeople.length, color: "#6F49A6" },
         ].map((t) => (
           <Card key={t.label}>
             <div className="mb-1.5 flex items-center gap-1.5">
@@ -97,27 +124,33 @@ export default async function AttendancePage() {
         ))}
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr_260px]">
-        <StatusGroup label="Working today" color="#87D380" employees={working} />
-        <StatusGroup label="Off today" color="#FF8C73" employees={off} />
-        <div className="flex flex-col gap-4">
-          <StatusGroup label="On PTO" color="#C7A2E5" employees={onPto} />
-          <Card>
-            <div className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-mute">Top attendance streaks</div>
-            <div className="space-y-2">
-              {topStreaks.map((e) => (
-                <div key={e.id} className="flex items-center gap-2">
-                  <Avatar name={e.name} color={e.avatarColor} size={26} />
-                  <span className="flex-1 truncate text-xs text-ink">{e.name.split(" ")[0]}</span>
-                  <span className="text-xs font-bold" style={{ color: "#FFD700" }}>
-                    {e.streakDays}d
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PersonGroup
+          label="Clocked in now"
+          color="#87D380"
+          people={working}
+          meta={(p) => {
+            const session = openByEmployeeId.get(p.id);
+            if (!session) return "";
+            const elapsed = Date.now() - new Date(session.clockIn).getTime();
+            return session.onBreak ? "On break" : fmtDuration(elapsed);
+          }}
+        />
+        <PersonGroup label="On PTO today" color="#C7A2E5" people={onPto} />
       </div>
+
+      <div className="mt-4">
+        <PersonGroup label="Off today" color="#FF8C73" people={off} />
+      </div>
+
+      {currentEmployeeId ? (
+        <Card className="mt-6">
+          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-mute">
+            Your last 14 workdays
+          </div>
+          <TimesheetBars rollups={myRollups} />
+        </Card>
+      ) : null}
     </div>
   );
 }

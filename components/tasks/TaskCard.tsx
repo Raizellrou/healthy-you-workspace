@@ -34,6 +34,19 @@ export function TaskCard({ task }: { task: Task }) {
       >
         {task.title}
       </Link>
+      {task.labels && task.labels.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {task.labels.map((label) => (
+            <span
+              key={label.id}
+              className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
+              style={{ background: label.color }}
+            >
+              {label.name}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <PriorityChip priority={task.priority} />
@@ -47,9 +60,14 @@ export function TaskCard({ task }: { task: Task }) {
           <Avatar name={task.assignee_name} color={task.assignee_avatar_color ?? "#64748b"} size={24} />
         ) : null}
       </div>
-      {dueLabel ? (
-        <p className={`text-xs font-medium ${overdue ? "text-risk-critical" : "text-ink-mute"}`}>{dueLabel}</p>
-      ) : null}
+      <div className="flex items-center justify-between gap-2">
+        {dueLabel ? (
+          <p className={`text-xs font-medium ${overdue ? "text-risk-critical" : "text-ink-mute"}`}>{dueLabel}</p>
+        ) : (
+          <span />
+        )}
+        {task.estimate_hours ? <p className="text-xs text-ink-mute">{task.estimate_hours}h</p> : null}
+      </div>
     </div>
   );
 }

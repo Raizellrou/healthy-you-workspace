@@ -12,7 +12,8 @@ import {
 } from "@dnd-kit/core";
 import { BoardColumn } from "@/components/tasks/BoardColumn";
 import { moveTask, createSection } from "@/app/(app)/tasks/actions";
-import type { BoardSection, Task } from "@/types/task";
+import type { BoardSection, Label, Task } from "@/types/task";
+import type { Employee } from "@/types/employee";
 
 function buildColumns(sections: BoardSection[], tasks: Task[]): Record<string, Task[]> {
   const map: Record<string, Task[]> = {};
@@ -29,10 +30,14 @@ export function BoardClient({
   projectId,
   sections,
   tasks,
+  employees,
+  labels,
 }: {
   projectId: string;
   sections: BoardSection[];
   tasks: Task[];
+  employees: Employee[];
+  labels: Label[];
 }) {
   const [columns, setColumns] = useState<Record<string, Task[]>>(() => buildColumns(sections, tasks));
   const [newSectionName, setNewSectionName] = useState("");
@@ -40,12 +45,13 @@ export function BoardClient({
   const router = useRouter();
 
   // Re-sync whenever the server refetches sections/tasks (after a section
-  // add/rename/delete, or a moveTask revalidation). These props only
-  // change when Next.js actually re-fetches server data, not on every
-  // client render, so this can't clobber in-flight drag state. Adjusting
-  // state directly during render (guarded by a prev-value comparison)
-  // rather than in a useEffect avoids an extra render pass — the pattern
-  // React's docs recommend for "sync state to a prop change."
+  // add/rename/delete, or a moveTask revalidation, or a filter change in
+  // the URL). These props only change when Next.js actually re-fetches
+  // server data, not on every client render, so this can't clobber
+  // in-flight drag state. Adjusting state directly during render (guarded
+  // by a prev-value comparison) rather than in a useEffect avoids an extra
+  // render pass — the pattern React's docs recommend for "sync state to a
+  // prop change."
   const [prevSections, setPrevSections] = useState(sections);
   const [prevTasks, setPrevTasks] = useState(tasks);
   if (sections !== prevSections || tasks !== prevTasks) {
@@ -120,7 +126,15 @@ export function BoardClient({
     >
       <div className="flex gap-4 overflow-x-auto pb-4">
         {sections.map((section) => (
-          <BoardColumn key={section.id} section={section} projectId={projectId} tasks={columns[section.id] ?? []} />
+          <BoardColumn
+            key={section.id}
+            section={section}
+            allSections={sections}
+            projectId={projectId}
+            tasks={columns[section.id] ?? []}
+            employees={employees}
+            labels={labels}
+          />
         ))}
         <div className="w-72 shrink-0 rounded-xl border border-dashed border-line p-3">
           <input

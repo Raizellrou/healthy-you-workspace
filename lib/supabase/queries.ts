@@ -120,6 +120,7 @@ function toEmployee(row: EmployeeRow, index: number, stats: DerivedStats): Emplo
 
 export async function getEmployees(): Promise<Employee[]> {
   const supabase = await createClient();
+  const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
 
   const [employeesRes, activityRes] = await Promise.all([
     supabase
@@ -130,6 +131,7 @@ export async function getEmployees(): Promise<Employee[]> {
     supabase
       .from("daily_activity")
       .select("employee_id, date, meeting_hours, available_hours, off_hours_messages, worked_today, on_pto")
+      .gte("date", cutoff)
       .order("date", { ascending: false })
       .returns<DailyActivityRow[]>(),
   ]);
@@ -195,10 +197,15 @@ export async function getBurnoutHistory(
   days = 14
 ): Promise<BurnoutHistoryPoint[]> {
   const supabase = await createClient();
+  // 60 days gives deriveStats() enough trailing context to compute a correct
+  // window for every one of the last `days` target dates at the default
+  // days=14, without pulling this employee's entire activity history.
+  const cutoff = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("daily_activity")
     .select("date, meeting_hours, available_hours, off_hours_messages, worked_today, on_pto")
     .eq("employee_id", employeeId)
+    .gte("date", cutoff)
     .order("date", { ascending: false })
     .returns<DailyActivityRow[]>();
 

@@ -1,35 +1,41 @@
 import { PageHead } from "@/components/ui/PageHead";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployees } from "@/lib/supabase/queries";
-import { MoodClient, type TeamAggregate } from "./MoodClient";
+import { getCurrentPerson } from "@/lib/supabase/people";
+import { todayInTz, addDays } from "@/lib/date";
+import { MoodClient, type TeamAggregate, type OrgTrendPoint } from "./MoodClient";
 
 export default async function MoodPage() {
   const supabase = await createClient();
-  const employeeId = await getCurrentEmployeeId();
-  const today = new Date().toISOString().slice(0, 10);
+  const [employeeId, currentPerson] = await Promise.all([getCurrentEmployeeId(), getCurrentPerson()]);
+  const today = todayInTz(currentPerson?.timezone);
 
   let initialPicked: 1 | 2 | 3 | 4 | 5 | null = null;
+  let initialEnergy: number | null = null;
+  let initialNote = "";
+  let streak = 0;
   if (employeeId) {
-    const { data } = await supabase
-      .from("mood_checkins")
-      .select("mood_value")
-      .eq("employee_id", employeeId)
-      .eq("date", today)
-      .maybeSingle();
-    if (data) initialPicked = data.mood_value as 1 | 2 | 3 | 4 | 5;
+    const [{ data }, { data: streakData }] = await Promise.all([
+      supabase.from("mood_checkins").select("mood_value, energy, note").eq("employee_id", employeeId).eq("date", today).maybeSingle(),
+      supabase.rpc("get_mood_streak", { target_employee_id: employeeId }),
+    ]);
+    if (data) {
+      initialPicked = data.mood_value as 1 | 2 | 3 | 4 | 5;
+      initialEnergy = data.energy as number | null;
+      initialNote = (data.note as string | null) ?? "";
+    }
+    streak = (streakData as number | null) ?? 0;
   }
 
   const employees = await getEmployees();
   const teams = Array.from(new Set(employees.map((e) => e.team)));
-  const lastWeek = new Date();
-  lastWeek.setDate(lastWeek.getDate() - 7);
-  const lastWeekISO = lastWeek.toISOString().slice(0, 10);
+  const lastWeek = addDays(today, -7);
 
   const aggregateEntries = await Promise.all(
     teams.map(async (team) => {
       const [todayRes, lastWeekRes] = await Promise.all([
-        supabase.rpc("get_team_mood_aggregate", { target_team: team }),
-        supabase.rpc("get_team_mood_aggregate", { target_team: team, target_date: lastWeekISO }),
+        supabase.rpc("get_team_mood_aggregate", { target_team: team, target_date: today }),
+        supabase.rpc("get_team_mood_aggregate", { target_team: team, target_date: lastWeek }),
       ]);
       const row = todayRes.data?.[0] ?? { avg_mood: null, checkin_count: 0 };
       const priorRow = lastWeekRes.data?.[0] ?? { avg_mood: null, checkin_count: 0 };
@@ -59,6 +65,13 @@ export default async function MoodPage() {
         lastWeekEligible.reduce((s, a) => s + a.checkinCountLastWeek, 0)
       : null;
 
+  const { data: trendRows } = await supabase.rpc("get_org_mood_trend", { days: 30 });
+  const orgTrend: OrgTrendPoint[] = (trendRows ?? []).map((row: { day: string; avg_mood: number | null; checkin_count: number }) => ({
+    day: row.day,
+    avgMood: row.avg_mood,
+    checkinCount: row.checkin_count,
+  }));
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-8">
       <div className="mb-1 flex items-center gap-2">
@@ -70,11 +83,15 @@ export default async function MoodPage() {
       <PageHead title="Track the Mood" description="A quick, private daily check-in." />
       <MoodClient
         initialPicked={initialPicked}
+        initialEnergy={initialEnergy}
+        initialNote={initialNote}
+        streak={streak}
         teamAggregates={teamAggregates}
         orgAvgToday={orgAvgToday}
         orgAvgLastWeek={orgAvgLastWeek}
         totalCheckinsToday={totalCheckinsToday}
         headcount={employees.length}
+        orgTrend={orgTrend}
       />
     </div>
   );

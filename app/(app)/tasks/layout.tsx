@@ -1,8 +1,10 @@
-import { getProjects } from "@/lib/supabase/queries";
+import { getProjects, getCurrentEmployeeId } from "@/lib/supabase/queries";
+import { getUiPreferences } from "@/lib/supabase/preferences";
 import { TasksNav } from "./TasksNav";
 
 export default async function TasksLayout({ children }: { children: React.ReactNode }) {
-  const projects = await getProjects();
+  const [projects, employeeId] = await Promise.all([getProjects(), getCurrentEmployeeId()]);
+  const defaultView = employeeId ? (await getUiPreferences(employeeId)).defaultTaskView : "board";
   return (
     <div>
       <div className="mx-auto flex max-w-5xl items-center gap-2 px-6 pt-6">
@@ -11,7 +13,7 @@ export default async function TasksLayout({ children }: { children: React.ReactN
           Tasks · Productivity
         </span>
       </div>
-      <TasksNav projects={projects} />
+      <TasksNav projects={projects} defaultView={defaultView} />
       {children}
     </div>
   );

@@ -3,21 +3,45 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
-import { Avatar } from "@/components/ui/Avatar";
-import { NAV_GROUPS } from "@/components/shell/navItems";
-import { PetalLogo } from "@/components/shell/PetalLogo";
+import { navGroupsFor } from "@/components/shell/navItems";
+import { Logo } from "@/components/shell/Logo";
 import { ThemeToggle } from "@/components/shell/ThemeToggle";
+import { UserMenu } from "@/components/shell/UserMenu";
+import { ClockWidget } from "@/components/shell/ClockWidget";
 import { useNudges } from "@/lib/nudge-context";
+import type { AppRole } from "@/types/person";
+import type { OpenSession } from "@/lib/supabase/attendance";
 
 export function Sidebar({
   hasCritical,
   currentEmployee,
+  appRole,
+  openSession,
+  unreadInboxCount = 0,
 }: {
   hasCritical: boolean;
   currentEmployee: { name: string; role: string; avatarColor: string } | null;
+  /** Defaults to "employee" so callers mid-migration (or a session with no
+   *  matching row) get the least-privileged nav rather than an error. */
+  appRole?: AppRole;
+  openSession?: OpenSession | null;
+  unreadInboxCount?: number;
 }) {
   const pathname = usePathname();
   const { unseenCount } = useNudges();
+  const role = appRole ?? "employee";
+  const navGroups = navGroupsFor(role === "hr");
+
+  // Two badge sources: the nudge simulation's own client-side count
+  // (lib/nudge-context.tsx, unchanged) and the P6 inbox's unread count,
+  // fetched server-side in app/(app)/layout.tsx. Same visual treatment
+  // either way — no realtime here, it updates like every other Sidebar
+  // badge does: on navigation.
+  function badgeFor(href: string): number {
+    if (href === "/nudges") return unseenCount;
+    if (href === "/inbox") return unreadInboxCount;
+    return 0;
+  }
 
   return (
     <nav
@@ -25,12 +49,12 @@ export function Sidebar({
       className="sticky top-0 z-20 flex shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-surface px-2 py-2 md:h-screen md:w-[216px] md:flex-col md:items-stretch md:gap-0 md:overflow-y-auto md:overflow-x-visible md:border-b-0 md:border-r md:px-3 md:py-4"
     >
       <div className="hidden shrink-0 items-center gap-2 px-2 pb-5 md:flex">
-        <PetalLogo size={26} />
+        <Logo size={26} />
         <span className="text-base font-bold tracking-wide text-ink">PETAL</span>
       </div>
 
       <div className="flex flex-1 flex-col gap-4 md:flex-none">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.label} className="hidden flex-col gap-0.5 md:flex">
             <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wide text-ink-mute">
               {group.label}
@@ -38,7 +62,7 @@ export function Sidebar({
             {group.items.map((item) => {
               const active = pathname === item.href;
               const showCriticalDot = item.href === "/burnout" && hasCritical;
-              const showBadge = item.href === "/nudges" && unseenCount > 0;
+              const badgeCount = badgeFor(item.href);
               return (
                 <Link
                   key={item.href}
@@ -59,12 +83,12 @@ export function Sidebar({
                       aria-label={showCriticalDot ? "Needs attention" : "Healthy"}
                     />
                   ) : null}
-                  {showBadge ? (
+                  {badgeCount > 0 ? (
                     <span
                       className="ml-auto inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-risk-critical px-1 text-[10px] font-semibold text-white"
-                      aria-label={`${unseenCount} unseen nudges`}
+                      aria-label={`${badgeCount} unread`}
                     >
-                      {unseenCount}
+                      {badgeCount}
                     </span>
                   ) : null}
                 </Link>
@@ -74,10 +98,10 @@ export function Sidebar({
         ))}
 
         {/* Compact single-row nav for mobile/narrow layouts */}
-        {NAV_GROUPS.flatMap((g) => g.items).map((item) => {
+        {navGroups.flatMap((g) => g.items).map((item) => {
           const active = pathname === item.href;
           const showCriticalDot = item.href === "/burnout" && hasCritical;
-          const showBadge = item.href === "/nudges" && unseenCount > 0;
+          const badgeCount = badgeFor(item.href);
           return (
             <Link
               key={item.href}
@@ -97,12 +121,12 @@ export function Sidebar({
                 ) : null}
               </span>
               {item.label}
-              {showBadge ? (
+              {badgeCount > 0 ? (
                 <span
                   className="ml-auto inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-risk-critical px-1 text-[10px] font-semibold text-white"
-                  aria-label={`${unseenCount} unseen nudges`}
+                  aria-label={`${badgeCount} unread`}
                 >
-                  {unseenCount}
+                  {badgeCount}
                 </span>
               ) : null}
             </Link>
@@ -111,15 +135,15 @@ export function Sidebar({
       </div>
 
       <div className="mt-auto hidden flex-col gap-3 pt-4 md:flex">
+        {currentEmployee ? <ClockWidget openSession={openSession ?? null} /> : null}
         <ThemeToggle />
         {currentEmployee ? (
-          <div className="flex items-center gap-2.5 border-t border-line px-1 pt-3">
-            <Avatar name={currentEmployee.name} color={currentEmployee.avatarColor} size={32} />
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-ink">{currentEmployee.name}</div>
-              <div className="truncate text-xs text-ink-mute">{currentEmployee.role}</div>
-            </div>
-          </div>
+          <UserMenu
+            name={currentEmployee.name}
+            role={currentEmployee.role}
+            avatarColor={currentEmployee.avatarColor}
+            appRole={appRole}
+          />
         ) : null}
       </div>
     </nav>

@@ -5,9 +5,8 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
-import { DAY_NAMES, WORK_START_MIN, WORK_END_MIN } from "@/lib/constants";
-import { evaluateBoundary } from "@/lib/boundary";
-import { fmtClock, parseTimeInput } from "@/lib/time";
+import { evaluateBoundaryV2, fmtInstant } from "@/lib/boundary-v2";
+import type { WorkSchedule } from "@/lib/schedule";
 import { sendBoundaryMessage } from "./actions";
 import type { Employee } from "@/types/employee";
 import type { ActivityEntry, BoundaryStatus } from "@/types/boundary";
@@ -35,16 +34,36 @@ const STATUS_ACCENT: Record<BoundaryStatus, string> = {
   delayed: "#87CEEB",
 };
 
-const SLIDER_MAX = 1425;
+export interface RecipientAvailability {
+  schedule: WorkSchedule;
+  onPto: boolean;
+  returnDate: string | null;
+}
+
+/** `datetime-local`'s value has no timezone — new Date() on it is parsed in
+ *  the browser's own local zone, giving a genuine instant in real time.
+ *  That instant is what gets evaluated against the recipient's actual
+ *  schedule/timezone, which is the whole point: two people can be in
+ *  different zones and this still resolves correctly for both. */
+function defaultSendAt(): string {
+  const d = new Date();
+  d.setHours(21, 0, 0, 0); // 9pm local — outside most default schedules, a livelier demo default
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export function BoundaryClient({
   employees,
   currentEmployeeId,
   initialActivity,
+  availabilityByEmployee,
+  offHoursByTeam,
 }: {
   employees: Employee[];
   currentEmployeeId: string | null;
   initialActivity: ActivityEntry[];
+  availabilityByEmployee: Record<string, RecipientAvailability>;
+  offHoursByTeam: { team: string; totalSent: number; delayedCount: number }[];
 }) {
   const sender =
     employees.find((e) => e.id === currentEmployeeId) ?? employees[0];
@@ -55,10 +74,8 @@ export function BoundaryClient({
       : employees.find((e) => e.id !== sender.id) ?? employees[1];
 
   const [recipientId, setRecipientId] = useState(defaultRecipient.id);
-  const [day, setDay] = useState(3); // Thursday
   const [channel, setChannel] = useState<(typeof CHANNELS)[number]>("Slack");
-  const [minutes, setMinutes] = useState(14 * 60); // 2:00 PM
-  const [timeText, setTimeText] = useState(fmtClock(14 * 60));
+  const [sendAt, setSendAt] = useState(defaultSendAt());
   const [message, setMessage] = useState(
     "Hey — no rush, just following up on the Q3 handoff doc when you're back."
   );
@@ -68,27 +85,29 @@ export function BoundaryClient({
   const [isPending, startTransition] = useTransition();
 
   const recipient = employees.find((e) => e.id === recipientId) ?? employees[1];
+  const recipientAvailability = availabilityByEmployee[recipientId];
 
-  const preview = useMemo(
-    () => evaluateBoundary(sender, recipient, day, minutes, message),
-    [sender, recipient, day, minutes, message]
-  );
-
-  function handleTimeText(value: string) {
-    setTimeText(value);
-    const parsed = parseTimeInput(value);
-    if (parsed !== null) setMinutes(parsed);
-  }
-
-  function handleSlider(value: number) {
-    setMinutes(value);
-    setTimeText(fmtClock(value));
-  }
+  const preview = useMemo(() => {
+    const instant = new Date(sendAt);
+    if (!recipientAvailability || Number.isNaN(instant.getTime())) {
+      return { status: "blocked" as BoundaryStatus, message: "Pick a valid time" };
+    }
+    return evaluateBoundaryV2({
+      senderId: sender.id,
+      recipientId: recipient.id,
+      recipientSchedule: recipientAvailability.schedule,
+      recipientOnPto: recipientAvailability.onPto,
+      recipientReturnDate: recipientAvailability.returnDate,
+      instant,
+      message,
+    });
+  }, [sender.id, recipient.id, recipientAvailability, sendAt, message]);
 
   function handleSend() {
     setError(null);
     startTransition(async () => {
-      const result = await sendBoundaryMessage(recipientId, day, minutes, channel, message);
+      const instant = new Date(sendAt);
+      const result = await sendBoundaryMessage(recipientId, instant.toISOString(), channel, message);
       if (!result.ok || !result.entry) {
         setError(result.error ?? "Something went wrong.");
         return;
@@ -101,10 +120,11 @@ export function BoundaryClient({
     });
   }
 
-  const leftPct = (WORK_START_MIN / SLIDER_MAX) * 100;
-  const widthPct = ((WORK_END_MIN - WORK_START_MIN) / SLIDER_MAX) * 100;
   const charCount = message.length;
   const nearLimit = charCount > 260;
+  const recipientNow = recipientAvailability
+    ? fmtInstant(new Date(), recipientAvailability.schedule.timezone)
+    : null;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
@@ -142,34 +162,37 @@ export function BoundaryClient({
           <Avatar name={recipient.name} color={recipient.avatarColor} size={32} />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-ink">{recipient.name}</div>
-            <div className="truncate text-xs text-ink-mute">{recipient.role}</div>
+            <div className="truncate text-xs text-ink-mute">
+              {recipient.role}
+              {recipientNow ? ` · it's ${recipientNow} for them` : ""}
+            </div>
           </div>
-          {recipient.onPto ? (
+          {recipientAvailability?.onPto ? (
             <Chip tone="warning">
-              On PTO{recipient.returnIn ? ` · back ${recipient.returnIn}` : ""}
+              On PTO{recipientAvailability.returnDate ? ` · back ${recipientAvailability.returnDate}` : ""}
             </Chip>
-          ) : (
-            <Chip tone="success">Working hours 9:00 AM–6:00 PM</Chip>
-          )}
+          ) : recipientAvailability ? (
+            <Chip tone="success">
+              Working hours {String(Math.floor(recipientAvailability.schedule.startMin / 60)).padStart(2, "0")}:
+              {String(recipientAvailability.schedule.startMin % 60).padStart(2, "0")}–
+              {String(Math.floor(recipientAvailability.schedule.endMin / 60)).padStart(2, "0")}:
+              {String(recipientAvailability.schedule.endMin % 60).padStart(2, "0")}
+            </Chip>
+          ) : null}
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="day" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
-              Send day
+            <label htmlFor="send-at" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
+              Send time
             </label>
-            <select
-              id="day"
-              value={day}
-              onChange={(e) => setDay(Number(e.target.value))}
+            <input
+              id="send-at"
+              type="datetime-local"
+              value={sendAt}
+              onChange={(e) => setSendAt(e.target.value)}
               className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-            >
-              {DAY_NAMES.map((name, i) => (
-                <option key={name} value={i}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div>
             <label htmlFor="channel" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
@@ -189,42 +212,9 @@ export function BoundaryClient({
             </select>
           </div>
         </div>
-
-        <div className="mt-4">
-          <label htmlFor="send-time" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
-            Send time
-          </label>
-          <input
-            id="send-time"
-            type="text"
-            value={timeText}
-            onChange={(e) => handleTimeText(e.target.value)}
-            placeholder="2:00 PM"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-          />
-          <div className="relative mt-3 h-6">
-            <div className="absolute inset-y-0 left-0 right-0 my-auto h-1.5 rounded-full bg-surface-2" />
-            <div
-              className="absolute inset-y-0 my-auto h-1.5 rounded-full bg-success-bg"
-              style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={SLIDER_MAX}
-              step={15}
-              value={minutes}
-              onChange={(e) => handleSlider(Number(e.target.value))}
-              aria-label="Send time"
-              className="absolute inset-0 w-full cursor-pointer appearance-none bg-transparent accent-brand"
-            />
-          </div>
-          <div className="mt-1 flex justify-between text-[11px] text-ink-mute">
-            <span>12:00 AM</span>
-            <span>Working window 9:00 AM–6:00 PM</span>
-            <span>11:45 PM</span>
-          </div>
-        </div>
+        <p className="mt-1.5 text-[11px] text-ink-mute">
+          Evaluated against {recipient.name.split(" ")[0]}&apos;s real working hours and timezone, not yours.
+        </p>
 
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between">
@@ -265,33 +255,55 @@ export function BoundaryClient({
         </div>
       </Card>
 
-      <Card>
-        <div className="mb-3 text-sm font-semibold text-ink">Recent activity</div>
-        {activity.length === 0 ? (
-          <p className="text-sm text-ink-mute">Nothing sent yet.</p>
-        ) : (
-          <ul className="space-y-2">
-            {activity.map((entry) => (
-              <li
-                key={entry.id}
-                className={`rounded-lg border p-2.5 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
-                style={{ borderColor: "var(--line)", borderLeftColor: STATUS_ACCENT[entry.status], borderLeftWidth: 3 }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <Chip tone={STATUS_TONE[entry.status]}>{STATUS_LABEL[entry.status]}</Chip>
-                  <span className="text-[11px] text-ink-mute">
-                    {new Date(entry.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-                <p className="mt-1 truncate text-ink-soft">
-                  {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
-                </p>
-                <p className="mt-0.5 text-xs text-ink-mute">{entry.message}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <div className="flex flex-col gap-6">
+        <Card>
+          <div className="mb-3 text-sm font-semibold text-ink">Recent activity</div>
+          {activity.length === 0 ? (
+            <p className="text-sm text-ink-mute">Nothing sent yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {activity.map((entry) => (
+                <li
+                  key={entry.id}
+                  className={`rounded-lg border p-2.5 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
+                  style={{ borderColor: "var(--line)", borderLeftColor: STATUS_ACCENT[entry.status], borderLeftWidth: 3 }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <Chip tone={STATUS_TONE[entry.status]}>{STATUS_LABEL[entry.status]}</Chip>
+                    <span className="text-[11px] text-ink-mute">
+                      {new Date(entry.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <p className="mt-1 truncate text-ink-soft">
+                    {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-mute">{entry.message}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        {offHoursByTeam.length > 0 ? (
+          <Card>
+            <div className="mb-1 text-sm font-semibold text-ink">Off-hours send rate — HR</div>
+            <p className="mb-3 text-xs text-ink-mute">Share of messages sent outside the recipient&apos;s hours, last 30 days.</p>
+            <ul className="space-y-2">
+              {offHoursByTeam.map((row) => {
+                const pct = row.totalSent > 0 ? Math.round((row.delayedCount / row.totalSent) * 100) : 0;
+                return (
+                  <li key={row.team} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-ink-soft">{row.team}</span>
+                    <span className="font-mono text-xs text-ink-mute">
+                      {row.delayedCount}/{row.totalSent} ({pct}%)
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -2,37 +2,52 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { AssigneePicker } from "@/components/tasks/AssigneePicker";
 import { SubtaskChecklist } from "@/components/tasks/SubtaskChecklist";
 import { CommentThread } from "@/components/tasks/CommentThread";
-import { updateTask, toggleDone } from "@/app/(app)/tasks/actions";
+import { EstimateField } from "@/components/tasks/EstimateField";
+import { LabelPicker } from "@/components/tasks/LabelPicker";
+import { TaskActivity } from "@/components/tasks/TaskActivity";
+import { updateTask, toggleDone, setLabels, deleteTask, duplicateTask } from "@/app/(app)/tasks/actions";
 import type { TaskDetail } from "@/lib/supabase/queries";
-import type { Priority } from "@/types/task";
+import type { TaskRichExtras } from "@/lib/supabase/tasks";
+import type { Label, Priority } from "@/types/task";
 import type { Employee } from "@/types/employee";
 
 const PRIORITIES: Priority[] = ["low", "medium", "high"];
 
 export function TaskDetailClient({
   detail,
+  extras,
+  allLabels,
   employees,
   currentEmployeeName,
   currentEmployeeAvatarColor,
 }: {
   detail: TaskDetail;
+  extras: TaskRichExtras;
+  allLabels: Label[];
   employees: Employee[];
   currentEmployeeName?: string;
   currentEmployeeAvatarColor?: string;
 }) {
   const { task, project, subtasks, comments } = detail;
+  const router = useRouter();
 
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [assigneeId, setAssigneeId] = useState(task.assignee_id);
   const [priority, setPriority] = useState<Priority>(task.priority);
   const [dueDate, setDueDate] = useState(task.due_date ?? "");
+  const [startDate, setStartDate] = useState(extras.startDate ?? "");
+  const [estimateHours, setEstimateHours] = useState(extras.estimateHours);
+  const [labelIds, setLabelIds] = useState(extras.labels.map((l) => l.id));
   const [done, setDone] = useState(task.done);
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   function save(updates: Partial<Parameters<typeof updateTask>[2]>) {
     startTransition(async () => {
@@ -47,17 +62,49 @@ export function TaskDetailClient({
     });
   }
 
+  function handleLabelsChange(ids: string[]) {
+    setLabelIds(ids);
+    startTransition(async () => {
+      await setLabels(task.id, task.project_id, ids);
+    });
+  }
+
+  function handleDelete() {
+    if (!window.confirm(`Delete "${task.title}"? This can't be undone.`)) return;
+    startDeleteTransition(async () => {
+      const result = await deleteTask(task.id, task.project_id);
+      if (result.ok) router.push(`/tasks/project/${task.project_id}/board`);
+    });
+  }
+
+  function handleDuplicate() {
+    startTransition(async () => {
+      const result = await duplicateTask(task.id, task.project_id);
+      if (result.ok && result.id) router.push(`/tasks/${result.id}`);
+    });
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
       <Link href="/tasks" className="mb-4 inline-block text-sm text-ink-soft hover:text-ink">
         ← Back to My Tasks
       </Link>
 
-      <div className="mb-4 flex items-center gap-2 text-sm text-ink-mute">
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} aria-hidden="true" />
-        <Link href={`/tasks/board/${project.id}`} className="hover:text-ink">
-          {project.name}
-        </Link>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-sm text-ink-mute">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} aria-hidden="true" />
+          <Link href={`/tasks/project/${project.id}/board`} className="hover:text-ink">
+            {project.name}
+          </Link>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={handleDuplicate} disabled={isPending}>
+            Duplicate
+          </Button>
+          <Button type="button" variant="danger" size="sm" onClick={handleDelete} disabled={isDeleting}>
+            {isDeleting ? "Deleting…" : "Delete"}
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -120,6 +167,20 @@ export function TaskDetailClient({
             </select>
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">Start</span>
+            <input
+              type="date"
+              value={startDate}
+              disabled={isPending}
+              onChange={(e) => {
+                const next = e.target.value;
+                setStartDate(next);
+                save({ start_date: next || null });
+              }}
+              className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink disabled:opacity-60"
+            />
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">Due</span>
             <input
               type="date"
@@ -131,6 +192,17 @@ export function TaskDetailClient({
                 save({ due_date: next || null });
               }}
               className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink disabled:opacity-60"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">Estimate</span>
+            <EstimateField
+              value={estimateHours}
+              onChange={(hours) => {
+                setEstimateHours(hours);
+                save({ estimate_hours: hours });
+              }}
+              disabled={isPending}
             />
           </div>
         </div>
@@ -152,6 +224,13 @@ export function TaskDetailClient({
           />
         </div>
 
+        {allLabels.length > 0 && (
+          <div className="mt-4">
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-ink-mute">Labels</div>
+            <LabelPicker labels={allLabels} selectedIds={labelIds} onChange={handleLabelsChange} disabled={isPending} />
+          </div>
+        )}
+
         <div className="mt-5 border-t border-line pt-4">
           <SubtaskChecklist taskId={task.id} projectId={task.project_id} subtasks={subtasks} />
         </div>
@@ -164,6 +243,11 @@ export function TaskDetailClient({
             currentEmployeeName={currentEmployeeName}
             currentEmployeeAvatarColor={currentEmployeeAvatarColor}
           />
+        </div>
+
+        <div className="mt-5 border-t border-line pt-4">
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">Activity</div>
+          <TaskActivity events={extras.events} />
         </div>
       </Card>
     </div>

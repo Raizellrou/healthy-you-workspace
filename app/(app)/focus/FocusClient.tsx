@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
-import { Chip, type ChipTone } from "@/components/ui/Chip";
+import { Chip } from "@/components/ui/Chip";
+import { Button } from "@/components/ui/Button";
 import { computeBurnout } from "@/lib/burnout";
-import { FOCUS_TIMELINE, WORKSPACE_COPY, type TimelineKind, type WorkspaceState } from "@/lib/constants";
+import { fmtMinutes } from "@/lib/date";
+import type { FocusBlock } from "@/lib/focus-timeline";
+import { WORKSPACE_COPY, type WorkspaceState } from "@/lib/constants";
+import { startFocusSession, endFocusSession } from "./actions";
+import type { OpenFocusSession, FocusMode } from "@/lib/supabase/focus";
 import type { Employee } from "@/types/employee";
 
 const STATE_BUTTONS: WorkspaceState[] = ["standard", "focus", "calm"];
@@ -15,36 +20,96 @@ const STATE_ACCENT: Record<WorkspaceState, string> = {
   calm: "#A8D592",
 };
 
-const TIMELINE_TONE: Record<TimelineKind, ChipTone> = {
-  meeting: "brand",
-  deep_work: "success",
-  gap: "neutral",
-  high_stress: "critical",
+const BLOCK_COLOR: Record<FocusBlock["kind"], string> = {
+  worked: "#6F49A6",
+  break: "#A8D592",
+  gap: "var(--surface-2)",
 };
 
-const TIMELINE_COLOR: Record<TimelineKind, string> = {
-  meeting: "#87CEEB",
-  deep_work: "#6F49A6",
-  gap: "#A8D592",
-  high_stress: "#FF8C73",
+const BLOCK_LABEL: Record<FocusBlock["kind"], string> = {
+  worked: "Clocked in",
+  break: "On break",
+  gap: "Open",
 };
 
+/** Real replacement for the old computeBurnout-only suggestion: Calm once
+ *  the frozen base composite reaches "high" or above, matching the plan's
+ *  "auto-suggest Calm at band >= high" — the original code suggested
+ *  "focus" at that threshold instead. */
 function autoSuggest(employee: Employee): WorkspaceState {
   const band = computeBurnout(employee).band;
-  return band === "high" || band === "critical" ? "focus" : "standard";
+  return band === "high" || band === "critical" ? "calm" : "standard";
 }
 
-export function FocusClient({ employees }: { employees: Employee[] }) {
-  const [employeeId, setEmployeeId] = useState(employees[0].id);
-  const [manualState, setManualState] = useState<WorkspaceState | null>(null);
+export function FocusClient({
+  employees,
+  currentEmployeeId,
+  timelineByEmployee,
+  dueTodayByEmployee,
+  openSession,
+}: {
+  employees: Employee[];
+  currentEmployeeId: string | null;
+  timelineByEmployee: Record<string, FocusBlock[]>;
+  dueTodayByEmployee: Record<string, number>;
+  openSession: OpenFocusSession | null;
+}) {
+  const [employeeId, setEmployeeId] = useState(currentEmployeeId ?? employees[0].id);
+  // Reflects an already-open session's real mode on first render, instead
+  // of falling back to the suggested state and only diverging once the
+  // user clicks something — a reload while a session is open was showing
+  // "Standard mode active" text even though the persisted session (and the
+  // highlighted button) said Focus.
+  const [manualState, setManualState] = useState<WorkspaceState | null>(
+    currentEmployeeId && openSession ? openSession.mode : null
+  );
+  const [pendingMode, setPendingMode] = useState<FocusMode | "ending" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastSummary, setLastSummary] = useState<{ tasksCompleted: number; notificationsSuppressed: number } | null>(
+    null
+  );
+  const [isPending, startTransition] = useTransition();
 
   const employee = employees.find((e) => e.id === employeeId) ?? employees[0];
   const suggested = autoSuggest(employee);
   const activeState = manualState ?? suggested;
+  const timeline = timelineByEmployee[employeeId] ?? [];
+  const dueToday = dueTodayByEmployee[employeeId] ?? 0;
+  const isSelf = employeeId === currentEmployeeId;
 
   function handleEmployeeChange(id: string) {
     setEmployeeId(id);
     setManualState(null);
+  }
+
+  function handleStart(mode: WorkspaceState) {
+    setManualState(mode);
+    if (!isSelf) return;
+    setError(null);
+    setPendingMode(mode as FocusMode);
+    setLastSummary(null);
+    startTransition(async () => {
+      const result = await startFocusSession({ mode, trigger: "manual" });
+      setPendingMode(null);
+      if (!result.ok) setError(result.error ?? "Couldn't start that session.");
+    });
+  }
+
+  function handleEnd() {
+    setError(null);
+    setPendingMode("ending");
+    startTransition(async () => {
+      const result = await endFocusSession();
+      setPendingMode(null);
+      if (!result.ok) {
+        setError(result.error ?? "Couldn't end the session.");
+        return;
+      }
+      setLastSummary({
+        tasksCompleted: (result as { tasksCompleted?: number }).tasksCompleted ?? 0,
+        notificationsSuppressed: (result as { notificationsSuppressed?: number }).notificationsSuppressed ?? 0,
+      });
+    });
   }
 
   return (
@@ -62,12 +127,13 @@ export function FocusClient({ employees }: { employees: Employee[] }) {
           {employees.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
+              {e.id === currentEmployeeId ? " (you)" : ""}
             </option>
           ))}
         </select>
         <p className="mt-1 text-xs text-ink-mute">
           Suggested: <span className="font-medium text-ink-soft">{WORKSPACE_COPY[suggested].label}</span>
-          {manualState ? " (overridden below)" : ""}
+          {manualState ? " (overridden below)" : ""} · {dueToday} task{dueToday === 1 ? "" : "s"} due today
         </p>
       </Card>
 
@@ -80,8 +146,9 @@ export function FocusClient({ employees }: { employees: Employee[] }) {
               key={s}
               type="button"
               aria-pressed={active}
-              onClick={() => setManualState(s)}
-              className={`rounded-xl border p-4 text-left transition-colors ${
+              disabled={isPending}
+              onClick={() => handleStart(s)}
+              className={`rounded-xl border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 active ? "" : "border-line bg-surface hover:bg-surface-2"
               }`}
               style={active ? { borderColor: accent, borderWidth: 2, background: `${accent}12` } : undefined}
@@ -96,45 +163,69 @@ export function FocusClient({ employees }: { employees: Employee[] }) {
       </div>
 
       <Card className="mb-8">
-        <div className="flex items-center gap-3">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold"
-            style={{ background: `${STATE_ACCENT[activeState]}18`, color: STATE_ACCENT[activeState] }}
-          >
-            {WORKSPACE_COPY[activeState].label.charAt(0)}
-          </span>
-          <div>
-            <div className="text-sm font-bold text-ink">{WORKSPACE_COPY[activeState].label} mode active</div>
-            <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-mute">
-              {WORKSPACE_COPY[activeState].bullets.map((b) => (
-                <li key={b}>{b}</li>
-              ))}
-            </ul>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold"
+              style={{ background: `${STATE_ACCENT[activeState]}18`, color: STATE_ACCENT[activeState] }}
+            >
+              {WORKSPACE_COPY[activeState].label.charAt(0)}
+            </span>
+            <div>
+              <div className="text-sm font-bold text-ink">{WORKSPACE_COPY[activeState].label} mode active</div>
+              <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-mute">
+                {WORKSPACE_COPY[activeState].bullets.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            </div>
           </div>
+          {isSelf ? (
+            openSession ? (
+              <Button variant="secondary" size="sm" onClick={handleEnd} disabled={isPending}>
+                {pendingMode === "ending" ? "Ending…" : "End session"}
+              </Button>
+            ) : (
+              <Chip tone="neutral">{pendingMode ? "Starting…" : "No session open"}</Chip>
+            )
+          ) : null}
         </div>
+        {error ? <p className="mt-3 text-xs text-risk-critical">{error}</p> : null}
+        {lastSummary ? (
+          <p className="mt-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
+            Session ended — {lastSummary.tasksCompleted} task{lastSummary.tasksCompleted === 1 ? "" : "s"} completed,{" "}
+            {lastSummary.notificationsSuppressed} notification{lastSummary.notificationsSuppressed === 1 ? "" : "s"}{" "}
+            held and now released to your inbox.
+          </p>
+        ) : null}
       </Card>
 
-      <h2 className="mb-3 text-sm font-semibold text-ink">Today&apos;s timeline</h2>
+      <h2 className="mb-3 text-sm font-semibold text-ink">Today&apos;s timeline — real clocked time</h2>
       <Card>
-        <div className="flex h-8 gap-0.5 overflow-hidden rounded-lg">
-          {FOCUS_TIMELINE.map((block, i) => (
-            <div
-              key={i}
-              title={`${block.start}–${block.end} · ${block.label}`}
-              className="flex-1"
-              style={{ background: TIMELINE_COLOR[block.kind] }}
-            />
-          ))}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
-          {(["meeting", "deep_work", "gap", "high_stress"] as TimelineKind[]).map((kind) => (
-            <div key={kind} className="flex items-center gap-1.5">
-              <Chip tone={TIMELINE_TONE[kind]} className="capitalize">
-                {kind.replace("_", " ")}
-              </Chip>
+        {timeline.length === 0 ? (
+          <p className="text-sm text-ink-mute">No clock-in recorded yet today.</p>
+        ) : (
+          <>
+            <div className="flex h-8 gap-0.5 overflow-hidden rounded-lg">
+              {timeline.map((block, i) => (
+                <div
+                  key={i}
+                  title={`${fmtMinutes(block.startMin)}–${fmtMinutes(block.endMin)} · ${BLOCK_LABEL[block.kind]}`}
+                  className="flex-1"
+                  style={{ background: BLOCK_COLOR[block.kind], flexGrow: block.endMin - block.startMin }}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+              {(["worked", "break", "gap"] as FocusBlock["kind"][]).map((kind) => (
+                <div key={kind} className="flex items-center gap-1.5 text-xs text-ink-mute">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BLOCK_COLOR[kind] }} />
+                  {BLOCK_LABEL[kind]}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );

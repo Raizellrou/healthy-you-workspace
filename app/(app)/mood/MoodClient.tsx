@@ -6,7 +6,7 @@ import { Icon } from "@/components/icons/Icon";
 import { Axolotl } from "@/components/mood/Axolotl";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { MOODS } from "@/lib/constants";
-import { submitMoodCheckin } from "./actions";
+import { submitMoodCheckin, updateMoodDetails } from "./actions";
 
 export interface TeamAggregate {
   avgMood: number | null;
@@ -15,26 +15,46 @@ export interface TeamAggregate {
   checkinCountLastWeek: number;
 }
 
+export interface OrgTrendPoint {
+  day: string;
+  avgMood: number | null;
+  checkinCount: number;
+}
+
 export function MoodClient({
   initialPicked,
+  initialEnergy,
+  initialNote,
+  streak,
   teamAggregates,
   orgAvgToday,
   orgAvgLastWeek,
   totalCheckinsToday,
   headcount,
+  orgTrend,
 }: {
   initialPicked: 1 | 2 | 3 | 4 | 5 | null;
+  initialEnergy: number | null;
+  initialNote: string;
+  streak: number;
   teamAggregates: Record<string, TeamAggregate>;
   orgAvgToday: number | null;
   orgAvgLastWeek: number | null;
   totalCheckinsToday: number;
   headcount: number;
+  orgTrend: OrgTrendPoint[];
 }) {
   const [picked, setPicked] = useState<1 | 2 | 3 | 4 | 5 | null>(initialPicked);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const pickedMood = picked ? MOODS[picked - 1] : null;
   const orgDelta = orgAvgToday !== null && orgAvgLastWeek !== null ? orgAvgToday - orgAvgLastWeek : null;
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [energy, setEnergy] = useState<number | null>(initialEnergy);
+  const [detailsNote, setDetailsNote] = useState(initialNote);
+  const [detailsSaved, setDetailsSaved] = useState(initialEnergy !== null || initialNote.length > 0);
+  const [detailsPending, startDetailsTransition] = useTransition();
 
   function handlePick(value: 1 | 2 | 3 | 4 | 5) {
     setError(null);
@@ -47,6 +67,18 @@ export function MoodClient({
       }
     });
   }
+
+  function handleSaveDetails() {
+    startDetailsTransition(async () => {
+      const result = await updateMoodDetails({ energy, note: detailsNote || null });
+      if (result.ok) {
+        setDetailsSaved(true);
+        setDetailsOpen(false);
+      }
+    });
+  }
+
+  const trendValues = orgTrend.map((p) => p.avgMood ?? 0);
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -90,6 +122,11 @@ export function MoodClient({
               <div className="text-sm font-medium text-ink-mute">
                 You checked in as <span className="text-ink">{pickedMood.label}</span>
               </div>
+              {streak > 1 ? (
+                <div className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-soft">
+                  🔥 {streak}-day streak
+                </div>
+              ) : null}
               <blockquote className="mt-2 text-lg font-medium text-ink">“{pickedMood.quote}”</blockquote>
               <p className="mt-1 text-sm text-ink-mute">— {pickedMood.attribution}</p>
               {pickedMood.kicker ? (
@@ -99,6 +136,66 @@ export function MoodClient({
                 That&apos;s today&apos;s check-in — see you back here tomorrow.
               </p>
             </div>
+
+            {detailsSaved && !detailsOpen ? (
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(true)}
+                className="text-xs font-medium text-brand-ink underline-offset-2 hover:underline"
+              >
+                Edit energy / note
+              </button>
+            ) : !detailsOpen ? (
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(true)}
+                className="text-xs font-medium text-ink-mute underline-offset-2 hover:underline"
+              >
+                + Add energy level or a note (optional)
+              </button>
+            ) : null}
+
+            {detailsOpen ? (
+              <div className="w-full rounded-lg border border-line bg-surface-2 p-3 text-left">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">Energy level</div>
+                <div className="mb-3 flex gap-1.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      aria-pressed={energy === n}
+                      onClick={() => setEnergy(energy === n ? null : n)}
+                      className={`h-8 w-8 rounded-lg border text-xs font-semibold transition-colors ${
+                        energy === n ? "border-brand bg-brand-soft text-brand-ink" : "border-line bg-surface text-ink-mute"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={detailsNote}
+                  onChange={(e) => setDetailsNote(e.target.value)}
+                  rows={2}
+                  maxLength={2000}
+                  placeholder="Anything you want to note (optional)…"
+                  className="w-full resize-none rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <button type="button" onClick={() => setDetailsOpen(false)} className="text-xs text-ink-mute">
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveDetails}
+                    disabled={detailsPending}
+                    className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {detailsPending ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </Card>
@@ -120,6 +217,16 @@ export function MoodClient({
           <div className="mt-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
             Based on {totalCheckinsToday} of {headcount} responses today · Aggregates only
           </div>
+        </Card>
+
+        <Card>
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-mute">30-day org trend</div>
+          {trendValues.some((v) => v > 0) ? (
+            <Sparkline values={trendValues} stroke="#FFB5C5" filled width={272} height={48} />
+          ) : (
+            <p className="text-xs text-ink-mute">Not enough org-wide check-ins yet — each day needs 3+ to show.</p>
+          )}
+          <p className="mt-1 text-[10px] text-ink-mute">Days with fewer than 3 check-ins are excluded, never shown as zero.</p>
         </Card>
 
         <div>
