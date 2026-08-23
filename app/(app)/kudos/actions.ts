@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId } from "@/lib/supabase/queries";
+import { getCurrentPerson } from "@/lib/supabase/people";
+import { findCoffeeSlot } from "@/lib/supabase/meetings";
+import { enqueue } from "@/lib/notify";
+import { fmtDate, fmtMinutes } from "@/lib/date";
 import { ok, fail, validated, withEmployee, describeDbError, type ActionResult } from "@/lib/action-result";
 
 export interface SubmitKudosResult {
@@ -105,4 +109,52 @@ export async function decideConcern(input: unknown): Promise<ActionResult> {
       return ok();
     })
   );
+}
+
+/**
+ * Proposes a virtual coffee at the first slot both people are actually
+ * free, using the calendar 0022 introduced.
+ *
+ * `coffee_chats` has existed since 0016 with no reader — that migration
+ * skipped scheduling explicitly, noting there was no calendar to find a
+ * mutual gap in. lib/meetings.ts#findMutualGap is that missing piece:
+ * merging both calendars and taking the gaps yields shared availability
+ * directly, inside the overlap of both people's working hours so a coffee
+ * never lands outside somebody's day.
+ */
+export async function proposeCoffee(inviteeId: string): Promise<ActionResult> {
+  return withEmployee(async () => {
+    const me = await getCurrentPerson();
+    if (!me) return fail("Not signed in.");
+    if (inviteeId === me.id) return fail("You can't schedule a coffee with yourself.");
+
+    const slot = await findCoffeeSlot(me, inviteeId);
+    if (!slot) {
+      return fail("No 30-minute window you're both free in over the next week.");
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase.from("coffee_chats").insert({
+      proposer_id: me.id,
+      invitee_id: inviteeId,
+      scheduled_at: slot.startsAt,
+      status: "proposed",
+    });
+    if (error) {
+      return fail(describeDbError(error));
+    }
+
+    await enqueue({
+      recipientId: inviteeId,
+      actorId: me.id,
+      kind: "coffee_proposed",
+      title: `${me.name} suggested a coffee on ${fmtDate(slot.date)} at ${fmtMinutes(slot.startMin)}`,
+      body: "Picked because it's the first 30 minutes you're both free.",
+      link: "/kudos",
+      entityType: "coffee_chat",
+    });
+
+    revalidatePath("/kudos");
+    return ok({ scheduledAt: slot.startsAt, date: slot.date, startMin: slot.startMin });
+  });
 }

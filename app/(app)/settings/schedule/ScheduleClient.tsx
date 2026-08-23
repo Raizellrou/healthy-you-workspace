@@ -30,6 +30,7 @@ const KIND_LABELS: Record<NotificationKind, string> = {
   task_reassigned: "Workload rebalance moves",
   intervention_suggested: "Burnout interventions",
   one_on_one_scheduled: "1:1 invitations",
+  coffee_proposed: "Coffee invitations",
 };
 
 function parseTimeValue(value: string): number {

@@ -98,6 +98,45 @@ export function addDays(date: IsoDate, days: number): IsoDate {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Minutes `timeZone` is ahead of UTC on `date` (negative when behind).
+ *
+ * The inverse of the rest of this module: everything else converts an
+ * instant into local terms, this converts local terms back into an instant.
+ * Needed wherever a wall-clock time in someone's own day has to be stored
+ * in a `timestamptz` — writing `${date}T09:00:00Z` to mean "9am local" is
+ * off by the whole offset, which in Asia/Manila lands the event at 5pm.
+ */
+export function tzOffsetMinutes(date: IsoDate, timeZone: string = DEFAULT_TIMEZONE): number {
+  const instant = new Date(`${date}T12:00:00Z`);
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+      .formatToParts(instant)
+      .map((p) => [p.type, p.value])
+  );
+  const asIfUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour) % 24,
+    Number(parts.minute)
+  );
+  return (asIfUtc - instant.getTime()) / 60_000;
+}
+
+/** The instant at which local wall-clock `minutes` occurs on `date` in `timeZone`. */
+export function instantFromLocal(date: IsoDate, minutes: number, timeZone: string = DEFAULT_TIMEZONE): Date {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + (minutes - tzOffsetMinutes(date, timeZone)) * 60_000);
+}
+
 /** Whole days from `from` to `to`. Negative when `to` is earlier. */
 export function daysBetween(from: IsoDate, to: IsoDate): number {
   const a = Date.parse(`${from}T12:00:00Z`);

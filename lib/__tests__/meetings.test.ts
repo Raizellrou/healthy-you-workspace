@@ -6,6 +6,7 @@ import {
   summarisePerson,
   auditSeries,
   noMeetingDayOptions,
+  findMutualGap,
   DEEP_WORK_MINUTES,
 } from "@/lib/meetings";
 
@@ -155,6 +156,76 @@ describe("auditSeries", () => {
 
   it("returns an empty list for no series", () => {
     expect(auditSeries([])).toEqual([]);
+  });
+});
+
+describe("findMutualGap", () => {
+  const day = (date: string, blocksA: { startMin: number; endMin: number }[], blocksB: typeof blocksA) => ({
+    date,
+    blocksA,
+    blocksB,
+  });
+
+  it("finds a slot free for both, not just for one", () => {
+    // A is busy all morning, B all afternoon; only 13:00-14:00 suits both.
+    const found = findMutualGap(
+      [day("2026-08-24", [{ startMin: 540, endMin: 780 }], [{ startMin: 840, endMin: 1080 }])],
+      DAY_START,
+      DAY_END,
+      30
+    );
+    expect(found).toEqual({ date: "2026-08-24", startMin: 780, endMin: 810 });
+  });
+
+  it("rolls to the next day when today has no window big enough", () => {
+    const found = findMutualGap(
+      [
+        day("2026-08-24", [{ startMin: 0, endMin: 1440 }], []),
+        day("2026-08-25", [{ startMin: 540, endMin: 600 }], []),
+      ],
+      DAY_START,
+      DAY_END,
+      60
+    );
+    expect(found?.date).toBe("2026-08-25");
+    expect(found?.startMin).toBe(600);
+  });
+
+  it("respects a minimum length rather than offering a useless sliver", () => {
+    // Only a 20-minute window exists; asking for 30 must find nothing.
+    const blocks = [
+      { startMin: 540, endMin: 700 },
+      { startMin: 720, endMin: 1080 },
+    ];
+    expect(findMutualGap([day("2026-08-24", blocks, [])], DAY_START, DAY_END, 30)).toBeNull();
+    expect(findMutualGap([day("2026-08-24", blocks, [])], DAY_START, DAY_END, 20)).not.toBeNull();
+  });
+
+  it("never proposes a time earlier than the floor on the first day", () => {
+    const found = findMutualGap([day("2026-08-24", [], [])], DAY_START, DAY_END, 30, 900);
+    expect(found?.startMin).toBe(900);
+  });
+
+  it("applies the floor only to the first day", () => {
+    const found = findMutualGap(
+      [day("2026-08-24", [{ startMin: 0, endMin: 1440 }], []), day("2026-08-25", [], [])],
+      DAY_START,
+      DAY_END,
+      30,
+      1000
+    );
+    expect(found).toEqual({ date: "2026-08-25", startMin: DAY_START, endMin: DAY_START + 30 });
+  });
+
+  it("returns null when both calendars are solid across every day offered", () => {
+    const full = [{ startMin: 0, endMin: 1440 }];
+    expect(
+      findMutualGap([day("2026-08-24", full, []), day("2026-08-25", [], full)], DAY_START, DAY_END, 30)
+    ).toBeNull();
+  });
+
+  it("returns null for no days at all", () => {
+    expect(findMutualGap([], DAY_START, DAY_END, 30)).toBeNull();
   });
 });
 

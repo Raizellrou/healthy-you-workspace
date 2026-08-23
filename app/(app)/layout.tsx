@@ -8,6 +8,8 @@ import { getCurrentPerson } from "@/lib/supabase/people";
 import { getOpenSession } from "@/lib/supabase/attendance";
 import { getUnreadCount } from "@/lib/supabase/notifications";
 import { getUiPreferences, DEFAULT_UI_PREFERENCES } from "@/lib/supabase/preferences";
+import { getCurrentMeeting } from "@/lib/supabase/meetings";
+import { getRespectCalendar } from "@/lib/supabase/nudge-prefs";
 import { computeBurnout } from "@/lib/burnout";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -18,13 +20,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
   const hasCritical = employees.some((e) => computeBurnout(e).band === "critical");
   const currentEmployee = employees.find((e) => e.id === currentEmployeeId) ?? null;
-  const [openSession, unreadInboxCount, uiPreferences] = currentEmployeeId
+  const [openSession, unreadInboxCount, uiPreferences, currentMeeting, respectCalendar] = currentEmployeeId
     ? await Promise.all([
         getOpenSession(currentEmployeeId),
         getUnreadCount(currentEmployeeId),
         getUiPreferences(currentEmployeeId),
+        getCurrentMeeting(currentEmployeeId),
+        getRespectCalendar(currentEmployeeId),
       ])
-    : [null, 0, DEFAULT_UI_PREFERENCES];
+    : [null, 0, DEFAULT_UI_PREFERENCES, null, true];
 
   return (
     <NudgeProvider>
@@ -38,7 +42,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
         <main className="flex-1 min-w-0">{children}</main>
       </div>
-      <ToastDock />
+      <ToastDock
+        inMeeting={Boolean(respectCalendar && currentMeeting)}
+        meetingTitle={currentMeeting?.title ?? null}
+      />
       <NudgePersistence />
       <UiPreferencesApplier prefs={uiPreferences} />
     </NudgeProvider>

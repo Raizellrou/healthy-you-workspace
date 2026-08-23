@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Chip } from "@/components/ui/Chip";
 import { KUDOS_PROGRESS_CAP, KUDOS_TAGS } from "@/lib/constants";
-import { submitKudos, rotateBuddies, raiseConcern, decideConcern } from "./actions";
+import { submitKudos, rotateBuddies, raiseConcern, decideConcern, proposeCoffee } from "./actions";
 import type { Employee } from "@/types/employee";
 
 const TAG_ACCENT: Record<string, string> = {
@@ -59,6 +59,8 @@ export function KudosClient({
   concerns: ConcernItem[];
   employees: Employee[];
 }) {
+  const [coffeeResult, setCoffeeResult] = useState<string | null>(null);
+  const [coffeePending, setCoffeePending] = useState(false);
   const [tag, setTag] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [flagToHR, setFlagToHR] = useState(false);
@@ -145,16 +147,43 @@ export function KudosClient({
     });
   }
 
+  function handleCoffee() {
+    if (!buddy) return;
+    setCoffeeResult(null);
+    setCoffeePending(true);
+    startTransition(async () => {
+      const result = await proposeCoffee(buddy.id);
+      setCoffeePending(false);
+      setCoffeeResult(
+        result.ok
+          ? `Coffee proposed — they've been sent the invite. Picked as the first 30 minutes you're both free.`
+          : (result.error ?? "Couldn't find a slot.")
+      );
+    });
+  }
+
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
       <Card>
         {buddy ? (
-          <div className="flex items-center gap-3 border-b border-line pb-4">
-            <Avatar name={buddy.name} color={buddy.avatarColor} size={40} />
-            <div>
-              <div className="text-sm font-semibold text-ink">You &amp; {buddy.name}</div>
-              <div className="text-xs text-ink-mute">This week&apos;s buddy pairing</div>
+          <div className="border-b border-line pb-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Avatar name={buddy.name} color={buddy.avatarColor} size={40} />
+                <div>
+                  <div className="text-sm font-semibold text-ink">You &amp; {buddy.name}</div>
+                  <div className="text-xs text-ink-mute">This week&apos;s buddy pairing</div>
+                </div>
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleCoffee} disabled={coffeePending}>
+                {coffeePending ? "Finding a time…" : "Find a coffee slot"}
+              </Button>
             </div>
+            {coffeeResult ? (
+              <p className="mt-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
+                {coffeeResult}
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="border-b border-line pb-4 text-sm text-ink-soft">

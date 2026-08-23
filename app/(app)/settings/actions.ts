@@ -56,6 +56,7 @@ const UpdatePrefsSchema = z.object({
       "task_reassigned",
       "intervention_suggested",
       "one_on_one_scheduled",
+      "coffee_proposed",
     ])
   ),
 });

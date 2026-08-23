@@ -28,6 +28,7 @@
  */
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { instantFromLocal } from "../lib/date";
 
 config({ path: ".env.local" });
 
@@ -63,40 +64,13 @@ function isoWeekday(date: string): number {
   return day === 0 ? 7 : day;
 }
 
-/**
- * Minutes that `timeZone` is ahead of UTC on `date`.
- *
- * Needed because every block below is positioned in the employee's LOCAL
- * working day (their work_schedules start_min/end_min), but the column is
- * timestamptz. Writing `${date}T09:00:00Z` for "9am local" was a real bug:
- * in Asia/Manila that instant is 5pm, so nearly every generated meeting
- * landed outside the 09:00-18:00 window the reader clips to, and the
- * meeting-load screen reported a fraction of the true hours.
- */
-function offsetMinutes(date: string, timeZone: string): number {
-  const instant = new Date(`${date}T12:00:00Z`);
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hour12: false,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-      .formatToParts(instant)
-      .map((p) => [p.type, p.value])
-  );
-  const asIfUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour) % 24,
-    Number(parts.minute)
-  );
-  return (asIfUtc - instant.getTime()) / 60000;
-}
+// Local-wall-clock -> instant conversion lives in lib/date.ts, shared with
+// lib/supabase/meetings.ts. Every block below is positioned in the
+// employee's LOCAL working day but stored in a timestamptz column, and
+// writing `${date}T09:00:00Z` to mean "9am local" was a real bug: in
+// Asia/Manila that instant is 5pm, so nearly every generated meeting fell
+// outside the window the reader clips to and the meeting-load screen
+// reported a fraction of the true hours.
 
 function addDays(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
@@ -189,9 +163,7 @@ function buildDay(
 
   // `min` is minutes into the employee's LOCAL day; convert to the matching
   // UTC instant before writing to a timestamptz column.
-  const offset = offsetMinutes(date, timezone);
-  const midnightUtc = Date.parse(`${date}T00:00:00Z`);
-  const toIso = (min: number) => new Date(midnightUtc + (min - offset) * 60000).toISOString();
+  const toIso = (min: number) => instantFromLocal(date, min, timezone).toISOString();
 
   const fits = (start: number, duration: number) =>
     start >= dayStartMin &&

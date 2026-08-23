@@ -178,6 +178,42 @@ export function auditSeries(series: SeriesInput[]): SeriesAudit[] {
     .map((s, i) => ({ ...s, rank: i + 1 }));
 }
 
+/**
+ * The first window both people are free, scanning day by day.
+ *
+ * This is what `coffee_chats` was waiting on. 0016 shipped the table but
+ * skipped scheduling with the note "no calendar" — intersecting two
+ * people's free time is not something a daily meeting *total* can answer,
+ * only their actual blocks can.
+ *
+ * Intersecting free time is just `freeBlocks` run over the union of both
+ * calendars: any moment either person is busy is a moment they cannot
+ * meet, so merging both sets of meetings and taking the gaps gives the
+ * mutual availability directly.
+ */
+export function findMutualGap(
+  days: { date: IsoDate; blocksA: MeetingBlock[]; blocksB: MeetingBlock[] }[],
+  dayStartMin: number,
+  dayEndMin: number,
+  minMinutes: number,
+  /** Skip anything earlier than this on the first day, so a suggestion is
+   *  never in the past. Pass null to consider the whole day. */
+  earliestOnFirstDay: number | null = null
+): { date: IsoDate; startMin: number; endMin: number } | null {
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i];
+    const floor = i === 0 && earliestOnFirstDay !== null ? Math.max(dayStartMin, earliestOnFirstDay) : dayStartMin;
+    if (dayEndMin - floor < minMinutes) continue;
+
+    const gaps = freeBlocks([...day.blocksA, ...day.blocksB], floor, dayEndMin);
+    const usable = gaps.find((g) => g.minutes >= minMinutes);
+    if (usable) {
+      return { date: day.date, startMin: usable.startMin, endMin: usable.startMin + minMinutes };
+    }
+  }
+  return null;
+}
+
 export interface NoMeetingDayOption {
   /** ISO weekday, 1 = Monday. */
   weekday: number;

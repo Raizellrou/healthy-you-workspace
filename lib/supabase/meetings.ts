@@ -6,13 +6,22 @@ import {
   summarisePerson,
   auditSeries,
   noMeetingDayOptions,
+  findMutualGap,
   DEEP_WORK_MINUTES,
   type MeetingBlock,
   type PersonMeetingLoad,
   type SeriesAudit,
   type NoMeetingDayOption,
 } from "@/lib/meetings";
-import { addDays, dateInTz, minutesSinceMidnightInTz, isoWeekday, todayInTz, type IsoDate } from "@/lib/date";
+import {
+  addDays,
+  dateInTz,
+  instantFromLocal,
+  minutesSinceMidnightInTz,
+  isoWeekday,
+  todayInTz,
+  type IsoDate,
+} from "@/lib/date";
 import type { Person } from "@/types/person";
 
 /**
@@ -53,6 +62,119 @@ interface EventRow {
   ends_at: string;
   series_id: string | null;
   attendee_count: number;
+}
+
+export interface CurrentMeeting {
+  title: string;
+  endsAt: string;
+}
+
+/**
+ * The meeting happening right now for this person, if any. Drives nudge
+ * suppression — 0016 shipped `respect_focus` but explicitly skipped
+ * `respect_calendar` because there was no calendar to respect; 0022 and
+ * 0024 close that.
+ */
+export async function getCurrentMeeting(employeeId: string): Promise<CurrentMeeting | null> {
+  const supabase = await createClient();
+  const nowIso = new Date().toISOString();
+  const { data } = await supabase
+    .from("calendar_events")
+    .select("title, ends_at")
+    .eq("employee_id", employeeId)
+    .lte("starts_at", nowIso)
+    .gt("ends_at", nowIso)
+    .order("ends_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return { title: data.title as string, endsAt: data.ends_at as string };
+}
+
+export interface MutualSlot {
+  date: IsoDate;
+  startMin: number;
+  endMin: number;
+  startsAt: string;
+}
+
+/**
+ * First window in the next `daysAhead` working days where neither person
+ * has anything booked. Both calendars are read in the *invitee's* working
+ * hours intersected with the proposer's, so a suggestion is inside both
+ * people's days rather than only the caller's.
+ */
+export async function findCoffeeSlot(
+  proposer: Person,
+  inviteeId: string,
+  daysAhead = 5,
+  minMinutes = 30
+): Promise<MutualSlot | null> {
+  const supabase = await createClient();
+  const today = todayInTz(proposer.timezone);
+  const lastDay = addDays(today, daysAhead);
+
+  // Both calendars come through get_busy_intervals (0025), never a direct
+  // table read. calendar_events SELECT is can_see_employee(), so a plain
+  // employee reading the table directly sees only their own meetings — the
+  // invitee's calendar silently came back empty and this proposed times
+  // they were already booked in. The RPC returns start/end instants only,
+  // never titles, so scheduling never needs to see what the other person
+  // is actually doing.
+  const fromTs = `${today}T00:00:00Z`;
+  const toTs = `${addDays(lastDay, 1)}T00:00:00Z`;
+  const [mineRes, theirsRes, schedulesRes] = await Promise.all([
+    supabase.rpc("get_busy_intervals", { target_employee_id: proposer.id, from_ts: fromTs, to_ts: toTs }),
+    supabase.rpc("get_busy_intervals", { target_employee_id: inviteeId, from_ts: fromTs, to_ts: toTs }),
+    supabase
+      .from("work_schedules")
+      .select("employee_id, start_min, end_min")
+      .in("employee_id", [proposer.id, inviteeId])
+      .returns<{ employee_id: string; start_min: number; end_min: number }[]>(),
+  ]);
+
+  type Interval = { starts_at: string; ends_at: string };
+  const events: { employee_id: string; starts_at: string; ends_at: string }[] = [
+    ...((mineRes.data ?? []) as Interval[]).map((r) => ({ ...r, employee_id: proposer.id })),
+    ...((theirsRes.data ?? []) as Interval[]).map((r) => ({ ...r, employee_id: inviteeId })),
+  ];
+
+  const schedules = schedulesRes.data ?? [];
+  const mine = schedules.find((s) => s.employee_id === proposer.id);
+  const theirs = schedules.find((s) => s.employee_id === inviteeId);
+  // The overlap of both working days — meeting outside either person's
+  // hours is exactly what the boundary pillar exists to prevent.
+  const dayStart = Math.max(mine?.start_min ?? 540, theirs?.start_min ?? 540);
+  const dayEnd = Math.min(mine?.end_min ?? 1080, theirs?.end_min ?? 1080);
+
+  const byDay = new Map<IsoDate, { blocksA: MeetingBlock[]; blocksB: MeetingBlock[] }>();
+  for (const row of events) {
+    const start = new Date(row.starts_at);
+    const localDate = dateInTz(start, proposer.timezone);
+    const startMin = minutesSinceMidnightInTz(start, proposer.timezone);
+    const rawEnd = minutesSinceMidnightInTz(new Date(row.ends_at), proposer.timezone);
+    const endMin = rawEnd > startMin ? rawEnd : 1440;
+    const entry = byDay.get(localDate) ?? { blocksA: [], blocksB: [] };
+    (row.employee_id === proposer.id ? entry.blocksA : entry.blocksB).push({ startMin, endMin });
+    byDay.set(localDate, entry);
+  }
+
+  const days = [];
+  for (let i = 0; i <= daysAhead; i++) {
+    const date = addDays(today, i);
+    if (isoWeekday(date) > 5) continue;
+    const entry = byDay.get(date) ?? { blocksA: [], blocksB: [] };
+    days.push({ date, ...entry });
+  }
+
+  const nowMin = minutesSinceMidnightInTz(new Date(), proposer.timezone);
+  const slot = findMutualGap(days, dayStart, dayEnd, minMinutes, days[0]?.date === today ? nowMin : null);
+  if (!slot) return null;
+
+  return {
+    ...slot,
+    startsAt: instantFromLocal(slot.date, slot.startMin, proposer.timezone).toISOString(),
+  };
 }
 
 export async function getMeetingInsights(me: Person): Promise<MeetingInsights> {
