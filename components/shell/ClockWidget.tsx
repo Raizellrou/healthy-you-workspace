@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { clockIn, clockOut, startBreak, endBreak } from "@/app/(app)/attendance/actions";
 import { fmtDuration } from "@/lib/date";
+import { sessionGuardrails } from "@/lib/guardrails";
 import type { OpenSession } from "@/lib/supabase/attendance";
 
 /**
@@ -64,6 +65,20 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
   const onBreak = Boolean(openSession.openBreak);
   const elapsedMs = now - new Date(onBreak ? openSession.openBreak!.breakStart : openSession.clockIn).getTime();
 
+  // Guardrails render only after `mounted`, for the same reason the elapsed
+  // clock does: they are derived from Date.now() and would otherwise
+  // disagree with the server-rendered markup.
+  const sinceClockIn = now - new Date(openSession.clockIn).getTime();
+  const sinceBreak = now - new Date(openSession.lastBreakEnd ?? openSession.clockIn).getTime();
+  const guardrails = mounted
+    ? sessionGuardrails({
+        elapsedMinutes: Math.floor(sinceClockIn / 60_000),
+        minutesSinceBreak: Math.floor(sinceBreak / 60_000),
+        hasTakenBreak: openSession.breakCount > 0,
+        onBreakNow: onBreak,
+      })
+    : [];
+
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-line px-3 py-2">
       <div className="flex items-center justify-between text-xs">
@@ -105,6 +120,14 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
           Clock out
         </button>
       </div>
+      {guardrails.map((g) => (
+        <p
+          key={g.kind}
+          className={`text-[11px] leading-snug ${g.tone === "warn" ? "text-risk-high" : "text-ink-mute"}`}
+        >
+          {g.message}
+        </p>
+      ))}
       {error && <p className="text-xs text-risk-critical">{error}</p>}
     </div>
   );

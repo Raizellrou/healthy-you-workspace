@@ -35,6 +35,11 @@ export interface OpenSession {
   clockIn: string;
   workDate: IsoDate;
   openBreak: { id: string; breakStart: string; kind: string } | null;
+  /** End of the most recent completed break in this session, if any. The
+   *  P8 guardrails measure "time since your last break" from here, falling
+   *  back to clock-in when nothing has been taken yet. */
+  lastBreakEnd: string | null;
+  breakCount: number;
 }
 
 /** The signed-in person's currently open session (if any) and, if they're
@@ -52,12 +57,17 @@ export async function getOpenSession(employeeId: string): Promise<OpenSession | 
   }
   if (!session) return null;
 
-  const { data: openBreak } = await supabase
+  const { data: breaks } = await supabase
     .from("session_breaks")
-    .select("id, break_start, kind")
+    .select("id, break_start, break_end, kind")
     .eq("session_id", session.id)
-    .is("break_end", null)
-    .maybeSingle();
+    .order("break_start", { ascending: true })
+    .returns<{ id: string; break_start: string; break_end: string | null; kind: string }[]>();
+
+  const rows = breaks ?? [];
+  const openBreak = rows.find((b) => b.break_end === null) ?? null;
+  const completed = rows.filter((b) => b.break_end !== null);
+  const lastBreakEnd = completed.length > 0 ? completed[completed.length - 1].break_end : null;
 
   return {
     id: session.id,
@@ -65,6 +75,8 @@ export async function getOpenSession(employeeId: string): Promise<OpenSession | 
     clockIn: session.clock_in,
     workDate: session.work_date,
     openBreak: openBreak ? { id: openBreak.id, breakStart: openBreak.break_start, kind: openBreak.kind } : null,
+    lastBreakEnd,
+    breakCount: completed.length,
   };
 }
 

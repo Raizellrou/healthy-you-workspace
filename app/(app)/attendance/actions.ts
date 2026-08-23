@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/supabase/people";
-import { todayInTz } from "@/lib/date";
+import { todayInTz, fmtDate } from "@/lib/date";
+import { ptoBlockMessage } from "@/lib/guardrails";
 import { enqueue } from "@/lib/notify";
 import { ok, fail, validated, withEmployee, describeDbError, type ActionResult } from "@/lib/action-result";
 
@@ -24,14 +25,34 @@ const DUPLICATE_BREAK_ERROR: Record<string, string> = {
 
 /** `work_date` uses the employee's own timezone (P2), not the server's —
  *  a 00:30 clock-out belongs to the previous calendar day for the person
- *  who worked it, regardless of where the app server runs. */
+ *  who worked it, regardless of where the app server runs.
+ *
+ *  P8 guardrail: refuses outright while the person is on approved leave.
+ *  This is the only hard block in the guardrail set — clocking in on
+ *  approved PTO means either the leave record or the clock-in is wrong,
+ *  and both are worth stopping to check. Everything else in
+ *  lib/guardrails.ts is advisory by design. */
 export async function clockIn(): Promise<ActionResult> {
   return withEmployee(async (employeeId) => {
     const person = await getCurrentPerson();
     const supabase = await createClient();
+    const today = todayInTz(person?.timezone);
+
+    const { data: leave } = await supabase
+      .from("pto_requests")
+      .select("end_date")
+      .eq("employee_id", employeeId)
+      .eq("status", "approved")
+      .lte("start_date", today)
+      .gte("end_date", today)
+      .maybeSingle();
+    if (leave) {
+      return fail(ptoBlockMessage(fmtDate(leave.end_date as string)));
+    }
+
     const { error } = await supabase.from("work_sessions").insert({
       employee_id: employeeId,
-      work_date: todayInTz(person?.timezone),
+      work_date: today,
     });
     if (error) {
       return fail(describeDbError(error, DUPLICATE_SESSION_ERROR));

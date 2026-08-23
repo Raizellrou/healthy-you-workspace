@@ -38,6 +38,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // notification made the record unreachable — the exact hidden-file
       // outcome 0021_one_on_ones.sql is written to prevent.
       { href: "/one-on-ones", label: "1:1s", icon: "check" },
+      { href: "/meetings", label: "Meeting load", icon: "calendar", roles: ["manager", "hr"] },
       { href: "/teams", label: "Teams", icon: "users", roles: ["hr"] },
     ],
   },
@@ -47,6 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/burnout", label: "Predict", icon: "activity", accent: "#6F49A6" },
       { href: "/nudges", label: "Energize", icon: "bell", accent: "#C7A2E5" },
       { href: "/mood", label: "Tune In", icon: "smile", accent: "#FFB5C5" },
+      { href: "/pulse", label: "Pulse", icon: "activity", accent: "#FFB5C5" },
       { href: "/boundary", label: "Anchor", icon: "shield", accent: "#A8D592" },
       { href: "/kudos", label: "Link", icon: "coffee", accent: "#87D380" },
       { href: "/focus", label: "Adapt", icon: "focus", accent: "#87CEEB" },
@@ -61,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/settings/schedule", label: "Schedule", icon: "settings" },
       { href: "/settings/appearance", label: "Appearance", icon: "eye" },
+      { href: "/transparency", label: "Your data", icon: "lock" },
     ],
   },
 ];
