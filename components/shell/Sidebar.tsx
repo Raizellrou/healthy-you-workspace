@@ -30,7 +30,7 @@ export function Sidebar({
   const pathname = usePathname();
   const { unseenCount } = useNudges();
   const role = appRole ?? "employee";
-  const navGroups = navGroupsFor(role === "hr");
+  const navGroups = navGroupsFor(role);
 
   // Two badge sources: the nudge simulation's own client-side count
   // (lib/nudge-context.tsx, unchanged) and the P6 inbox's unread count,

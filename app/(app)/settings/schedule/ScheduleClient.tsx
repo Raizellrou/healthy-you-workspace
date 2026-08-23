@@ -29,6 +29,7 @@ const KIND_LABELS: Record<NotificationKind, string> = {
   message_held: "Held boundary messages",
   task_reassigned: "Workload rebalance moves",
   intervention_suggested: "Burnout interventions",
+  one_on_one_scheduled: "1:1 invitations",
 };
 
 function parseTimeValue(value: string): number {

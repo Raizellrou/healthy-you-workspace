@@ -22,7 +22,8 @@ export type NotificationKind =
   | "due_soon"
   | "message_held"
   | "task_reassigned"
-  | "intervention_suggested";
+  | "intervention_suggested"
+  | "one_on_one_scheduled";
 
 /** A hold with no known release time (unlike quiet-hours) — released
  *  explicitly by app/(app)/focus/actions.ts#endFocusSession setting

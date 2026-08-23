@@ -1,12 +1,15 @@
 import type { IconName } from "@/components/icons/Icon";
+import type { AppRole } from "@/types/person";
 
 export interface NavItemDef {
   href: string;
   label: string;
   icon: IconName;
   accent?: string;
-  /** Hidden from the nav unless the signed-in person's app_role is "hr". */
-  hrOnly?: boolean;
+  /** Roles allowed to see this item. Omit for "everyone". This is nav
+   *  tidiness, not access control — every gated route checks its own role
+   *  and RLS enforces the data either way. */
+  roles?: AppRole[];
 }
 
 export interface NavGroup {
@@ -20,7 +23,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: "grid" },
       { href: "/inbox", label: "Inbox", icon: "inbox" },
-      { href: "/insights", label: "Insights", icon: "activity", hrOnly: true },
+      { href: "/insights", label: "Insights", icon: "activity", roles: ["hr"] },
     ],
   },
   {
@@ -29,7 +32,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/directory", label: "Directory", icon: "users" },
       { href: "/attendance", label: "Attendance", icon: "calendar" },
       { href: "/time-off", label: "Time Off", icon: "timer" },
-      { href: "/teams", label: "Teams", icon: "users", hrOnly: true },
+      // Deliberately unrestricted. A manager sees their team's agendas here;
+      // everyone else sees the 1:1 records written about them. Hiding the
+      // link from employees would mean that dismissing the scheduling
+      // notification made the record unreachable — the exact hidden-file
+      // outcome 0021_one_on_ones.sql is written to prevent.
+      { href: "/one-on-ones", label: "1:1s", icon: "check" },
+      { href: "/teams", label: "Teams", icon: "users", roles: ["hr"] },
     ],
   },
   {
@@ -60,10 +69,10 @@ export const NAV_GROUPS: NavGroup[] = [
 // checks) without the grouping/accent metadata.
 export const NAV_ITEMS: NavItemDef[] = NAV_GROUPS.flatMap((g) => g.items);
 
-/** Drops hrOnly items when the viewer isn't HR, and any group left empty. */
-export function navGroupsFor(isHr: boolean): NavGroup[] {
+/** Drops role-restricted items the viewer can't use, and any group left empty. */
+export function navGroupsFor(role: AppRole): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !item.hrOnly || isHr),
+    items: group.items.filter((item) => !item.roles || item.roles.includes(role)),
   })).filter((group) => group.items.length > 0);
 }
