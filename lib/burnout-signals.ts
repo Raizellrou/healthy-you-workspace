@@ -95,6 +95,74 @@ export function computeBurnoutV2(inputs: BurnoutInputs, extras: BurnoutV2Extras)
   return { ...base, compositeV2, bandV2: bandFor(compositeV2), taskLoad, overdue, recovery };
 }
 
+/** The `daily_activity`-derived half of an employee row — the fallback
+ *  source for anything real attendance data can't supply yet. */
+export interface BurnoutEmployeeSource {
+  meetingAvg: number;
+  available: number;
+  streakDays: number;
+  offHoursWeekly: number;
+  daysSincePto: number;
+  onPto: boolean;
+}
+
+/** Structural shape of lib/supabase/attendance.ts#AttendanceSignals, declared
+ *  here so this module keeps depending on nothing but the frozen scorer. */
+export interface BurnoutAttendanceSource {
+  streakDays: number;
+  avgNetHours: number;
+  lateClockOutCount: number;
+  noBreakDayCount: number;
+  weekendWorkDayCount: number;
+  daysSincePto: number;
+  onPto: boolean;
+}
+
+/** Structural shape of lib/supabase/tasks.ts#TaskBurnoutSignals. */
+export interface BurnoutTaskSource {
+  committedHours: number;
+  overdueTaskCount: number;
+}
+
+/**
+ * The whole real-signals-to-score pipeline in one call: adapt (Layer 1),
+ * assemble the extras, score (Layer 2). Both /burnout and /insights need
+ * exactly this, and having each page hand-assemble the same `toBurnoutInputs`
+ * argument list is how the two screens would silently drift apart — one
+ * gaining a signal the other doesn't, and nobody noticing because both
+ * still render a plausible number.
+ *
+ * Returns the inputs and extras alongside the scores because the what-if
+ * simulator (lib/whatif.ts) perturbs them and re-scores client-side.
+ */
+export function buildBurnoutV2(
+  employee: BurnoutEmployeeSource,
+  attendance: BurnoutAttendanceSource | undefined,
+  tasks: BurnoutTaskSource | undefined,
+  weeklyCapacityHours: number
+): { inputs: BurnoutInputs; extras: BurnoutV2Extras; scores: BurnoutV2Scores } {
+  const inputs = toBurnoutInputs({
+    meetingAvg: employee.meetingAvg,
+    fallbackAvailable: employee.available,
+    streakDays: attendance?.streakDays ?? employee.streakDays,
+    avgNetHours: attendance?.avgNetHours ?? 0,
+    offHoursWeekly: employee.offHoursWeekly + (attendance?.lateClockOutCount ?? 0),
+    daysSincePto: attendance?.daysSincePto ?? employee.daysSincePto,
+    onPto: attendance?.onPto ?? employee.onPto,
+  });
+
+  const extras: BurnoutV2Extras = {
+    committedHours: tasks?.committedHours ?? 0,
+    weeklyCapacityHours,
+    overdueTaskCount: tasks?.overdueTaskCount ?? 0,
+    noBreakDayCount: attendance?.noBreakDayCount ?? 0,
+    weekendWorkDayCount: attendance?.weekendWorkDayCount ?? 0,
+    avgNetHours: attendance?.avgNetHours ?? 0,
+  };
+
+  return { inputs, extras, scores: computeBurnoutV2(inputs, extras) };
+}
+
 type V2FactorKey = "taskLoad" | "overdue" | "recovery";
 const V2_FACTOR_LABEL: Record<V2FactorKey, string> = {
   taskLoad: "a heavy committed task load relative to capacity",

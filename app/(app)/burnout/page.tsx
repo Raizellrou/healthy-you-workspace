@@ -3,7 +3,7 @@ import { getEmployees, getBurnoutHistory } from "@/lib/supabase/queries";
 import { getCurrentPerson, getVisibleEmployees, getTeams } from "@/lib/supabase/people";
 import { getAttendanceSignals } from "@/lib/supabase/attendance";
 import { getTaskBurnoutSignals } from "@/lib/supabase/tasks";
-import { toBurnoutInputs, computeBurnoutV2, type BurnoutV2Extras, type BurnoutV2Scores } from "@/lib/burnout-signals";
+import { buildBurnoutV2, type BurnoutV2Extras, type BurnoutV2Scores } from "@/lib/burnout-signals";
 import { visibleTo, isHr, isManagerOf } from "@/lib/authz";
 import { todayInTz } from "@/lib/date";
 import { getInterventionsForEmployees, type Intervention } from "@/lib/supabase/interventions";
@@ -61,25 +61,7 @@ export default async function BurnoutPage() {
     const tasks = taskSignals.get(employee.id);
     const weeklyCapacityHours = capacityByEmployee.get(employee.id) ?? 40;
 
-    const inputs = toBurnoutInputs({
-      meetingAvg: employee.meetingAvg,
-      fallbackAvailable: employee.available,
-      streakDays: attendance?.streakDays ?? employee.streakDays,
-      avgNetHours: attendance?.avgNetHours ?? 0,
-      offHoursWeekly: employee.offHoursWeekly + (attendance?.lateClockOutCount ?? 0),
-      daysSincePto: attendance?.daysSincePto ?? employee.daysSincePto,
-      onPto: attendance?.onPto ?? employee.onPto,
-    });
-
-    const extras: BurnoutV2Extras = {
-      committedHours: tasks?.committedHours ?? 0,
-      weeklyCapacityHours,
-      overdueTaskCount: tasks?.overdueTaskCount ?? 0,
-      noBreakDayCount: attendance?.noBreakDayCount ?? 0,
-      weekendWorkDayCount: attendance?.weekendWorkDayCount ?? 0,
-      avgNetHours: attendance?.avgNetHours ?? 0,
-    };
-    const scores = computeBurnoutV2(inputs, extras);
+    const { inputs, extras, scores } = buildBurnoutV2(employee, attendance, tasks, weeklyCapacityHours);
 
     const person = visiblePeople.find((p) => p.id === employee.id);
     const canManage = !!currentPerson && !!person && (isHr(currentPerson.appRole) || isManagerOf(currentPerson, person, teams));
