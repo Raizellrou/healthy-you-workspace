@@ -44,7 +44,8 @@ export default async function MeetingsPage() {
         </p>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Same exemption as /insights: KPI tiles stay in a row. */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4" data-keep-columns>
         <Stat icon="calendar" label="Meeting hours" value={totalMeetingHours} sub={`across ${windowDays} days`} />
         <Stat
           icon="focus"

@@ -171,6 +171,41 @@ html {
   --risk-critical: #a8635c;
 }
 
+/* Density. One variable rather than a second set of Tailwind classes on
+   every surface: components/ui/Card.tsx is on nearly every screen, so
+   driving its padding from here changes the felt density of the whole app
+   from a single declaration. Compact is ~30% tighter, not a different
+   layout — the aim is fitting more on screen, not rebuilding the design. */
+:root {
+  --card-pad: 1.25rem;
+}
+
+:root[data-density="compact"] {
+  --card-pad: 0.875rem;
+}
+
+/* In @layer components specifically so Tailwind's utilities, which are
+   emitted in a later layer, still win: `<Card className="p-0">` is used
+   for full-bleed content and must keep overriding this. */
+@layer components {
+  .card-surface {
+    padding: var(--card-pad);
+  }
+}
+
+/* Single column. Collapses the two-pane and multi-card content layouts to
+   one column at every width — the "no side-by-side, one thing at a time"
+   reading that makes this an accessibility preference rather than a
+   cosmetic one.
+
+   Scoped to `main` so the sidebar is untouched, and grids that opt out
+   with data-keep-columns stay as they are: those are rows of four small
+   KPI tiles, and stacking them would add a screenful of scrolling above
+   the actual content while making nothing easier to read. */
+:root[data-single-column="true"] main .grid:not([data-keep-columns]) {
+  grid-template-columns: 1fr !important;
+}
+
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;

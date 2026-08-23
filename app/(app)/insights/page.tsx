@@ -71,7 +71,10 @@ export default async function InsightsPage() {
         description={`Organisation-wide wellbeing and capacity signals over the last ${windowDays} days. Visible to HR only — every number here is an aggregate of data the pillars already collect.`}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Exempt from the single-column preference: four small KPI tiles
+          stacked would push the actual content a screen down without
+          making anything easier to read. */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4" data-keep-columns>
         <Stat
           icon="activity"
           label="Avg burnout"
