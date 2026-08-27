@@ -19,7 +19,7 @@ function employee(overrides: Partial<Employee> = {}): Employee {
     name: "Test Person",
     team: "Engineering",
     role: "Engineer",
-    email: "test@axionhr.test",
+    email: "test@petal.test",
     worked: true,
     meeting: 0,
     offHours: 0,

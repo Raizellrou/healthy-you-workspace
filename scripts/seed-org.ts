@@ -24,7 +24,7 @@ import { computeBurnout, bandFor } from "../lib/burnout";
 
 config({ path: ".env.local" });
 
-const DEMO_PASSWORD = "axionhr-demo-2026";
+const DEMO_PASSWORD = "petal-demo-2026";
 const HISTORY_DAYS = 90;
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -53,7 +53,7 @@ interface RosterEntry {
 }
 
 function emailFor(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ".") + "@axionhr.test";
+  return name.trim().toLowerCase().replace(/\s+/g, ".") + "@petal.test";
 }
 
 // 24 people, 6 per team. The first 8 are the original lib/employees.ts cast;

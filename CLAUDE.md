@@ -8,7 +8,7 @@ Claude Code. The items below are genuinely specific to working in this repo
 through Claude Code and don't belong in AGENTS.md.
 
 - **Preview the app through the browser tool, not a manually-run dev
-  server.** `.claude/launch.json` defines the `axionhr-dev` configuration
+  server.** `.claude/launch.json` defines the `petal-dev` configuration
   (`npm run dev`, port 3000, `autoPort: true`). Use the preview/browser
   tools against that configuration to verify UI changes — click through the
   actual feature, don't just read the code and assume it renders correctly.

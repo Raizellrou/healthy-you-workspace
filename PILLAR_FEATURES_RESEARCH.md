@@ -1,6 +1,6 @@
 ﻿# Wellbeing Pillar Enhancement Features from Productivity Systems
 
-Based on analysis of AxionHR's 7 pillars and existing codebase, here are features from Asana, Linear, Notion, ClickUp, Monday.com, and Jira that could enhance wellbeing outcomes.
+Based on analysis of Petal's 7 pillars and existing codebase, here are features from Asana, Linear, Notion, ClickUp, Monday.com, and Jira that could enhance wellbeing outcomes.
 
 ---
 

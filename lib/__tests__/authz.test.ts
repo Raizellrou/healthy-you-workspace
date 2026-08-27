@@ -6,7 +6,7 @@ function person(overrides: Partial<Person> = {}): Person {
   return {
     id: "p1",
     name: "Test Person",
-    email: "test@axionhr.test",
+    email: "test@petal.test",
     team: "Engineering",
     teamId: "team-eng",
     appRole: "employee",

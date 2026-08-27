@@ -15,11 +15,11 @@ caught by reading the bundled docs above, not from training data. Check
 `node_modules/next/dist/docs/` before assuming any Next.js API you remember
 still works the same way here.
 
-# AxionHR — Agent Instructions
+# Petal — Agent Instructions
 
 ## Project Purpose
 
-AxionHR is an HR wellbeing dashboard for a ~24-person organization. It provides
+Petal is an HR wellbeing dashboard for a ~24-person organization. It provides
 several pillar screens — Dashboard, Directory, Attendance, Burnout Risk Analytics,
 Nudges, Track the Mood, Right to Disconnect, Kudos, and Focus Mode, with more
 being added over time. `lib/pillars.ts`'s `PILLARS` array is the authoritative,
@@ -207,7 +207,7 @@ npm run seed     # Creates 24 demo auth users (requires .env.local)
   to a specific row you just created (by id — never an unscoped filter),
   delete anything inserted purely for verification immediately after, and
   never run an unscoped `UPDATE`/`DELETE` against a real table.
-- Demo password `axionhr-demo-2026` is exploration-only. This auth setup
+- Demo password `petal-demo-2026` is exploration-only. This auth setup
   (no email confirmation, no password reset flow, one shared password)
   must never front a real public deployment — do not use or promote it to
   production.

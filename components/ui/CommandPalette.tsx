@@ -22,7 +22,7 @@ const CANDIDATE_LIMIT = 24;
 /** Fired by anything that wants to open the palette without owning its
  *  state — e.g. MobileTabBar's search button. The palette is the single
  *  owner of open/closed; nothing else should hold a mirror of it. */
-export const OPEN_PALETTE_EVENT = "axionhr:open-command-palette";
+export const OPEN_PALETTE_EVENT = "petal:open-command-palette";
 
 /**
  * Global ⌘K / Ctrl+K search, built on the same native-`<dialog>` mechanics
