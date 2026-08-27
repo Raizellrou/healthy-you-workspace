@@ -1,5 +1,7 @@
 import { PageHead } from "@/components/ui/PageHead";
 import { Card } from "@/components/ui/Card";
+import { StatTile } from "@/components/ui/StatTile";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Avatar } from "@/components/ui/Avatar";
 import { TimesheetBars } from "@/components/attendance/TimesheetBars";
 import { getCurrentEmployeeId } from "@/lib/supabase/queries";
@@ -8,6 +10,17 @@ import { getVisibleOpenSessions, getAttendanceSignals, getMyRollups } from "@/li
 import { visibleTo, scopeLabel } from "@/lib/authz";
 import { todayInTz, fmtDuration } from "@/lib/date";
 import type { Person } from "@/types/person";
+
+/** Clocked-in/off reuse the --risk-* and --brand tokens they're literally
+ *  equal to. PTO has no existing token — a real color, not one of the
+ *  four risk states — so it stays a local constant here rather than a
+ *  one-off global var only this page would ever reach for. */
+const ATTENDANCE_COLOR = {
+  clockedIn: "var(--success)",
+  pto: "#c7a2e5",
+  off: "var(--risk-high)",
+  total: "var(--brand)",
+} as const;
 
 function PersonGroup({
   label,
@@ -26,8 +39,8 @@ function PersonGroup({
         <span className="h-2 w-2 rounded-full" style={{ background: color }} />
         <span className="text-sm font-bold text-ink">{label}</span>
         <span
-          className="ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-bold"
-          style={{ background: `${color}20`, color }}
+          className="ml-auto rounded-full px-2.5 py-0.5 text-xs font-bold"
+          style={{ background: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
         >
           {people.length}
         </span>
@@ -106,28 +119,16 @@ export default async function AttendancePage() {
       />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: "Clocked in now", value: working.length, color: "#87D380" },
-          { label: "On PTO", value: onPto.length, color: "#C7A2E5" },
-          { label: "Off today", value: off.length, color: "#FF8C73" },
-          { label: "Total", value: visiblePeople.length, color: "#6F49A6" },
-        ].map((t) => (
-          <Card key={t.label}>
-            <div className="mb-1.5 flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />
-              <span className="text-[11px] font-medium uppercase tracking-wide text-ink-mute">{t.label}</span>
-            </div>
-            <span className="text-2xl font-bold" style={{ color: t.color }}>
-              {t.value}
-            </span>
-          </Card>
-        ))}
+        <StatTile label="Clocked in now" value={working.length} color={ATTENDANCE_COLOR.clockedIn} dot />
+        <StatTile label="On PTO" value={onPto.length} color={ATTENDANCE_COLOR.pto} dot />
+        <StatTile label="Off today" value={off.length} color={ATTENDANCE_COLOR.off} dot />
+        <StatTile label="Total" value={visiblePeople.length} color={ATTENDANCE_COLOR.total} dot />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PersonGroup
           label="Clocked in now"
-          color="#87D380"
+          color={ATTENDANCE_COLOR.clockedIn}
           people={working}
           meta={(p) => {
             const session = openByEmployeeId.get(p.id);
@@ -136,18 +137,16 @@ export default async function AttendancePage() {
             return session.onBreak ? "On break" : fmtDuration(elapsed);
           }}
         />
-        <PersonGroup label="On PTO today" color="#C7A2E5" people={onPto} />
+        <PersonGroup label="On PTO today" color={ATTENDANCE_COLOR.pto} people={onPto} />
       </div>
 
       <div className="mt-4">
-        <PersonGroup label="Off today" color="#FF8C73" people={off} />
+        <PersonGroup label="Off today" color={ATTENDANCE_COLOR.off} people={off} />
       </div>
 
       {currentEmployeeId ? (
         <Card className="mt-6">
-          <div className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-mute">
-            Your last 14 workdays
-          </div>
+          <SectionLabel className="mb-3">Your last 14 workdays</SectionLabel>
           <TimesheetBars rollups={myRollups} />
         </Card>
       ) : null}

@@ -5,15 +5,8 @@ import { computeBurnoutV2, dominantDriverV2, type BurnoutV2Extras } from "@/lib/
 import { applyWhatIf, EMPTY_ADJUSTMENTS, type WhatIfAdjustments } from "@/lib/whatif";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { BandChip } from "@/components/burnout/BandChip";
+import { BAND_COLOR } from "@/lib/burnout-bands";
 import type { BurnoutInputs } from "@/lib/burnout";
-import type { BurnoutBand } from "@/types/burnout";
-
-const BAND_COLOR: Record<BurnoutBand, string> = {
-  low: "#87D380",
-  medium: "#6F49A6",
-  high: "#FFD700",
-  critical: "#FF8C73",
-};
 
 interface SliderSpec {
   key: keyof WhatIfAdjustments;
@@ -63,9 +56,9 @@ export function WhatIfSimulator({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <div className="text-[11px] font-bold uppercase tracking-wide text-ink-mute">What if?</div>
+        <div className="text-xs font-bold uppercase tracking-wide text-ink-mute">What if?</div>
         {isActive ? (
-          <button type="button" onClick={reset} className="text-[11px] font-medium text-brand hover:underline">
+          <button type="button" onClick={reset} className="text-xs font-medium text-brand hover:underline">
             Reset
           </button>
         ) : null}
@@ -101,7 +94,7 @@ export function WhatIfSimulator({
           <div className="flex items-center gap-2.5">
             <div className="text-center">
               <div className="font-mono text-lg font-bold text-ink-mute">{Math.round(baseline.compositeV2)}</div>
-              <div className="text-[10px] text-ink-mute">Current</div>
+              <div className="text-xs text-ink-mute">Current</div>
             </div>
             <span aria-hidden="true" className="text-ink-mute">
               →
@@ -110,10 +103,13 @@ export function WhatIfSimulator({
               <div className="font-mono text-lg font-bold" style={{ color: BAND_COLOR[projected.bandV2] }}>
                 {Math.round(projected.compositeV2)}
               </div>
-              <div className="text-[10px] text-ink-mute">Projected</div>
+              <div className="text-xs text-ink-mute">Projected</div>
             </div>
             {isActive ? (
-              <span className="font-mono text-xs font-semibold" style={{ color: delta < 0 ? "#87D380" : "#FF8C73" }}>
+              <span
+                className="font-mono text-xs font-semibold"
+                style={{ color: delta < 0 ? "var(--risk-low)" : "var(--risk-high)" }}
+              >
                 {delta > 0 ? "+" : ""}
                 {delta}
               </span>

@@ -1,4 +1,5 @@
 import type { BurnoutBand } from "@/types/burnout";
+import { BAND_COLOR, BAND_INK, BAND_LABEL, BAND_ORDER } from "@/lib/burnout-bands";
 
 /**
  * Band composition for one team as a single proportional bar.
@@ -12,44 +13,19 @@ import type { BurnoutBand } from "@/types/burnout";
  * touching segments never read as one.
  */
 
-const BAND_COLOR: Record<BurnoutBand, string> = {
-  low: "#87D380",
-  medium: "#6F49A6",
-  high: "#FFD700",
-  critical: "#FF8C73",
-};
-
-const BAND_LABEL: Record<BurnoutBand, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical",
-};
-
-/** Ink that stays legible on each band fill — the yellow and green steps are
- *  far too light for white text, the purple far too dark for black. */
-const BAND_INK: Record<BurnoutBand, string> = {
-  low: "#1d3b1a",
-  medium: "#ffffff",
-  high: "#4a3c00",
-  critical: "#5c1f12",
-};
-
-const ORDER: BurnoutBand[] = ["low", "medium", "high", "critical"];
-
 export function BandBar({ counts, total }: { counts: Record<BurnoutBand, number>; total: number }) {
-  const summary = ORDER.filter((b) => counts[b] > 0)
+  const summary = BAND_ORDER.filter((b) => counts[b] > 0)
     .map((b) => `${counts[b]} ${BAND_LABEL[b].toLowerCase()}`)
     .join(", ");
 
   return (
     <div>
       <div className="flex h-7 gap-0.5 overflow-hidden rounded-lg" role="img" aria-label={summary || "No members"}>
-        {ORDER.map((b) =>
+        {BAND_ORDER.map((b) =>
           counts[b] > 0 ? (
             <div
               key={b}
-              className="flex items-center justify-center rounded-sm text-[11px] font-bold tabular-nums"
+              className="flex items-center justify-center rounded-sm text-xs font-bold tabular-nums"
               style={{
                 flexGrow: counts[b],
                 flexBasis: 0,
@@ -72,7 +48,7 @@ export function BandBar({ counts, total }: { counts: Record<BurnoutBand, number>
 export function BandLegend({ totals }: { totals: Record<BurnoutBand, number> }) {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-      {ORDER.map((b) => (
+      {BAND_ORDER.map((b) => (
         <div key={b} className="flex items-center gap-1.5 text-xs text-ink-mute">
           <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BAND_COLOR[b] }} aria-hidden="true" />
           {BAND_LABEL[b]}

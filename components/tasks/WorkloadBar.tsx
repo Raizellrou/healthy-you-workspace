@@ -21,7 +21,7 @@ export function WorkloadBar({
   openCount: number;
   overdueCount: number;
 }) {
-  const barColor = loadPct > 100 ? "#FF8C73" : loadPct >= 75 ? "#FFD700" : "#87D380";
+  const barColor = loadPct > 100 ? "var(--risk-high)" : loadPct >= 75 ? "var(--risk-medium)" : "var(--risk-low)";
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-xs">

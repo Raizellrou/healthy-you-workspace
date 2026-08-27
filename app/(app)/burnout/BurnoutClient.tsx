@@ -3,29 +3,20 @@
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { BandChip } from "@/components/burnout/BandChip";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { WhatIfSimulator } from "@/components/burnout/WhatIfSimulator";
 import { InterventionPanel } from "@/components/burnout/InterventionPanel";
+import { BAND_COLOR, BAND_LABEL, BAND_ORDER as BANDS } from "@/lib/burnout-bands";
 import type { BurnoutHistoryPoint } from "@/lib/supabase/queries";
 import type { BurnoutRow } from "./page";
 import type { BurnoutBand, SortDirection, SortKey } from "@/types/burnout";
 
-const BAND_ORDER: Record<BurnoutBand, number> = { low: 0, medium: 1, high: 2, critical: 3 };
-const BANDS: BurnoutBand[] = ["low", "medium", "high", "critical"];
-const BAND_LABEL: Record<BurnoutBand, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical",
-};
-const BAND_COLOR: Record<BurnoutBand, string> = {
-  low: "#87D380",
-  medium: "#6F49A6",
-  high: "#FFD700",
-  critical: "#FF8C73",
-};
+/** Numeric rank for sorting the table by band, distinct from BANDS'
+ *  display order (both happen to be low→critical here). */
+const BAND_RANK: Record<BurnoutBand, number> = { low: 0, medium: 1, high: 2, critical: 3 };
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Employee" },
@@ -44,7 +35,7 @@ function compareRows(a: BurnoutRow, b: BurnoutRow, key: SortKey): number {
     case "composite":
       return a.scores.compositeV2 - b.scores.compositeV2;
     case "band":
-      return BAND_ORDER[a.scores.bandV2] - BAND_ORDER[b.scores.bandV2];
+      return BAND_RANK[a.scores.bandV2] - BAND_RANK[b.scores.bandV2];
     case "streakDays":
       return a.employee.streakDays - b.employee.streakDays;
     case "meeting":
@@ -134,7 +125,7 @@ export function BurnoutClient({
             }`}
           >
             {BAND_LABEL[band]}
-            <span className="ml-1.5 font-mono text-[10px] text-ink-mute">{bandCounts[band]}</span>
+            <span className="ml-1.5 font-mono text-xs text-ink-mute">{bandCounts[band]}</span>
           </button>
         ))}
       </div>
@@ -162,7 +153,7 @@ export function BurnoutClient({
                       className="inline-flex cursor-pointer items-center gap-1 select-none"
                     >
                       {col.label}
-                      <span aria-hidden="true" className="text-[10px] text-ink-mute">
+                      <span aria-hidden="true" className="text-xs text-ink-mute">
                         {active ? (sortDir === "asc" ? "▲" : "▼") : ""}
                       </span>
                     </span>
@@ -199,7 +190,7 @@ export function BurnoutClient({
                   </td>
                   <td className="px-4 py-3 font-mono font-semibold" style={{ color: BAND_COLOR[row.scores.bandV2] }}>
                     {Math.round(row.scores.compositeV2)}
-                    <span className="ml-1.5 font-sans text-[10px] font-normal text-ink-mute">
+                    <span className="ml-1.5 font-sans text-xs font-normal text-ink-mute">
                       base {Math.round(row.scores.composite)}
                     </span>
                   </td>
@@ -234,7 +225,7 @@ export function BurnoutClient({
               <div className="text-2xl font-bold" style={{ color: BAND_COLOR[selected.scores.bandV2] }}>
                 {Math.round(selected.scores.compositeV2)}
               </div>
-              <div className="text-[10px] text-ink-mute">Task-aware score</div>
+              <div className="text-xs text-ink-mute">Task-aware score</div>
             </div>
             <div className="text-center text-xs text-ink-mute">
               base {Math.round(selected.scores.composite)}
@@ -244,9 +235,7 @@ export function BurnoutClient({
           </div>
 
           <div className="mt-5">
-            <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
-              14-day trend (base composite)
-            </div>
+            <SectionLabel className="mb-2">14-day trend (base composite)</SectionLabel>
             <Sparkline
               values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
               stroke={BAND_COLOR[selected.scores.bandV2]}
@@ -257,9 +246,7 @@ export function BurnoutClient({
           </div>
 
           <div className="mt-5">
-            <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
-              Base factors
-            </div>
+            <SectionLabel className="mb-2.5">Base factors</SectionLabel>
             <div className="space-y-3">
               <ScoreBar label="Work streak" value={selected.scores.streak} />
               <ScoreBar label="Meeting load" value={selected.scores.meeting} />
@@ -269,9 +256,7 @@ export function BurnoutClient({
           </div>
 
           <div className="mt-5">
-            <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
-              Task-engine factors
-            </div>
+            <SectionLabel className="mb-2.5">Task-engine factors</SectionLabel>
             <div className="space-y-3">
               <ScoreBar label="Committed task load" value={selected.scores.taskLoad} />
               <ScoreBar label="Overdue tasks" value={selected.scores.overdue} />

@@ -50,7 +50,9 @@ export function TaskCard({ task }: { task: Task }) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <PriorityChip priority={task.priority} />
-          {task.subtask_count ? (
+          {/* A completed task has no progress left to report — showing
+              "0/3" beside a struck-through title reads as a contradiction. */}
+          {task.subtask_count && !task.done ? (
             <span className="text-xs text-ink-mute">
               {task.subtask_done_count}/{task.subtask_count}
             </span>

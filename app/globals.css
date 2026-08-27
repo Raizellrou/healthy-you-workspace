@@ -16,7 +16,10 @@
   --surface-2: #eef3f8;
   --ink: #0f172a;
   --ink-soft: #47566b;
-  --ink-mute: #93a1b4;
+  /* #67788d on #ffffff = 4.52:1 (AA). The prior #93a1b4 measured 2.63:1 —
+     this token carries datelines, stat sub-labels, and timestamps app-wide,
+     so it must clear body-text contrast on its own. */
+  --ink-mute: #67788d;
   --line: #e1e8f0;
   --line-strong: #ccd7e3;
 
@@ -26,6 +29,23 @@
   --warning-bg: #fbedd6;
 
   --sidebar-w: 216px;
+
+  /* Per-pillar accent colors as tokens, not inline hex, so the
+     muted-palette and high-contrast ui_preferences (below) can reach them
+     like every other color. Naming is by route, not by the retired
+     Predict/Energize/Tune In/Anchor/Link/Adapt vocabulary.
+     Nudges/mood/boundary/kudos/focus are darkened from the pastel hexes
+     the dashboard used inline (#C7A2E5, #FFB5C5, #A8D592/#87D380, #87CEEB)
+     — those measured under 2:1 against --surface and were only ever used
+     as icon tints, never as text; these versions clear 4.5:1 so the same
+     token is safe to use for the metric text next to each icon too. */
+  --pillar-burnout: #6f49a6;
+  --pillar-nudges: #7c5aa8;
+  --pillar-mood: #c23d6b;
+  --pillar-boundary: #4d8a3f;
+  --pillar-kudos: #2f8a56;
+  --pillar-tasks: #4e3378;
+  --pillar-focus: #2b7a94;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,7 +60,8 @@
     --surface-2: #17233780;
     --ink: #eef3f9;
     --ink-soft: #9fb0c4;
-    --ink-mute: #5c6c82;
+    /* #74869e on #111a29 = 4.69:1 (AA). The prior #5c6c82 measured 3.26:1. */
+    --ink-mute: #74869e;
     --line: #223046;
     --line-strong: #2c3c56;
 
@@ -48,6 +69,14 @@
     --success-bg: rgba(74, 222, 128, 0.12);
     --warning: #f0b862;
     --warning-bg: rgba(240, 184, 98, 0.12);
+
+    --pillar-burnout: #b79bdb;
+    --pillar-nudges: #c7a2e5;
+    --pillar-mood: #e57ba3;
+    --pillar-boundary: #90c97e;
+    --pillar-kudos: #7fce9a;
+    --pillar-tasks: #a894cf;
+    --pillar-focus: #7ec8dd;
   }
 }
 
@@ -62,7 +91,7 @@
   --surface-2: #17233780;
   --ink: #eef3f9;
   --ink-soft: #9fb0c4;
-  --ink-mute: #5c6c82;
+  --ink-mute: #74869e;
   --line: #223046;
   --line-strong: #2c3c56;
 
@@ -70,6 +99,14 @@
   --success-bg: rgba(74, 222, 128, 0.12);
   --warning: #f0b862;
   --warning-bg: rgba(240, 184, 98, 0.12);
+
+  --pillar-burnout: #b79bdb;
+  --pillar-nudges: #c7a2e5;
+  --pillar-mood: #e57ba3;
+  --pillar-boundary: #90c97e;
+  --pillar-kudos: #7fce9a;
+  --pillar-tasks: #a894cf;
+  --pillar-focus: #7ec8dd;
 }
 
 :root[data-theme="light"] {
@@ -83,7 +120,7 @@
   --surface-2: #eef3f8;
   --ink: #0f172a;
   --ink-soft: #47566b;
-  --ink-mute: #93a1b4;
+  --ink-mute: #67788d;
   --line: #e1e8f0;
   --line-strong: #ccd7e3;
 
@@ -91,6 +128,14 @@
   --success-bg: #e6f4ea;
   --warning: #b45309;
   --warning-bg: #fbedd6;
+
+  --pillar-burnout: #6f49a6;
+  --pillar-nudges: #7c5aa8;
+  --pillar-mood: #c23d6b;
+  --pillar-boundary: #4d8a3f;
+  --pillar-kudos: #2f8a56;
+  --pillar-tasks: #4e3378;
+  --pillar-focus: #2b7a94;
 }
 
 @theme inline {
@@ -117,6 +162,14 @@
   --color-success-bg: var(--success-bg);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
+
+  --color-pillar-burnout: var(--pillar-burnout);
+  --color-pillar-nudges: var(--pillar-nudges);
+  --color-pillar-mood: var(--pillar-mood);
+  --color-pillar-boundary: var(--pillar-boundary);
+  --color-pillar-kudos: var(--pillar-kudos);
+  --color-pillar-tasks: var(--pillar-tasks);
+  --color-pillar-focus: var(--pillar-focus);
 
   --font-sans: var(--font-inter);
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
@@ -169,7 +222,20 @@ html {
   --risk-medium: #b8ab7a;
   --risk-high: #b98f7c;
   --risk-critical: #a8635c;
+
+  --pillar-burnout: #8a8fa3;
+  --pillar-nudges: #9a95ab;
+  --pillar-mood: #ab8a95;
+  --pillar-boundary: #8aa38a;
+  --pillar-kudos: #7fa38f;
+  --pillar-tasks: #6b7086;
+  --pillar-focus: #7f9aa3;
 }
+
+/* Type floor: Tailwind's built-in text-xs (12px) is the smallest size any
+   real content — labels, timestamps, captions — should render at.
+   text-[10px]/text-[11px] arbitrary values render under that floor and
+   should be replaced with text-xs, not added to. */
 
 /* Density. One variable rather than a second set of Tailwind classes on
    every surface: components/ui/Card.tsx is on nearly every screen, so
@@ -209,6 +275,45 @@ html {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+/* Scrollbars, themed rather than left as OS chrome. Windows draws a wide,
+   always-visible, system-colored bar that reads as a seam between panes —
+   this makes it a thin token-colored track instead. Deliberately not
+   hidden: a scroll region with no visible affordance gives no position
+   feedback and no drag target, which is a usability regression, not a
+   design win. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The transparent border plus background-clip is what produces a slim
+   thumb with breathing room, the way an overlay scrollbar looks, without
+   giving up the ability to grab it. */
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-mute);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ---- shared keyframes ---- */

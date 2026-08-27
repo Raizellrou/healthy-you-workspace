@@ -1,29 +1,25 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { PageHead } from "@/components/ui/PageHead";
 import { Card } from "@/components/ui/Card";
+import { StatTile } from "@/components/ui/StatTile";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/icons/Icon";
 import { BandChip } from "@/components/burnout/BandChip";
 import { Sparkline } from "@/components/burnout/Sparkline";
-import { Logo } from "@/components/shell/Logo";
-import { NudgeStat } from "./NudgeStat";
+import { ClockWidget } from "@/components/shell/ClockWidget";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentEmployeeId, getEmployees, getBurnoutHistory, getWorkload } from "@/lib/supabase/queries";
+import { getCurrentEmployeeId, getEmployees, getBurnoutHistory, getMyTasks } from "@/lib/supabase/queries";
+import { getCurrentPerson, getVisibleEmployees, getTeams } from "@/lib/supabase/people";
+import { getOpenSession } from "@/lib/supabase/attendance";
+import { getMyOneOnOnes } from "@/lib/supabase/one-on-ones";
+import { getCurrentMeeting } from "@/lib/supabase/meetings";
+import { hasCheckedInMoodToday, getNeedsYou } from "@/lib/supabase/needs-you";
 import { computeBurnout } from "@/lib/burnout";
-import { PILLARS } from "@/lib/pillars";
+import { visibleTo } from "@/lib/authz";
+import { todayInTz, fmtDate } from "@/lib/date";
 import type { BurnoutBand } from "@/types/burnout";
-
-const PILLAR_ACCENT: Record<string, string> = {
-  "/burnout": "#6F49A6",
-  "/nudges": "#C7A2E5",
-  "/mood": "#FFB5C5",
-  "/boundary": "#A8D592",
-  "/kudos": "#87D380",
-  "/tasks": "#4E3378",
-  "/focus": "#87CEEB",
-};
 
 const RISK_STROKE: Record<BurnoutBand, string> = {
   low: "var(--risk-low)",
@@ -51,34 +47,12 @@ function relativeTime(iso: string): string {
   return `${Math.round(hrs / 24)} d ago`;
 }
 
-function StatTile({
-  label,
-  value,
-  sub,
-  color,
-}: {
-  label: string;
-  value: ReactNode;
-  sub?: string;
-  color: string;
-}) {
-  return (
-    <Card>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-mute">{label}</div>
-      <div className="mt-2 text-2xl font-bold" style={{ color }}>
-        {value}
-      </div>
-      {sub ? <div className="mt-1 text-xs text-ink-mute">{sub}</div> : null}
-    </Card>
-  );
-}
-
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const [employees, currentEmployeeId, workload] = await Promise.all([
+  const [employees, currentEmployeeId, me] = await Promise.all([
     getEmployees(),
     getCurrentEmployeeId(),
-    getWorkload(),
+    getCurrentPerson(),
   ]);
 
   const headcount = employees.length;
@@ -95,10 +69,38 @@ export default async function DashboardPage() {
     day: "numeric",
   })} · ${teamCount} teams · ${headcount} people`;
 
+  // --- Zone A/B/C: personal signals. Nothing here fires if `me` is null
+  // (session mid-migration, no matching employee row) — same defensive
+  // posture app/(app)/layout.tsx already takes for openSession et al.
+  const [openSession, myTasks, myOneOnOnes, currentMeeting, moodCheckedIn, needsYou] = me
+    ? await Promise.all([
+        getOpenSession(me.id),
+        getMyTasks(me.id),
+        getMyOneOnOnes(),
+        getCurrentMeeting(me.id),
+        hasCheckedInMoodToday(me.id, me.timezone),
+        getNeedsYou(me),
+      ])
+    : [null, [], [], null, false, []];
+
+  const today = me ? todayInTz(me.timezone) : null;
+  const dueToday = myTasks.filter((t) => t.due_date === today);
+  const topTasks = myTasks.slice(0, 5);
+  const nextOneOnOne = myOneOnOnes
+    .filter((m) => m.status === "scheduled" && today && m.scheduledFor >= today)
+    .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor))[0];
+
   // Burnout — computeBurnout is pure, so this needs zero extra queries beyond
-  // the employee stats getEmployees() already returns.
+  // the employee stats getEmployees() already returns. The flagged list is
+  // then narrowed through the same visibleTo() model app/(app)/burnout/page.tsx
+  // enforces (self/team/org by role) — the dashboard was showing this
+  // org-wide to every viewer regardless of role before this phase, which
+  // disagreed with what /burnout itself is willing to show the same person.
   const burnoutRows = employees.map((e) => ({ employee: e, scores: computeBurnout(e) }));
-  const flagged = burnoutRows.filter((r) => r.scores.band === "high" || r.scores.band === "critical");
+  const allFlagged = burnoutRows.filter((r) => r.scores.band === "high" || r.scores.band === "critical");
+  const [visiblePeople, teams] = me ? await Promise.all([getVisibleEmployees(), getTeams()]) : [[], []];
+  const visibleIds = me ? new Set(visibleTo(me, visiblePeople, (p) => p, teams).map((p) => p.id)) : null;
+  const flagged = visibleIds ? allFlagged.filter((r) => visibleIds.has(r.employee.id)) : allFlagged;
   const criticalCount = flagged.filter((r) => r.scores.band === "critical").length;
   const highCount = flagged.filter((r) => r.scores.band === "high").length;
   const topFlagged = [...flagged].sort((a, b) => b.scores.composite - a.scores.composite).slice(0, 3);
@@ -108,9 +110,9 @@ export default async function DashboardPage() {
 
   // Mood — org-wide numbers only exist through the anti-de-anonymization RPC;
   // direct row reads are scoped to your own check-ins by RLS.
-  const teams = Array.from(new Set(employees.map((e) => e.team)));
+  const teamNames = Array.from(new Set(employees.map((e) => e.team)));
   const teamAggregates = await Promise.all(
-    teams.map(async (team) => {
+    teamNames.map(async (team) => {
       const { data } = await supabase.rpc("get_team_mood_aggregate", { target_team: team });
       const row = data?.[0] ?? { avg_mood: null, checkin_count: 0 };
       return { avgMood: row.avg_mood as number | null, checkinCount: row.checkin_count as number };
@@ -144,62 +146,11 @@ export default async function DashboardPage() {
     createdAt: row.created_at as string,
   }));
 
-  // Boundary/Anchor — RLS scopes reads to your own sent events (a personal
-  // log by design, not an org-wide feed), so this is "your" count, not the org's.
-  let myHeldThisWeek = 0;
-  if (currentEmployeeId) {
-    const { count } = await supabase
-      .from("boundary_events")
-      .select("id", { count: "exact", head: true })
-      .eq("sender_id", currentEmployeeId)
-      .eq("action", "delayed")
-      .gte("sent_at", weekStart);
-    myHeldThisWeek = count ?? 0;
-  }
-
-  const openTasksTotal = workload.reduce((s, w) => s + w.open_count, 0);
-  const highPriorityOpen = workload.reduce((s, w) => s + w.high_count, 0);
-
-  function pillarMetric(href: string): ReactNode {
-    switch (href) {
-      case "/burnout":
-        return `${flagged.length} flagged`;
-      case "/nudges":
-        return <NudgeStat />;
-      case "/mood":
-        return `${totalCheckinsToday} / ${headcount} checked in`;
-      case "/boundary":
-        return myHeldThisWeek > 0 ? `${myHeldThisWeek} of yours held this wk` : "None of yours held this week";
-      case "/kudos":
-        return `${kudosWeekCount ?? 0} kudos this week`;
-      case "/tasks":
-        return `${openTasksTotal} open task${openTasksTotal === 1 ? "" : "s"}`;
-      case "/focus":
-        return `${flagged.length} stretched today`;
-      default:
-        return null;
-    }
-  }
-
-  function pillarNeedsAttention(href: string): boolean {
-    switch (href) {
-      case "/burnout":
-      case "/focus":
-        return flagged.length > 0;
-      case "/mood":
-        return totalCheckinsToday < Math.ceil(headcount / 2);
-      case "/tasks":
-        return highPriorityOpen > 0;
-      default:
-        return false;
-    }
-  }
-
   const todayRows = [
-    { label: "Mood check-ins", value: totalCheckinsToday, max: headcount, color: "#FFB5C5" },
-    { label: "Attendance", value: workingToday, max: headcount, color: "#87D380" },
-    { label: "Kudos this week", value: kudosWeekCount ?? 0, max: headcount, color: "#87D380" },
-    { label: "Stretched today", value: flagged.length, max: headcount, color: "#6F49A6" },
+    { label: "Mood check-ins", value: totalCheckinsToday, max: headcount, color: "var(--pillar-mood)" },
+    { label: "Attendance", value: workingToday, max: headcount, color: "var(--success)" },
+    { label: "Kudos this week", value: kudosWeekCount ?? 0, max: headcount, color: "var(--pillar-kudos)" },
+    { label: "Stretched today", value: flagged.length, max: headcount, color: "var(--pillar-burnout)" },
   ];
 
   return (
@@ -221,53 +172,139 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatTile label="Headcount" value={headcount} sub={`${teamCount} teams`} color="#6F49A6" />
-        <StatTile label="In today" value={workingToday} sub={`of ${headcount}`} color="#87D380" />
-        <StatTile
-          label="Avg mood"
-          value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "—"}
-          sub={`${totalCheckinsToday} checked in today`}
-          color="#FFB5C5"
-        />
-        <StatTile
-          label="Flagged"
-          value={flagged.length}
-          sub={`${criticalCount} critical · ${highCount} high`}
-          color="#FF8C73"
-        />
+      {/* Zone A — your session, and your day */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Card>
+          <SectionLabel className="mb-3">Your session</SectionLabel>
+          {me ? (
+            <ClockWidget openSession={openSession} />
+          ) : (
+            <p className="text-xs text-ink-mute">Sign in to clock in.</p>
+          )}
+        </Card>
+
+        <Card>
+          <SectionLabel className="mb-3">Your day</SectionLabel>
+          <div className="space-y-2.5">
+            {!moodCheckedIn ? (
+              <Link href="/mood" className="flex items-center gap-2 text-xs font-medium text-brand-ink hover:underline">
+                <Icon name="smile" size={14} />
+                Check in your mood today
+              </Link>
+            ) : null}
+            <div className="flex items-center gap-2 text-xs text-ink-soft">
+              <Icon name="list" size={14} className="text-ink-mute" />
+              {dueToday.length > 0 ? (
+                <Link href="/tasks" className="hover:underline">
+                  {dueToday.length} task{dueToday.length === 1 ? "" : "s"} due today
+                </Link>
+              ) : (
+                "Nothing due today"
+              )}
+            </div>
+            {nextOneOnOne ? (
+              <div className="flex items-center gap-2 text-xs text-ink-soft">
+                <Icon name="check" size={14} className="text-ink-mute" />
+                <Link href="/one-on-ones" className="hover:underline">
+                  1:1 with {nextOneOnOne.managerId === me?.id ? nextOneOnOne.employeeName : nextOneOnOne.managerName}{" "}
+                  on {fmtDate(nextOneOnOne.scheduledFor)}
+                </Link>
+              </div>
+            ) : null}
+            {currentMeeting ? (
+              <div className="flex items-center gap-2 text-xs text-ink-soft">
+                <Icon name="calendar" size={14} className="text-ink-mute" />
+                In &ldquo;{currentMeeting.title}&rdquo; until{" "}
+                {new Date(currentMeeting.endsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+              </div>
+            ) : null}
+            {moodCheckedIn && dueToday.length === 0 && !nextOneOnOne && !currentMeeting ? (
+              <p className="text-xs text-ink-mute">Nothing else on your plate right now.</p>
+            ) : null}
+          </div>
+        </Card>
       </div>
 
-      <div className="mt-10">
-        <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-mute">Wellbeing pillars</div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {PILLARS.map((p) => {
-            const accent = PILLAR_ACCENT[p.href] ?? "#6F49A6";
-            const attention = pillarNeedsAttention(p.href);
-            return (
-              <Link key={p.href} href={p.href} className="block">
-                <Card className="h-full transition-colors hover:border-brand">
-                  <div className="flex items-start justify-between">
-                    <span
-                      className="flex h-9 w-9 items-center justify-center rounded-lg"
-                      style={{ background: `${accent}1F`, color: accent }}
-                    >
-                      <Icon name={p.icon} size={18} />
-                    </span>
-                    <span
-                      className={`h-2 w-2 rounded-full ${attention ? "bg-risk-critical" : "bg-success"}`}
-                      aria-label={attention ? "Needs attention" : "Healthy"}
-                    />
-                  </div>
-                  <div className="mt-3 text-sm font-semibold text-ink">{p.label}</div>
-                  <p className="mt-1 text-xs leading-relaxed text-ink-soft">{p.description}</p>
-                  <div className="mt-3 text-xs font-semibold" style={{ color: accent }}>
-                    {pillarMetric(p.href)}
-                  </div>
-                </Card>
+      {/* Zone B — needs you. Absent entirely when empty, not a zero-state card. */}
+      {needsYou.length > 0 ? (
+        <div className="mt-6">
+          <SectionLabel className="mb-3">Needs you</SectionLabel>
+          <Card className="divide-y divide-line p-0">
+            {needsYou.map((item) => (
+              <Link
+                key={item.href + item.label}
+                href={item.href}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-ink hover:bg-surface-2"
+              >
+                <Icon name={item.icon} size={16} className="text-ink-mute" />
+                {item.label}
+                <Icon name="check" size={14} className="ml-auto text-ink-mute" />
               </Link>
-            );
-          })}
+            ))}
+          </Card>
+        </div>
+      ) : null}
+
+      {/* Zone C — your work */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center justify-between">
+          <SectionLabel>Your work</SectionLabel>
+          <Link href="/tasks" className="text-xs font-semibold text-brand-ink hover:underline">
+            View all →
+          </Link>
+        </div>
+        {topTasks.length === 0 ? (
+          <EmptyState icon="list" message="Nothing assigned to you right now." />
+        ) : (
+          <Card className="divide-y divide-line p-0">
+            {topTasks.map((task) => (
+              <Link
+                key={task.id}
+                href={`/tasks/${task.id}`}
+                className="flex items-center gap-3 px-4 py-3 text-sm hover:bg-surface-2"
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: task.project_color ?? "var(--brand)" }}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1 truncate font-medium text-ink">{task.title}</span>
+                <span className="shrink-0 text-xs text-ink-mute">{task.project_name}</span>
+                {task.due_date ? (
+                  <span
+                    className={`shrink-0 text-xs font-medium ${
+                      today && task.due_date < today ? "text-risk-high" : "text-ink-mute"
+                    }`}
+                  >
+                    {task.due_date === today ? "Today" : fmtDate(task.due_date)}
+                  </span>
+                ) : null}
+              </Link>
+            ))}
+          </Card>
+        )}
+      </div>
+
+      {/* Zone D — org pulse. Same query set for everyone; the burnout flags
+          above are already narrowed to what this viewer may see, so this
+          zone doesn't need a second, cruder role split on top of that. */}
+      <div className="mt-10">
+        <SectionLabel className="mb-3">Org pulse</SectionLabel>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatTile label="Headcount" value={headcount} sub={`${teamCount} teams`} color="var(--brand)" />
+          <StatTile label="In today" value={workingToday} sub={`of ${headcount}`} color="var(--success)" />
+          <StatTile
+            label="Avg mood"
+            value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "—"}
+            sub={`${totalCheckinsToday} checked in today`}
+            color="var(--pillar-mood)"
+          />
+          <StatTile
+            label="Flagged"
+            value={flagged.length}
+            sub={`${criticalCount} critical · ${highCount} high`}
+            color="var(--risk-high)"
+          />
         </div>
       </div>
 
@@ -275,7 +312,7 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-ink-mute">Burnout flags</span>
+              <SectionLabel>Burnout flags</SectionLabel>
               <Link href="/burnout" className="text-xs font-semibold text-brand-ink hover:underline">
                 View all →
               </Link>
@@ -301,7 +338,7 @@ export default async function DashboardPage() {
                         height={22}
                         stroke={RISK_STROKE[scores.band]}
                       />
-                      <span className="text-[10px] text-ink-mute">14d</span>
+                      <span className="text-xs text-ink-mute">14d</span>
                     </div>
                   </div>
                 ))}
@@ -312,7 +349,7 @@ export default async function DashboardPage() {
 
         <div className="space-y-4">
           <Card>
-            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-mute">Today</div>
+            <SectionLabel className="mb-3">Today</SectionLabel>
             {todayRows.map((row) => (
               <div key={row.label} className="mb-3 last:mb-0">
                 <div className="mb-1 flex items-center justify-between text-xs">
@@ -333,7 +370,7 @@ export default async function DashboardPage() {
           </Card>
 
           <Card>
-            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-mute">Recent kudos</div>
+            <SectionLabel className="mb-3">Recent kudos</SectionLabel>
             {recentKudos.length === 0 ? (
               <p className="text-xs text-ink-mute">No kudos sent yet.</p>
             ) : (
@@ -347,27 +384,13 @@ export default async function DashboardPage() {
                       <p className="text-xs leading-snug text-ink">
                         {k.toName} received kudos from {k.fromName}
                       </p>
-                      <span className="text-[10px] text-ink-mute">{relativeTime(k.createdAt)}</span>
+                      <span className="text-xs text-ink-mute">{relativeTime(k.createdAt)}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </Card>
-
-          <div className="flex flex-col gap-2.5 rounded-xl p-4" style={{ background: "#1F1F1F" }}>
-            <Logo size={22} />
-            <p className="text-xs leading-relaxed" style={{ color: "#9CA3AF" }}>
-              Small changes can create healthier and more sustainable workdays.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {["Predict", "Energize", "Tune In", "Anchor", "Link", "Adapt"].map((label) => (
-                <span key={label} className="text-[10px] font-semibold tracking-wide" style={{ color: "#6B7280" }}>
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

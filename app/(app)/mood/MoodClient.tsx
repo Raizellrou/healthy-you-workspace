@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Icon } from "@/components/icons/Icon";
 import { Axolotl } from "@/components/mood/Axolotl";
 import { Sparkline } from "@/components/burnout/Sparkline";
@@ -202,14 +203,14 @@ export function MoodClient({
 
       <div className="space-y-4">
         <Card>
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Team mood today</div>
+          <SectionLabel className="mb-1">Team mood today</SectionLabel>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold" style={{ color: "#FFB5C5" }}>
+            <span className="text-3xl font-bold" style={{ color: "var(--pillar-mood)" }}>
               {orgAvgToday !== null ? orgAvgToday.toFixed(1) : "—"}
             </span>
             <span className="text-sm text-ink-mute">/ 5</span>
             {orgDelta !== null && Math.abs(orgDelta) >= 0.05 ? (
-              <span className="text-xs font-semibold" style={{ color: orgDelta > 0 ? "#87D380" : "#FF8C73" }}>
+              <span className="text-xs font-semibold" style={{ color: orgDelta > 0 ? "var(--risk-low)" : "var(--risk-high)" }}>
                 {orgDelta > 0 ? "↑" : "↓"} {Math.abs(orgDelta).toFixed(1)} vs last week
               </span>
             ) : null}
@@ -220,13 +221,13 @@ export function MoodClient({
         </Card>
 
         <Card>
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-mute">30-day org trend</div>
+          <SectionLabel className="mb-2">30-day org trend</SectionLabel>
           {trendValues.some((v) => v > 0) ? (
-            <Sparkline values={trendValues} stroke="#FFB5C5" filled width={272} height={48} />
+            <Sparkline values={trendValues} stroke="var(--pillar-mood)" filled width={272} height={48} />
           ) : (
             <p className="text-xs text-ink-mute">Not enough org-wide check-ins yet — each day needs 3+ to show.</p>
           )}
-          <p className="mt-1 text-[10px] text-ink-mute">Days with fewer than 3 check-ins are excluded, never shown as zero.</p>
+          <p className="mt-1 text-xs text-ink-mute">Days with fewer than 3 check-ins are excluded, never shown as zero.</p>
         </Card>
 
         <div>

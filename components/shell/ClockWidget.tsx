@@ -84,7 +84,7 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
       <div className="flex items-center justify-between text-xs">
         <span className="flex items-center gap-1.5 font-medium text-ink-soft">
           <span
-            className={`h-1.5 w-1.5 rounded-full ${onBreak ? "bg-[#FFD700]" : "bg-success"}`}
+            className={`h-1.5 w-1.5 rounded-full ${onBreak ? "bg-risk-medium" : "bg-success"}`}
             aria-hidden="true"
           />
           {onBreak ? "On break" : "Clocked in"}

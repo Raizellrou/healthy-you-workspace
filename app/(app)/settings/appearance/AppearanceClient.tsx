@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
+import { ThemeToggle } from "@/components/shell/ThemeToggle";
 import { updateUiPreferences } from "@/app/(app)/settings/actions";
 import type { UiPreferences } from "@/lib/supabase/preferences";
 
@@ -47,6 +48,18 @@ export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
 
   return (
     <Card className="flex flex-col gap-5">
+      <div>
+        <div className="mb-3 text-sm font-semibold text-ink">Theme</div>
+        {/* Deliberately not part of the prefs form below: light/dark is a
+            browser-local, apply-instantly choice (see ThemeToggle), not an
+            account-level row that waits on Save. It used to live in every
+            page's nav panel instead of here, where the rest of the
+            appearance controls actually are. */}
+        <div className="w-44">
+          <ThemeToggle />
+        </div>
+      </div>
+
       <div>
         <div className="mb-3 text-sm font-semibold text-ink">Motion & contrast</div>
         <div className="flex flex-col gap-3">
@@ -138,7 +151,7 @@ export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
         </Button>
         {saved ? <span className="text-xs text-ink-mute">Saved.</span> : null}
       </div>
-      <p className="text-[11px] text-ink-mute">
+      <p className="text-xs text-ink-mute">
         Reduced motion, high contrast, muted palette, and text size apply everywhere immediately after saving. Density,
         single column, and hide avatars are saved but not yet wired into every screen.
       </p>

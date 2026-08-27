@@ -56,7 +56,7 @@ export function TaskRow({ task }: { task: Task }) {
         ) : null}
       </Link>
 
-      {task.subtask_count ? (
+      {task.subtask_count && !task.done ? (
         <span className="shrink-0 text-xs text-ink-mute">
           {task.subtask_done_count}/{task.subtask_count}
         </span>

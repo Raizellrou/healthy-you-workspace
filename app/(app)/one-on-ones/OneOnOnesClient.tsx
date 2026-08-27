@@ -8,6 +8,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Tabs } from "@/components/ui/Tabs";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { BandChip } from "@/components/burnout/BandChip";
 import { fmtDate, addDays } from "@/lib/date";
 import { scheduleOneOnOne, completeOneOnOne, cancelOneOnOne } from "./actions";
@@ -171,9 +173,7 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
 
       {meeting.agenda.length > 0 ? (
         <div className="mt-3">
-          <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
-            Agenda when scheduled
-          </div>
+          <SectionLabel className="mb-2">Agenda when scheduled</SectionLabel>
           <AgendaList items={meeting.agenda} />
         </div>
       ) : null}
@@ -207,7 +207,7 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
         </div>
       ) : meeting.sharedNotes ? (
         <div className="mt-3">
-          <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Shared notes</div>
+          <SectionLabel className="mb-1">Shared notes</SectionLabel>
           <p className="whitespace-pre-wrap rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-soft">
             {meeting.sharedNotes}
           </p>
@@ -241,26 +241,16 @@ export function OneOnOnesClient({
   return (
     <div>
       {canManage ? (
-        <div className="mb-5 flex gap-1 border-b border-line">
-          {(
-            [
-              ["agendas", `Team (${agendas.length})`],
-              ["meetings", `Meetings (${meetings.length})`],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={tab === key}
-              onClick={() => setTab(key)}
-              className={`border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-                tab === key ? "border-brand text-ink" : "border-transparent text-ink-soft hover:text-ink"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          ariaLabel="1:1 sections"
+          className="mb-5"
+          active={tab}
+          onSelect={(key) => setTab(key as "agendas" | "meetings")}
+          items={[
+            { key: "agendas", label: "Team", count: agendas.length },
+            { key: "meetings", label: "Meetings", count: meetings.length },
+          ]}
+        />
       ) : null}
 
       {canManage && tab === "agendas" ? (

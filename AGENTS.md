@@ -122,8 +122,9 @@ proxy.ts                        # Next.js Proxy — auth guard + session refresh
 - **Path aliases**: Use `@/` for imports (e.g., `@/lib/...`, `@/components/...`).
 - **Server/Client demarcation**: `"use server"` or `"use client"` at the top of files.
 - **Colocation**: Route folders contain `page.tsx`, optional `*Client.tsx`, and optional `actions.ts`.
-- **Data access**: Centralized in `lib/supabase/queries.ts`. Pages import from there,
-  not directly from Supabase.
+- **Data access**: Domain-split across `lib/supabase/*.ts` (`queries.ts`,
+  `attendance.ts`, `tasks.ts`, `people.ts`, `insights.ts`, `meetings.ts`,
+  etc.). Pages import from there, not directly from Supabase.
 - **Error handling**: Server Actions return `{ ok: boolean, error?: string }`.
   Do not throw to the client.
 - **No external UI library**: All components are built in `components/ui/`.
@@ -140,12 +141,14 @@ proxy.ts                        # Next.js Proxy — auth guard + session refresh
 
 ## Testing Requirements
 
-There is **no automated test suite** currently.
+Vitest is wired (`npm test`), with 20+ test files under `lib/__tests__/`
+covering the pure-function and domain-logic layer.
 
 Before making changes, verify:
 1. `npx tsc --noEmit` — type check passes
 2. `npm run lint` — ESLint passes
 3. `npm run build` — production build succeeds
+4. `npm test` — Vitest suite passes
 
 When adding tests, prefer Vitest. Priority targets:
 - Pure functions in `lib/boundary.ts`, `lib/burnout.ts`, `lib/time.ts`

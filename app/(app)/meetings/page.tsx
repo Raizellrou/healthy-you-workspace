@@ -140,7 +140,7 @@ export default async function MeetingsPage() {
                 display={`${day.meetingHours}h`}
                 sub={day.seriesToMove > 0 ? `· ${day.seriesToMove} series to move` : "· nothing recurring"}
                 scaleMax={Math.max(1, ...noMeetingDays.map((d) => d.meetingHours))}
-                color={i === 0 ? "#87D380" : "#93a1b4"}
+                color={i === 0 ? "var(--risk-low)" : "var(--ink-mute)"}
                 emphasis={i === 0}
               />
             ))}

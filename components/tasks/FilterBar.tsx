@@ -76,39 +76,53 @@ export function FilterBar({
 
   return (
     <div className="mb-4 flex flex-col gap-2">
+      {/* Each control is sized by a wrapper, never by a `w-*` on the control
+          itself: CONTROL_CLASSES leads with `w-full`, and Tailwind emits
+          `w-full` after the numeric widths, so a `className="w-48"` here
+          loses the cascade (class-attribute order is irrelevant to CSS) and
+          every control rendered at full container width — which is what
+          collapsed this single row into three stacked ones. */}
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") updateParam("q", q);
-          }}
-          onBlur={() => updateParam("q", q)}
-          placeholder="Search tasks…"
-          className="w-48"
-        />
-        <Select
-          value={searchParams.get("assignee") ?? ""}
-          onChange={(e) => updateParam("assignee", e.target.value)}
-          options={employees.map((e) => ({ value: e.id, label: e.name }))}
-          placeholder="Anyone"
-          className="w-36"
-        />
-        <Select
-          value={searchParams.get("priority") ?? ""}
-          onChange={(e) => updateParam("priority", e.target.value)}
-          options={PRIORITIES.map((p) => ({ value: p, label: p[0].toUpperCase() + p.slice(1) }))}
-          placeholder="Any priority"
-          className="w-32"
-        />
-        {labels.length > 0 && (
-          <Select
-            value={searchParams.get("label") ?? ""}
-            onChange={(e) => updateParam("label", e.target.value)}
-            options={labels.map((l) => ({ value: l.id, label: l.name }))}
-            placeholder="Any label"
-            className="w-32"
+        <div className="w-48">
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") updateParam("q", q);
+            }}
+            onBlur={() => updateParam("q", q)}
+            placeholder="Search tasks…"
+            aria-label="Search tasks"
           />
+        </div>
+        <div className="w-36">
+          <Select
+            value={searchParams.get("assignee") ?? ""}
+            onChange={(e) => updateParam("assignee", e.target.value)}
+            options={employees.map((e) => ({ value: e.id, label: e.name }))}
+            placeholder="Anyone"
+            aria-label="Filter by assignee"
+          />
+        </div>
+        <div className="w-36">
+          <Select
+            value={searchParams.get("priority") ?? ""}
+            onChange={(e) => updateParam("priority", e.target.value)}
+            options={PRIORITIES.map((p) => ({ value: p, label: p[0].toUpperCase() + p.slice(1) }))}
+            placeholder="Any priority"
+            aria-label="Filter by priority"
+          />
+        </div>
+        {labels.length > 0 && (
+          <div className="w-36">
+            <Select
+              value={searchParams.get("label") ?? ""}
+              onChange={(e) => updateParam("label", e.target.value)}
+              options={labels.map((l) => ({ value: l.id, label: l.name }))}
+              placeholder="Any label"
+              aria-label="Filter by label"
+            />
+          </div>
         )}
         {hasFilters && (
           <button

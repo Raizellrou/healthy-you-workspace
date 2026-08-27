@@ -1,20 +1,15 @@
-import { getProjects, getCurrentEmployeeId } from "@/lib/supabase/queries";
-import { getUiPreferences } from "@/lib/supabase/preferences";
-import { TasksNav } from "./TasksNav";
-
-export default async function TasksLayout({ children }: { children: React.ReactNode }) {
-  const [projects, employeeId] = await Promise.all([getProjects(), getCurrentEmployeeId()]);
-  const defaultView = employeeId ? (await getUiPreferences(employeeId)).defaultTaskView : "board";
-  return (
-    <div>
-      <div className="mx-auto flex max-w-5xl items-center gap-2 px-6 pt-6">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#4E3378" }} />
-        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#4E3378" }}>
-          Tasks · Productivity
-        </span>
-      </div>
-      <TasksNav projects={projects} defaultView={defaultView} />
-      {children}
-    </div>
-  );
+/**
+ * Deliberately a pass-through.
+ *
+ * This used to render a "Tasks · Productivity" eyebrow and the TasksNav
+ * project tab strip. Both are gone: the nav rail and panel already say
+ * where you are, and projects are panel destinations now (see
+ * components/shell/NavPanel.tsx), which removes the horizontal-scroll
+ * failure the tab strip hit past four or five projects.
+ *
+ * Kept as a file rather than deleted so the /tasks segment still has a
+ * layout boundary to hang future task-wide UI on.
+ */
+export default function TasksLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

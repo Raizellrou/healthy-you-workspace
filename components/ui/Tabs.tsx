@@ -37,7 +37,7 @@ export function Tabs({
     >
       {items.map((item) => {
         const selected = item.key === active;
-        const classes = `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+        const classes = `inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors ${
           selected
             ? "bg-surface text-ink shadow-sm"
             : "text-ink-soft hover:text-ink"

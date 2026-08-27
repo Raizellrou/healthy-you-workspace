@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { PageHead } from "@/components/ui/PageHead";
-import { DeleteProjectButton } from "@/components/tasks/DeleteProjectButton";
+import { ProjectMenu } from "@/components/tasks/ProjectMenu";
 import { ViewSwitcher, VIEW_KEYS } from "@/components/tasks/ViewSwitcher";
 import { FilterBar } from "@/components/tasks/FilterBar";
 import { getProject, getEmployees, getCurrentEmployeeId } from "@/lib/supabase/queries";
@@ -73,15 +72,17 @@ export default async function ProjectViewPage({
   const timelineEnd = addDays(today, 30);
 
   return (
-    <div className="px-6 py-8">
-      <PageHead
-        title={projectResult.project.name}
-        description="One dataset, four lenses — filters travel with you when you switch."
-        actions={<DeleteProjectButton projectId={projectId} projectName={projectResult.project.name} />}
-      />
-
-      <div className="mb-4">
-        <ViewSwitcher projectId={projectId} view={view} search={searchString} />
+    <div className="px-6 py-6">
+      {/* One header row: identity, the four lenses, and project actions.
+          The old stack was a title+description block, a separate view-tab
+          row, and a permanently-visible red Delete button — ~166px of
+          chrome before the filters even started. */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <h1 className="text-2xl font-semibold text-ink">{projectResult.project.name}</h1>
+        <div className="ml-auto flex items-center gap-2">
+          <ViewSwitcher projectId={projectId} view={view} search={searchString} />
+          <ProjectMenu projectId={projectId} projectName={projectResult.project.name} />
+        </div>
       </div>
 
       <FilterBar
