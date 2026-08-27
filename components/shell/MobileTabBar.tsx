@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
 import { Logo } from "@/components/shell/Logo";
 import { sectionFor, sectionsFor } from "@/components/shell/navSections";
+import { OPEN_PALETTE_EVENT } from "@/components/ui/CommandPalette";
 import type { AppRole } from "@/types/person";
 
 /**
@@ -38,6 +39,14 @@ export function MobileTabBar({
         </Link>
         <span className="text-sm font-bold tracking-wide text-ink">PETAL</span>
         <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Search"
+            onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft"
+          >
+            <Icon name="search" size={18} />
+          </button>
           <Link
             href="/inbox"
             aria-label={unreadInboxCount > 0 ? `Inbox, ${unreadInboxCount} unread` : "Inbox"}

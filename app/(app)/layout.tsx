@@ -2,17 +2,19 @@ import { NavRail } from "@/components/shell/NavRail";
 import { NavPanel } from "@/components/shell/NavPanel";
 import { MobileTabBar } from "@/components/shell/MobileTabBar";
 import { LiveInboxBadge } from "@/components/shell/LiveInboxBadge";
+import { CommandPalette } from "@/components/ui/CommandPalette";
 import { ToastDock } from "@/components/nudges/ToastDock";
 import { NudgePersistence } from "@/components/nudges/NudgePersistence";
 import { UiPreferencesApplier } from "@/components/shell/UiPreferencesApplier";
 import { NudgeProvider } from "@/lib/nudge-context";
-import { getCurrentEmployeeId, getEmployees, getProjects } from "@/lib/supabase/queries";
+import { getCurrentEmployeeId, getEmployees, getProjects, getMyTasks } from "@/lib/supabase/queries";
 import { getCurrentPerson } from "@/lib/supabase/people";
 import { getUnreadCount } from "@/lib/supabase/notifications";
 import { getUiPreferences, DEFAULT_UI_PREFERENCES } from "@/lib/supabase/preferences";
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
 import { getRespectCalendar } from "@/lib/supabase/nudge-prefs";
 import { computeBurnout } from "@/lib/burnout";
+import { buildSearchIndex } from "@/lib/search";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Projects are fetched here rather than in app/(app)/tasks/layout.tsx
@@ -26,14 +28,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
   const hasCritical = employees.some((e) => computeBurnout(e).band === "critical");
   const currentEmployee = employees.find((e) => e.id === currentEmployeeId) ?? null;
-  const [unreadInboxCount, uiPreferences, currentMeeting, respectCalendar] = currentEmployeeId
+  const [unreadInboxCount, uiPreferences, currentMeeting, respectCalendar, myTasks] = currentEmployeeId
     ? await Promise.all([
         getUnreadCount(currentEmployeeId),
         getUiPreferences(currentEmployeeId),
         getCurrentMeeting(currentEmployeeId),
         getRespectCalendar(currentEmployeeId),
+        getMyTasks(currentEmployeeId),
       ])
-    : [0, DEFAULT_UI_PREFERENCES, null, true];
+    : [0, DEFAULT_UI_PREFERENCES, null, true, []];
+
+  const searchIndexItems = buildSearchIndex({
+    employees,
+    projects,
+    myTasks,
+    role: currentPerson?.appRole ?? "employee",
+    defaultTaskView: uiPreferences.defaultTaskView,
+  });
 
   return (
     <NudgeProvider>
@@ -77,6 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <NudgePersistence />
       <UiPreferencesApplier prefs={uiPreferences} />
       {currentEmployeeId ? <LiveInboxBadge employeeId={currentEmployeeId} /> : null}
+      <CommandPalette index={searchIndexItems} />
     </NudgeProvider>
   );
 }

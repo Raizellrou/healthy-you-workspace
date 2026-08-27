@@ -18,7 +18,8 @@ export type IconName =
   | "x"
   | "list"
   | "inbox"
-  | "settings";
+  | "settings"
+  | "search";
 
 export function Icon({
   name,
