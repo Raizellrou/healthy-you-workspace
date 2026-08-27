@@ -1,4 +1,5 @@
 import { Chip, type ChipTone } from "@/components/ui/Chip";
+import { BAND_LABEL } from "@/lib/burnout-bands";
 import type { BurnoutBand } from "@/types/burnout";
 
 const BAND_TONE: Record<BurnoutBand, ChipTone> = {
@@ -6,13 +7,6 @@ const BAND_TONE: Record<BurnoutBand, ChipTone> = {
   medium: "medium",
   high: "high",
   critical: "critical",
-};
-
-const BAND_LABEL: Record<BurnoutBand, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical",
 };
 
 export function BandChip({ band }: { band: BurnoutBand }) {

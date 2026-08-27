@@ -1,6 +1,6 @@
-# AxionHR
+# Petal
 
-A from-scratch Next.js port of the AxionHR HR wellbeing prototype: a single-page,
+A from-scratch Next.js port of the Petal HR wellbeing prototype: a single-page,
 client-only demo with one sidebar shell and nine screens (Dashboard, Directory,
 Attendance, Burnout Risk Analytics, Nudges, Track the Mood, Boundary/Right to
 Disconnect, Kudos, Focus Mode). No backend, no persistence, no external

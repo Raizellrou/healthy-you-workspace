@@ -45,6 +45,13 @@ export const PILLARS: Pillar[] = [
     description: "Send a peer a quick note of thanks through a rotating buddy pairing.",
   },
   {
+    href: "/tasks",
+    icon: "list",
+    category: "Productivity",
+    label: "Tasks",
+    description: "Kanban boards, personal task lists, and team workload visibility.",
+  },
+  {
     href: "/focus",
     icon: "focus",
     category: "Productivity",

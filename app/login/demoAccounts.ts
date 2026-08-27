@@ -28,7 +28,7 @@ export const DEMO_ACCOUNTS = [
   "Burnout Bob",
 ].map((name) => ({
   name,
-  email: `${name.toLowerCase().replace(/\s+/g, ".")}@axionhr.test`,
+  email: `${name.toLowerCase().replace(/\s+/g, ".")}@petal.test`,
 }));
 
-export const DEMO_PASSWORD = "axionhr-demo-2026";
+export const DEMO_PASSWORD = "petal-demo-2026";

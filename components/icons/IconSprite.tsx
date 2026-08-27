@@ -135,6 +135,50 @@ export function IconSprite() {
             <path d="M5 5l14 14M19 5 5 19" />
           </g>
         </symbol>
+
+        <symbol id="i-list" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <path d="M4 6.5h.01M4 12h.01M4 17.5h.01" />
+            <path d="M9 6.5h11M9 12h11M9 17.5h11" />
+          </g>
+        </symbol>
+
+        <symbol id="i-inbox" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <path d="M3 12h4.5l1.5 3h6l1.5-3H21" />
+            <path d="M5.5 5h13l2.5 7v6a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 18v-6z" />
+          </g>
+        </symbol>
+
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z" />
+          </g>
+        </symbol>
+
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.3-4.3" />
+          </g>
+        </symbol>
+
+        <symbol id="i-alert-circle" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7.5v6" />
+            <path d="M12 16.8h.01" />
+          </g>
+        </symbol>
+
+        <symbol id="i-info" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5.5" />
+            <path d="M12 7.2h.01" />
+          </g>
+        </symbol>
       </defs>
     </svg>
   );

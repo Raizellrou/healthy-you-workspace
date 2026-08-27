@@ -3,31 +3,26 @@
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { BandChip } from "@/components/burnout/BandChip";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { Sparkline } from "@/components/burnout/Sparkline";
-import { computeBurnout, dominantDriver } from "@/lib/burnout";
+import { ForecastCard } from "@/components/burnout/ForecastCard";
+import { WhatIfSimulator } from "@/components/burnout/WhatIfSimulator";
+import { InterventionPanel } from "@/components/burnout/InterventionPanel";
+import { BAND_COLOR, BAND_LABEL, BAND_ORDER as BANDS } from "@/lib/burnout-bands";
 import type { BurnoutHistoryPoint } from "@/lib/supabase/queries";
-import type { Employee } from "@/types/employee";
+import type { ForecastPoint } from "@/lib/forecast";
+import type { BurnoutRow } from "./page";
 import type { BurnoutBand, SortDirection, SortKey } from "@/types/burnout";
 
-const BAND_ORDER: Record<BurnoutBand, number> = { low: 0, medium: 1, high: 2, critical: 3 };
-const BANDS: BurnoutBand[] = ["low", "medium", "high", "critical"];
-const BAND_LABEL: Record<BurnoutBand, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  critical: "Critical",
-};
-
-interface Row {
-  employee: Employee;
-  scores: ReturnType<typeof computeBurnout>;
-}
+/** Numeric rank for sorting the table by band, distinct from BANDS'
+ *  display order (both happen to be low→critical here). */
+const BAND_RANK: Record<BurnoutBand, number> = { low: 0, medium: 1, high: 2, critical: 3 };
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Employee" },
-  { key: "composite", label: "Composite" },
+  { key: "composite", label: "Task-aware" },
   { key: "band", label: "Band" },
   { key: "streakDays", label: "Streak" },
   { key: "meeting", label: "Meeting" },
@@ -35,14 +30,14 @@ const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "daysSincePto", label: "Since PTO" },
 ];
 
-function compareRows(a: Row, b: Row, key: SortKey): number {
+function compareRows(a: BurnoutRow, b: BurnoutRow, key: SortKey): number {
   switch (key) {
     case "name":
       return a.employee.name.localeCompare(b.employee.name);
     case "composite":
-      return a.scores.composite - b.scores.composite;
+      return a.scores.compositeV2 - b.scores.compositeV2;
     case "band":
-      return BAND_ORDER[a.scores.band] - BAND_ORDER[b.scores.band];
+      return BAND_RANK[a.scores.bandV2] - BAND_RANK[b.scores.bandV2];
     case "streakDays":
       return a.employee.streakDays - b.employee.streakDays;
     case "meeting":
@@ -55,35 +50,39 @@ function compareRows(a: Row, b: Row, key: SortKey): number {
 }
 
 export function BurnoutClient({
-  employees,
+  rows,
   historyByEmployee,
+  forecastByEmployee,
 }: {
-  employees: Employee[];
+  rows: BurnoutRow[];
   historyByEmployee: Record<string, BurnoutHistoryPoint[]>;
+  forecastByEmployee: Record<string, ForecastPoint[]>;
 }) {
-  const rows = useMemo<Row[]>(
-    () => employees.map((employee) => ({ employee, scores: computeBurnout(employee) })),
-    [employees]
-  );
-
   const bandCounts = useMemo(() => {
     const counts: Record<BurnoutBand, number> = { low: 0, medium: 0, high: 0, critical: 0 };
-    rows.forEach((r) => counts[r.scores.band]++);
+    rows.forEach((r) => counts[r.scores.bandV2]++);
     return counts;
   }, [rows]);
 
+  const teams = useMemo(() => Array.from(new Set(rows.map((r) => r.employee.team))).sort(), [rows]);
+
+  const [teamFilter, setTeamFilter] = useState<string | "All">("All");
   const [activeBand, setActiveBand] = useState<BurnoutBand | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("composite");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
   const visibleRows = useMemo(() => {
-    const filtered = activeBand ? rows.filter((r) => r.scores.band === activeBand) : rows;
+    const filtered = rows.filter((r) => {
+      const matchesBand = !activeBand || r.scores.bandV2 === activeBand;
+      const matchesTeam = teamFilter === "All" || r.employee.team === teamFilter;
+      return matchesBand && matchesTeam;
+    });
     const sorted = [...filtered].sort((a, b) => {
       const cmp = compareRows(a, b, sortKey);
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [rows, activeBand, sortKey, sortDir]);
+  }, [rows, activeBand, teamFilter, sortKey, sortDir]);
 
   const [selectedId, setSelectedId] = useState<string | null>(
     () => visibleRows[0]?.employee.id ?? null
@@ -102,25 +101,40 @@ export function BurnoutClient({
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {(["All", ...teams] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={teamFilter === t}
+            onClick={() => setTeamFilter(t)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+              teamFilter === t ? "bg-ink text-white" : "border border-line text-ink-mute hover:bg-surface-2"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+        <span className="mx-1 hidden h-6 w-px bg-line sm:inline-block" aria-hidden="true" />
         {BANDS.map((band) => (
           <button
             key={band}
             type="button"
             aria-pressed={activeBand === band}
             onClick={() => setActiveBand((cur) => (cur === band ? null : band))}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
               activeBand === band
                 ? "border-brand bg-brand-soft text-brand-ink"
                 : "border-line bg-surface text-ink-soft hover:bg-surface-2"
             }`}
           >
             {BAND_LABEL[band]}
-            <span className="ml-2 font-mono text-xs text-ink-mute">{bandCounts[band]}</span>
+            <span className="ml-1.5 font-mono text-xs text-ink-mute">{bandCounts[band]}</span>
           </button>
         ))}
       </div>
 
+      <div className={`grid grid-cols-1 items-start gap-5 ${selected ? "lg:grid-cols-[1fr_320px]" : ""}`}>
       <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-surface-2 text-xs font-medium uppercase tracking-wide text-ink-mute">
@@ -143,7 +157,7 @@ export function BurnoutClient({
                       className="inline-flex cursor-pointer items-center gap-1 select-none"
                     >
                       {col.label}
-                      <span aria-hidden="true" className="text-[10px] text-ink-mute">
+                      <span aria-hidden="true" className="text-xs text-ink-mute">
                         {active ? (sortDir === "asc" ? "▲" : "▼") : ""}
                       </span>
                     </span>
@@ -178,11 +192,14 @@ export function BurnoutClient({
                       <span className="font-medium text-ink">{row.employee.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-ink-soft">
-                    {Math.round(row.scores.composite)}
+                  <td className="px-4 py-3 font-mono font-semibold" style={{ color: BAND_COLOR[row.scores.bandV2] }}>
+                    {Math.round(row.scores.compositeV2)}
+                    <span className="ml-1.5 font-sans text-xs font-normal text-ink-mute">
+                      base {Math.round(row.scores.composite)}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
-                    <BandChip band={row.scores.band} />
+                    <BandChip band={row.scores.bandV2} />
                   </td>
                   <td className="px-4 py-3 font-mono text-ink-soft">{row.employee.streakDays}d</td>
                   <td className="px-4 py-3 font-mono text-ink-soft">{row.employee.meeting.toFixed(1)}h</td>
@@ -196,47 +213,80 @@ export function BurnoutClient({
       </div>
 
       {selected ? (
-        <Card className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Avatar name={selected.employee.name} color={selected.employee.avatarColor} size={40} />
-              <div>
-                <div className="font-semibold text-ink">{selected.employee.name}</div>
-                <div className="text-xs text-ink-mute">
-                  {selected.employee.role} · {selected.employee.team}
-                </div>
+        <Card>
+          <div className="flex items-center gap-3">
+            <Avatar name={selected.employee.name} color={selected.employee.avatarColor} size={44} />
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-ink">{selected.employee.name}</div>
+              <div className="truncate text-xs text-ink-mute">
+                {selected.employee.role} · {selected.employee.team}
               </div>
             </div>
-            <BandChip band={selected.scores.band} />
           </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="mt-4 flex items-center gap-2.5">
+            <div className="rounded-lg bg-surface-2 px-4 py-3 text-center">
+              <div className="text-2xl font-bold" style={{ color: BAND_COLOR[selected.scores.bandV2] }}>
+                {Math.round(selected.scores.compositeV2)}
+              </div>
+              <div className="text-xs text-ink-mute">Task-aware score</div>
+            </div>
+            <div className="text-center text-xs text-ink-mute">
+              base {Math.round(selected.scores.composite)}
+              <div aria-hidden="true">→</div>
+            </div>
+            <BandChip band={selected.scores.bandV2} />
+          </div>
+
+          <div className="mt-5">
+            <SectionLabel className="mb-2">14-day trend (base composite)</SectionLabel>
+            <Sparkline
+              values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
+              stroke={BAND_COLOR[selected.scores.bandV2]}
+              filled
+              width={272}
+              height={56}
+            />
+          </div>
+
+          <div className="mt-5">
+            <ForecastCard forecast={forecastByEmployee[selected.employee.id] ?? []} />
+          </div>
+
+          <div className="mt-5">
+            <SectionLabel className="mb-2.5">Base factors</SectionLabel>
             <div className="space-y-3">
               <ScoreBar label="Work streak" value={selected.scores.streak} />
               <ScoreBar label="Meeting load" value={selected.scores.meeting} />
-              <ScoreBar label="Off-hours messages" value={selected.scores.offHours} />
+              <ScoreBar label="Off-hours activity" value={selected.scores.offHours} />
               <ScoreBar label="Time since PTO" value={selected.scores.pto} />
             </div>
-            <div>
-              <p className="text-sm text-ink-soft">
-                {selected.employee.name}&apos;s composite score is{" "}
-                <span className="font-mono font-semibold text-ink">
-                  {Math.round(selected.scores.composite)}
-                </span>
-                , driven mainly by {dominantDriver(selected.scores).label}.
-              </p>
-              <div className="mt-4">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">
-                  14-day trend
-                </div>
-                <Sparkline
-                  values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
-                />
-              </div>
+          </div>
+
+          <div className="mt-5">
+            <SectionLabel className="mb-2.5">Task-engine factors</SectionLabel>
+            <div className="space-y-3">
+              <ScoreBar label="Committed task load" value={selected.scores.taskLoad} />
+              <ScoreBar label="Overdue tasks" value={selected.scores.overdue} />
+              <ScoreBar label="Recovery" value={selected.scores.recovery} />
             </div>
           </div>
+
+          <div className="mt-5 border-t border-line pt-5">
+            <WhatIfSimulator key={selected.employee.id} inputs={selected.inputs} extras={selected.extras} />
+          </div>
+
+          <InterventionPanel
+            key={`${selected.employee.id}-intervention`}
+            employeeId={selected.employee.id}
+            scores={selected.scores}
+            canManage={selected.canManage}
+            isSelf={selected.isSelf}
+            latestIntervention={selected.latestIntervention}
+          />
         </Card>
       ) : null}
+      </div>
     </div>
   );
 }

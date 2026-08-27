@@ -12,7 +12,7 @@ import { createClient } from "@supabase/supabase-js";
 
 config({ path: ".env.local" });
 
-const DEMO_PASSWORD = "axionhr-demo-2026";
+const DEMO_PASSWORD = "petal-demo-2026";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

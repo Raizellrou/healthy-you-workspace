@@ -89,7 +89,7 @@ export function NudgeProvider({ children }: { children: ReactNode }) {
   const [unseenCount, setUnseenCount] = useState(0);
   const [hidden, setHidden] = useState(false);
 
-  const originalTitle = useRef<string>("AxionHR");
+  const originalTitle = useRef<string>("Petal");
   const titleFlashRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
   const sessionRef = useRef(0);

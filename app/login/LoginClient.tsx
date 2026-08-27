@@ -45,7 +45,7 @@ export function LoginClient() {
   return (
     <Card className="w-full max-w-sm">
       <div className="mb-5 text-center">
-        <h1 className="text-lg font-semibold text-ink">Sign in to AxionHR</h1>
+        <h1 className="text-lg font-semibold text-ink">Sign in to PETAL</h1>
         <p className="mt-1 text-sm text-ink-soft">
           Demo project — pick a seeded account below or enter credentials manually.
         </p>

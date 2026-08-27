@@ -15,7 +15,13 @@ export type IconName =
   | "check"
   | "lock"
   | "focus"
-  | "x";
+  | "x"
+  | "list"
+  | "inbox"
+  | "settings"
+  | "search"
+  | "alert-circle"
+  | "info";
 
 export function Icon({
   name,

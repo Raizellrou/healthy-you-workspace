@@ -12,7 +12,7 @@ const AVATAR_PALETTE = [
 ] as const;
 
 function emailFor(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, ".") + "@axionhr.test";
+  return name.trim().toLowerCase().replace(/\s+/g, ".") + "@petal.test";
 }
 
 function idFor(name: string): string {

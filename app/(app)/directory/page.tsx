@@ -4,11 +4,12 @@ import { DirectoryClient } from "./DirectoryClient";
 
 export default async function DirectoryPage() {
   const employees = await getEmployees();
+  const teamCount = new Set(employees.map((e) => e.team)).size;
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       <PageHead
-        title="Employee Directory"
-        description="Search the roster by name or team."
+        title="Directory"
+        description={`${employees.length} people across ${teamCount} teams`}
       />
       <DirectoryClient employees={employees} />
     </div>
