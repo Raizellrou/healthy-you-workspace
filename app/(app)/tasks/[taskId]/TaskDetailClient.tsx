@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { ConfirmModal } from "@/components/ui/Modal";
+import { truncateForConfirm } from "@/lib/format";
+import { useActionToast } from "@/lib/toast-context";
 import { AssigneePicker } from "@/components/tasks/AssigneePicker";
 import { BlockerPicker } from "@/components/tasks/BlockerPicker";
 import { SubtaskChecklist } from "@/components/tasks/SubtaskChecklist";
@@ -50,10 +53,10 @@ export function TaskDetailClient({
   const [labelIds, setLabelIds] = useState(extras.labels.map((l) => l.id));
   const [done, setDone] = useState(task.done);
   const [blockedById, setBlockedById] = useState(extras.blockedByTask?.id ?? null);
-  const [blockedByError, setBlockedByError] = useState<string | null>(null);
-  const [doneError, setDoneError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const run = useActionToast();
 
   const blocker = blockedById ? blockerCandidates.find((t) => t.id === blockedById) : undefined;
   const isBlocked = Boolean(blocker && !blocker.done && !done);
@@ -65,27 +68,21 @@ export function TaskDetailClient({
   }
 
   function handleToggleDone() {
-    setDoneError(null);
     setDone((d) => !d);
     startTransition(async () => {
-      const result = await toggleDone(task.id, task.project_id);
-      if (!result.ok) {
-        setDone((d) => !d);
-        setDoneError(result.error ?? "Couldn't update that task.");
-      }
+      await run(() => toggleDone(task.id, task.project_id), {
+        onError: () => setDone((d) => !d),
+      });
     });
   }
 
   function handleBlockedByChange(id: string | null) {
-    setBlockedByError(null);
     const previous = blockedById;
     setBlockedById(id);
     startTransition(async () => {
-      const result = await setBlockedBy(task.id, task.project_id, id);
-      if (!result.ok) {
-        setBlockedById(previous);
-        setBlockedByError(result.error ?? "Couldn't update the blocker.");
-      }
+      await run(() => setBlockedBy(task.id, task.project_id, id), {
+        onError: () => setBlockedById(previous),
+      });
     });
   }
 
@@ -97,7 +94,7 @@ export function TaskDetailClient({
   }
 
   function handleDelete() {
-    if (!window.confirm(`Delete "${task.title}"? This can't be undone.`)) return;
+    setConfirmDeleteOpen(false);
     startDeleteTransition(async () => {
       const result = await deleteTask(task.id, task.project_id);
       if (result.ok) router.push(`/tasks/project/${task.project_id}/board`);
@@ -106,7 +103,7 @@ export function TaskDetailClient({
 
   function handleDuplicate() {
     startTransition(async () => {
-      const result = await duplicateTask(task.id, task.project_id);
+      const result = await run(() => duplicateTask(task.id, task.project_id), { success: "Task duplicated." });
       if (result.ok && result.id) router.push(`/tasks/${result.id}`);
     });
   }
@@ -128,11 +125,26 @@ export function TaskDetailClient({
           <Button type="button" variant="secondary" size="sm" onClick={handleDuplicate} disabled={isPending}>
             Duplicate
           </Button>
-          <Button type="button" variant="danger" size="sm" onClick={handleDelete} disabled={isDeleting}>
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={() => setConfirmDeleteOpen(true)}
+            disabled={isDeleting}
+          >
             {isDeleting ? "Deleting…" : "Delete"}
           </Button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Delete task"
+        message={`Delete "${truncateForConfirm(task.title)}"? This can't be undone.`}
+        pending={isDeleting}
+      />
 
       <Card>
         <div className="flex items-start gap-3">
@@ -171,7 +183,6 @@ export function TaskDetailClient({
             — can&apos;t be marked done until that task is.
           </p>
         ) : null}
-        {doneError ? <p className="mt-1.5 pl-8 text-xs text-risk-critical">{doneError}</p> : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-3 border-b border-line pb-4">
           <div className="flex items-center gap-2">
@@ -256,7 +267,6 @@ export function TaskDetailClient({
             </div>
           )}
         </div>
-        {blockedByError ? <p className="mt-1 text-xs text-risk-critical">{blockedByError}</p> : null}
 
         <div className="mt-4">
           <label htmlFor="task-description" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">

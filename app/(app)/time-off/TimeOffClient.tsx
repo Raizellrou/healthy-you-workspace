@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Avatar } from "@/components/ui/Avatar";
+import { ConfirmModal, Modal } from "@/components/ui/Modal";
 import { requestPto, cancelPto, decidePto } from "@/app/(app)/attendance/actions";
 import { fmtDate } from "@/lib/date";
+import { useActionToast } from "@/lib/toast-context";
 import type { PtoRequest } from "@/lib/supabase/attendance";
 
 const KIND_LABEL: Record<PtoRequest["kind"], string> = {
@@ -43,6 +45,10 @@ export function TimeOffClient({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<PtoRequest | null>(null);
+  const [denyTarget, setDenyTarget] = useState<PtoRequest | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const run = useActionToast();
 
   function handleSubmit() {
     if (!startDate || !endDate) {
@@ -51,31 +57,41 @@ export function TimeOffClient({
     }
     setError(null);
     startTransition(async () => {
-      const result = await requestPto({ startDate, endDate, kind, note: note.trim() || undefined });
-      if (!result.ok) {
-        setError(result.error ?? "Failed to submit request.");
-        return;
-      }
+      const result = await run(() => requestPto({ startDate, endDate, kind, note: note.trim() || undefined }), {
+        success: "Time off request submitted.",
+      });
+      if (!result.ok) return;
       setStartDate("");
       setEndDate("");
       setNote("");
+      setComposerOpen(false);
       router.refresh();
     });
   }
 
+  function handleCloseComposer() {
+    if (isPending) return;
+    setError(null);
+    setComposerOpen(false);
+  }
+
   function handleCancel(id: string) {
+    setCancelTarget(null);
     setPendingRowId(id);
     startTransition(async () => {
-      await cancelPto(id);
+      await run(() => cancelPto(id), { success: "Time off request cancelled." });
       setPendingRowId(null);
       router.refresh();
     });
   }
 
   function handleDecide(id: string, status: "approved" | "denied") {
+    setDenyTarget(null);
     setPendingRowId(id);
     startTransition(async () => {
-      await decidePto({ requestId: id, status });
+      await run(() => decidePto({ requestId: id, status }), {
+        success: status === "approved" ? "Request approved." : "Request denied.",
+      });
       setPendingRowId(null);
       router.refresh();
     });
@@ -83,43 +99,11 @@ export function TimeOffClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <div className="mb-4 text-sm font-semibold text-ink">Request time off</div>
-        {error && (
-          <div className="mb-3 rounded-lg border border-risk-critical/30 bg-risk-critical/10 px-3 py-2 text-sm text-risk-critical">
-            {error}
-          </div>
-        )}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <Field label="Start date">
-            {(p) => <Input {...p} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isPending} />}
-          </Field>
-          <Field label="End date">
-            {(p) => <Input {...p} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isPending} />}
-          </Field>
-          <Field label="Type">
-            {(p) => (
-              <Select
-                {...p}
-                value={kind}
-                onChange={(e) => setKind(e.target.value as PtoRequest["kind"])}
-                options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))}
-                disabled={isPending}
-              />
-            )}
-          </Field>
-          <div className="flex items-end">
-            <Button type="button" onClick={handleSubmit} disabled={isPending} className="w-full">
-              {isPending && !pendingRowId ? "Submitting…" : "Submit request"}
-            </Button>
-          </div>
-        </div>
-        <Field label="Note (optional)" className="mt-3">
-          {(p) => (
-            <Textarea {...p} value={note} onChange={(e) => setNote(e.target.value)} rows={2} disabled={isPending} />
-          )}
-        </Field>
-      </Card>
+      <div>
+        <Button type="button" onClick={() => setComposerOpen(true)}>
+          Request time off
+        </Button>
+      </div>
 
       {pendingForOthers.length > 0 && (
         <Card>
@@ -148,7 +132,7 @@ export function TimeOffClient({
                   type="button"
                   size="sm"
                   variant="danger"
-                  onClick={() => handleDecide(r.id, "denied")}
+                  onClick={() => setDenyTarget(r)}
                   disabled={isPending}
                 >
                   Deny
@@ -179,7 +163,7 @@ export function TimeOffClient({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={() => handleCancel(r.id)}
+                    onClick={() => setCancelTarget(r)}
                     disabled={isPending}
                   >
                     Cancel
@@ -190,6 +174,79 @@ export function TimeOffClient({
           </ul>
         )}
       </Card>
+
+      <Modal
+        open={composerOpen}
+        onClose={handleCloseComposer}
+        title="Request time off"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={handleCloseComposer} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSubmit} disabled={isPending}>
+              {isPending && !pendingRowId ? "Submitting…" : "Submit request"}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {error && (
+            <div className="rounded-lg border border-risk-critical/30 bg-risk-critical/10 px-3 py-2 text-sm text-risk-critical">
+              {error}
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Start date">
+              {(p) => (
+                <Input {...p} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isPending} />
+              )}
+            </Field>
+            <Field label="End date">
+              {(p) => (
+                <Input {...p} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isPending} />
+              )}
+            </Field>
+          </div>
+          <Field label="Type">
+            {(p) => (
+              <Select
+                {...p}
+                value={kind}
+                onChange={(e) => setKind(e.target.value as PtoRequest["kind"])}
+                options={Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))}
+                disabled={isPending}
+              />
+            )}
+          </Field>
+          <Field label="Note (optional)">
+            {(p) => <Textarea {...p} value={note} onChange={(e) => setNote(e.target.value)} rows={2} disabled={isPending} />}
+          </Field>
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        open={cancelTarget !== null}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={() => cancelTarget && handleCancel(cancelTarget.id)}
+        title="Cancel time off request"
+        message={
+          cancelTarget
+            ? `Cancel your ${KIND_LABEL[cancelTarget.kind]} request for ${fmtDate(cancelTarget.startDate)} – ${fmtDate(cancelTarget.endDate)}?`
+            : ""
+        }
+        confirmLabel="Cancel request"
+        pending={isPending}
+      />
+      <ConfirmModal
+        open={denyTarget !== null}
+        onClose={() => setDenyTarget(null)}
+        onConfirm={() => denyTarget && handleDecide(denyTarget.id, "denied")}
+        title="Deny time off request"
+        message={denyTarget ? `Deny ${denyTarget.employeeName}'s ${KIND_LABEL[denyTarget.kind]} request?` : ""}
+        confirmLabel="Deny"
+        pending={isPending}
+      />
     </div>
   );
 }

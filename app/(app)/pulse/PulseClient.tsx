@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { submitPulse } from "./actions";
+import { useActionToast } from "@/lib/toast-context";
 import type { PulseQuestion } from "@/lib/supabase/pulse";
 
 const SCORES = [1, 2, 3, 4, 5];
@@ -16,20 +17,16 @@ export function PulseClient({
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [done, setDone] = useState(alreadyAnswered);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const run = useActionToast();
 
   function submit(score: number) {
     setSelected(score);
-    setError(null);
     startTransition(async () => {
-      const result = await submitPulse({ questionId: question.id, score });
-      if (!result.ok) {
-        setError(result.error ?? "Couldn't record that.");
-        setSelected(null);
-        return;
-      }
-      setDone(true);
+      const result = await run(() => submitPulse({ questionId: question.id, score }), {
+        onError: () => setSelected(null),
+      });
+      if (result.ok) setDone(true);
     });
   }
 
@@ -70,7 +67,6 @@ export function PulseClient({
         <span>{question.lowLabel}</span>
         <span>{question.highLabel}</span>
       </div>
-      {error ? <p className="mt-3 text-xs text-risk-critical">{error}</p> : null}
     </Card>
   );
 }

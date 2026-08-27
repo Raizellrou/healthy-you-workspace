@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { LabelPicker } from "@/components/tasks/LabelPicker";
 import { EstimateField } from "@/components/tasks/EstimateField";
 import { createTask } from "@/app/(app)/tasks/actions";
+import { useToast } from "@/lib/toast-context";
 import type { BoardSection, Label as TaskLabel, Priority } from "@/types/task";
 import type { Employee } from "@/types/employee";
 
@@ -48,6 +49,7 @@ export function TaskComposer({
   const [labelIds, setLabelIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   function reset() {
     setTitle("");
@@ -89,6 +91,7 @@ export function TaskComposer({
         setError(result.error ?? "Failed to create task.");
         return;
       }
+      toast({ title: `"${title.trim()}" created.`, variant: "success" });
       reset();
       onClose();
       router.refresh();

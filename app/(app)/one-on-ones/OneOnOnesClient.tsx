@@ -8,6 +8,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmModal } from "@/components/ui/Modal";
+import { useActionToast } from "@/lib/toast-context";
 import { Tabs } from "@/components/ui/Tabs";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { BandChip } from "@/components/burnout/BandChip";
@@ -65,17 +67,15 @@ function ReportCard({
 }) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(addDays(today, 1));
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const run = useActionToast();
 
   function handleSchedule() {
-    setError(null);
     startTransition(async () => {
-      const result = await scheduleOneOnOne({ employeeId: agenda.person.id, scheduledFor: date });
-      if (!result.ok) {
-        setError(result.error ?? "Couldn't schedule that.");
-        return;
-      }
+      const result = await run(() => scheduleOneOnOne({ employeeId: agenda.person.id, scheduledFor: date }), {
+        success: `1:1 with ${agenda.person.name} scheduled for ${fmtDate(date)}.`,
+      });
+      if (!result.ok) return;
       setOpen(false);
       onScheduled();
     });
@@ -136,22 +136,31 @@ function ReportCard({
         </div>
       )}
 
-      {error ? <p className="mt-2 text-xs text-risk-critical">{error}</p> : null}
     </Card>
   );
 }
 
 function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }) {
   const [notes, setNotes] = useState(meeting.sharedNotes ?? "");
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [confirmCompleteOpen, setConfirmCompleteOpen] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const runAction = useActionToast();
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>) {
-    setError(null);
     startTransition(async () => {
-      const result = await action();
-      if (!result.ok) setError(result.error ?? "Something went wrong.");
+      await runAction(action);
     });
+  }
+
+  function handleComplete() {
+    setConfirmCompleteOpen(false);
+    run(() => completeOneOnOne({ id: meeting.id, sharedNotes: notes }));
+  }
+
+  function handleCancelMeeting() {
+    setConfirmCancelOpen(false);
+    run(() => cancelOneOnOne(meeting.id));
   }
 
   return (
@@ -190,7 +199,7 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
           <div className="mt-2 flex gap-2">
             <Button
               size="sm"
-              onClick={() => run(() => completeOneOnOne({ id: meeting.id, sharedNotes: notes }))}
+              onClick={() => setConfirmCompleteOpen(true)}
               disabled={isPending}
             >
               {isPending ? "Saving…" : "Mark done"}
@@ -198,7 +207,7 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => run(() => cancelOneOnOne(meeting.id))}
+              onClick={() => setConfirmCancelOpen(true)}
               disabled={isPending}
             >
               Cancel meeting
@@ -214,7 +223,26 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
         </div>
       ) : null}
 
-      {error ? <p className="mt-2 text-xs text-risk-critical">{error}</p> : null}
+
+      <ConfirmModal
+        open={confirmCompleteOpen}
+        onClose={() => setConfirmCompleteOpen(false)}
+        onConfirm={handleComplete}
+        title="Complete 1:1"
+        message="Mark this 1:1 as complete?"
+        tone="default"
+        confirmLabel="Mark done"
+        pending={isPending}
+      />
+      <ConfirmModal
+        open={confirmCancelOpen}
+        onClose={() => setConfirmCancelOpen(false)}
+        onConfirm={handleCancelMeeting}
+        title="Cancel 1:1"
+        message="Cancel this 1:1? This can't be undone."
+        confirmLabel="Cancel meeting"
+        pending={isPending}
+      />
     </Card>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { Button } from "@/components/ui/Button";
 import { addSubtask, toggleSubtask, deleteSubtask } from "@/app/(app)/tasks/actions";
+import { useActionToast } from "@/lib/toast-context";
 import type { Subtask } from "@/types/task";
 
 export function SubtaskChecklist({
@@ -18,18 +19,37 @@ export function SubtaskChecklist({
   const [items, setItems] = useState(subtasks);
   const [newTitle, setNewTitle] = useState("");
   const [isPending, startTransition] = useTransition();
+  const run = useActionToast();
 
   function handleToggle(subtaskId: string) {
     setItems((cur) => cur.map((s) => (s.id === subtaskId ? { ...s, done: !s.done } : s)));
     startTransition(async () => {
-      await toggleSubtask(subtaskId, taskId, projectId);
+      await run(() => toggleSubtask(subtaskId, taskId, projectId), {
+        // Revert the optimistic flip — without this the checkbox stayed
+        // toggled even when the write failed, silently diverging from what
+        // the server actually has.
+        onError: () => setItems((cur) => cur.map((s) => (s.id === subtaskId ? { ...s, done: !s.done } : s))),
+      });
     });
   }
 
   function handleDelete(subtaskId: string) {
+    const removed = items.find((s) => s.id === subtaskId);
+    const removedIndex = items.findIndex((s) => s.id === subtaskId);
     setItems((cur) => cur.filter((s) => s.id !== subtaskId));
     startTransition(async () => {
-      await deleteSubtask(subtaskId, taskId, projectId);
+      await run(() => deleteSubtask(subtaskId, taskId, projectId), {
+        // A failed delete previously left the row gone from the UI but
+        // present in the database until reload — put it back where it was.
+        onError: () => {
+          if (!removed) return;
+          setItems((cur) => {
+            const next = [...cur];
+            next.splice(removedIndex, 0, removed);
+            return next;
+          });
+        },
+      });
     });
   }
 
@@ -38,7 +58,11 @@ export function SubtaskChecklist({
     if (!title) return;
     setNewTitle("");
     startTransition(async () => {
-      const result = await addSubtask(taskId, projectId, title);
+      const result = await run(() => addSubtask(taskId, projectId, title), {
+        // Give the typed text back — it never made it to the list, so
+        // losing it too on top of the failure is needless extra typing.
+        onError: () => setNewTitle(title),
+      });
       if (result.ok && result.id) {
         setItems((cur) => [
           ...cur,

@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { ConfirmModal } from "@/components/ui/Modal";
+import { useActionToast } from "@/lib/toast-context";
 import { interventionFor } from "@/lib/interventions";
 import { dominantDriverV2, type BurnoutV2Scores } from "@/lib/burnout-signals";
 import {
@@ -29,9 +31,11 @@ export function InterventionPanel({
   isSelf: boolean;
   latestIntervention: Intervention | null;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [confirmDismissOpen, setConfirmDismissOpen] = useState(false);
+  const [confirmApplyOpen, setConfirmApplyOpen] = useState(false);
+  const runAction = useActionToast();
 
   const isCritical = scores.bandV2 === "high" || scores.bandV2 === "critical";
   const active = latestIntervention?.status === "suggested" ? latestIntervention : null;
@@ -41,23 +45,24 @@ export function InterventionPanel({
   const driver = dominantDriverV2(scores);
   const spec = interventionFor(driver.key);
 
-  function run(key: string, action: () => Promise<{ ok: boolean; error?: string }>) {
-    setError(null);
+  function run(key: string, action: () => Promise<{ ok: boolean; error?: string }>, success?: string) {
     setPending(key);
     startTransition(async () => {
-      const result = await action();
+      await runAction(action, success ? { success } : undefined);
       setPending(null);
-      if (!result.ok) setError(result.error ?? "Something went wrong.");
     });
   }
 
   function handleCreate() {
-    run("create", () =>
-      createIntervention({
-        employeeId,
-        driver: driver.key,
-        scoreAtCreation: Math.round(scores.compositeV2),
-      })
+    run(
+      "create",
+      () =>
+        createIntervention({
+          employeeId,
+          driver: driver.key,
+          scoreAtCreation: Math.round(scores.compositeV2),
+        }),
+      "Intervention raised."
     );
   }
 
@@ -97,7 +102,7 @@ export function InterventionPanel({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => run("apply", () => applyQuietHoursIntervention(active.id))}
+                onClick={() => setConfirmApplyOpen(true)}
                 disabled={isPending}
               >
                 {pending === "apply" ? "Applying…" : "Apply"}
@@ -105,7 +110,7 @@ export function InterventionPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => run("dismiss", () => dismissIntervention(active.id))}
+                onClick={() => setConfirmDismissOpen(true)}
                 disabled={isPending}
               >
                 Dismiss
@@ -118,7 +123,7 @@ export function InterventionPanel({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => run("accept", () => acceptIntervention(active.id))}
+                onClick={() => run("accept", () => acceptIntervention(active.id), "Marked as done.")}
                 disabled={isPending}
               >
                 {pending === "accept" ? "Saving…" : "Mark done"}
@@ -126,7 +131,7 @@ export function InterventionPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => run("dismiss", () => dismissIntervention(active.id))}
+                onClick={() => setConfirmDismissOpen(true)}
                 disabled={isPending}
               >
                 Dismiss
@@ -138,7 +143,36 @@ export function InterventionPanel({
         </>
       )}
 
-      {error ? <p className="mt-2 text-[11px] text-risk-critical">{error}</p> : null}
+
+      {active ? (
+        <>
+          <ConfirmModal
+            open={confirmDismissOpen}
+            onClose={() => setConfirmDismissOpen(false)}
+            onConfirm={() => {
+              setConfirmDismissOpen(false);
+              run("dismiss", () => dismissIntervention(active.id));
+            }}
+            title="Dismiss intervention"
+            message="Dismiss this intervention? It can't be reactivated."
+            confirmLabel="Dismiss"
+            pending={isPending && pending === "dismiss"}
+          />
+          <ConfirmModal
+            open={confirmApplyOpen}
+            onClose={() => setConfirmApplyOpen(false)}
+            onConfirm={() => {
+              setConfirmApplyOpen(false);
+              run("apply", () => applyQuietHoursIntervention(active.id));
+            }}
+            title="Apply strict quiet hours"
+            message="Apply strict quiet hours? Notifications will be held outside your schedule."
+            tone="default"
+            confirmLabel="Apply"
+            pending={isPending && pending === "apply"}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

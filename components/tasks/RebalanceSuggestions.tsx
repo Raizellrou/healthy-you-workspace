@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { ConfirmModal } from "@/components/ui/Modal";
 import { applyRebalanceMoves } from "@/app/(app)/tasks/actions";
+import { useActionToast } from "@/lib/toast-context";
 import type { RebalanceMove } from "@/lib/rebalance";
 
 /** Manager/HR-only card on the Workload page (gated by the caller's
@@ -14,8 +16,9 @@ export function RebalanceSuggestions({ moves }: { moves: RebalanceMove[] }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<string | null>(null); // taskId, or "all"
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [confirmApplyAllOpen, setConfirmApplyAllOpen] = useState(false);
+  const run = useActionToast();
 
   const visible = moves.filter((m) => !dismissed.has(m.taskId) && !applied.has(m.taskId));
 
@@ -24,33 +27,34 @@ export function RebalanceSuggestions({ moves }: { moves: RebalanceMove[] }) {
   }
 
   function applyOne(move: RebalanceMove) {
-    setError(null);
     setPending(move.taskId);
     startTransition(async () => {
-      const result = await applyRebalanceMoves({
-        moves: [{ taskId: move.taskId, fromEmployeeId: move.fromEmployeeId, toEmployeeId: move.toEmployeeId }],
-      });
+      const result = await run(
+        () =>
+          applyRebalanceMoves({
+            moves: [{ taskId: move.taskId, fromEmployeeId: move.fromEmployeeId, toEmployeeId: move.toEmployeeId }],
+          }),
+        { success: `Moved "${move.taskTitle}" to ${move.toName}.` }
+      );
       setPending(null);
-      if (!result.ok) {
-        setError(result.error ?? "Couldn't apply that move.");
-        return;
-      }
+      if (!result.ok) return;
       setApplied((prev) => new Set(prev).add(move.taskId));
     });
   }
 
   function applyAll() {
-    setError(null);
+    setConfirmApplyAllOpen(false);
     setPending("all");
     startTransition(async () => {
-      const result = await applyRebalanceMoves({
-        moves: visible.map((m) => ({ taskId: m.taskId, fromEmployeeId: m.fromEmployeeId, toEmployeeId: m.toEmployeeId })),
-      });
+      const result = await run(
+        () =>
+          applyRebalanceMoves({
+            moves: visible.map((m) => ({ taskId: m.taskId, fromEmployeeId: m.fromEmployeeId, toEmployeeId: m.toEmployeeId })),
+          }),
+        { success: `${visible.length} move${visible.length === 1 ? "" : "s"} applied.` }
+      );
       setPending(null);
-      if (!result.ok) {
-        setError(result.error ?? "Couldn't apply those moves.");
-        return;
-      }
+      if (!result.ok) return;
       setApplied((prev) => new Set([...prev, ...visible.map((m) => m.taskId)]));
     });
   }
@@ -73,13 +77,11 @@ export function RebalanceSuggestions({ moves }: { moves: RebalanceMove[] }) {
           </p>
         </div>
         {visible.length > 1 ? (
-          <Button variant="primary" size="sm" onClick={applyAll} disabled={isPending}>
+          <Button variant="primary" size="sm" onClick={() => setConfirmApplyAllOpen(true)} disabled={isPending}>
             {pending === "all" ? "Applying…" : "Apply all"}
           </Button>
         ) : null}
       </div>
-
-      {error ? <p className="mb-3 text-xs text-risk-critical">{error}</p> : null}
 
       <ul className="space-y-2">
         {visible.map((move) => (
@@ -103,6 +105,17 @@ export function RebalanceSuggestions({ moves }: { moves: RebalanceMove[] }) {
           </li>
         ))}
       </ul>
+
+      <ConfirmModal
+        open={confirmApplyAllOpen}
+        onClose={() => setConfirmApplyAllOpen(false)}
+        onConfirm={applyAll}
+        title="Apply all rebalance moves"
+        message={`Apply all ${visible.length} rebalance moves? Tasks will be reassigned.`}
+        tone="default"
+        confirmLabel="Apply all"
+        pending={isPending && pending === "all"}
+      />
     </Card>
   );
 }

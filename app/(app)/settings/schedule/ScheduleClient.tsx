@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { fmtMinutes } from "@/lib/date";
 import { toMinutes } from "@/lib/time";
 import { updateSchedule, updateNotificationPrefs } from "@/app/(app)/settings/actions";
+import { useActionToast } from "@/lib/toast-context";
 import type { NotificationPrefsSettings, WorkScheduleSettings } from "@/lib/supabase/notifications";
 import type { NotificationKind } from "@/lib/notify";
 
@@ -53,10 +54,8 @@ export function ScheduleClient({
   const [batchingMode, setBatchingMode] = useState(prefs.batchingMode);
   const [mutedKinds, setMutedKinds] = useState(new Set(prefs.mutedKinds));
 
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
-  const [savedSchedule, setSavedSchedule] = useState(false);
-  const [savedPrefs, setSavedPrefs] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const run = useActionToast();
 
   function toggleDay(day: number) {
     setWorkdays((cur) => {
@@ -77,29 +76,26 @@ export function ScheduleClient({
   }
 
   function handleSaveSchedule() {
-    setScheduleError(null);
-    setSavedSchedule(false);
     startTransition(async () => {
-      const result = await updateSchedule({
-        workdays: [...workdays],
-        startMin,
-        endMin,
-        quietStartMin,
-        quietEndMin,
-      });
-      if (!result.ok) {
-        setScheduleError(result.error ?? "Failed to save.");
-        return;
-      }
-      setSavedSchedule(true);
+      await run(
+        () =>
+          updateSchedule({
+            workdays: [...workdays],
+            startMin,
+            endMin,
+            quietStartMin,
+            quietEndMin,
+          }),
+        { success: "Working hours saved." }
+      );
     });
   }
 
   function handleSavePrefs() {
-    setSavedPrefs(false);
     startTransition(async () => {
-      const result = await updateNotificationPrefs({ batchingMode, mutedKinds: [...mutedKinds] });
-      if (result.ok) setSavedPrefs(true);
+      await run(() => updateNotificationPrefs({ batchingMode, mutedKinds: [...mutedKinds] }), {
+        success: "Notification preferences saved.",
+      });
     });
   }
 
@@ -107,11 +103,6 @@ export function ScheduleClient({
     <div className="flex flex-col gap-6">
       <Card>
         <div className="mb-4 text-sm font-semibold text-ink">Working hours</div>
-        {scheduleError && (
-          <div className="mb-3 rounded-lg border border-risk-critical/30 bg-risk-critical/10 px-3 py-2 text-sm text-risk-critical">
-            {scheduleError}
-          </div>
-        )}
 
         <div className="mb-4">
           <div className="mb-1.5 text-sm font-medium text-ink">Workdays</div>
@@ -185,7 +176,6 @@ export function ScheduleClient({
           <Button type="button" size="sm" onClick={handleSaveSchedule} disabled={isPending}>
             {isPending ? "Saving…" : "Save schedule"}
           </Button>
-          {savedSchedule && <span className="text-xs text-success">Saved.</span>}
         </div>
       </Card>
 
@@ -232,7 +222,6 @@ export function ScheduleClient({
           <Button type="button" size="sm" variant="secondary" onClick={handleSavePrefs} disabled={isPending}>
             {isPending ? "Saving…" : "Save preferences"}
           </Button>
-          {savedPrefs && <span className="text-xs text-success">Saved.</span>}
         </div>
       </Card>
     </div>

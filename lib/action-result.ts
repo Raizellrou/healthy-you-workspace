@@ -74,6 +74,13 @@ export async function validated<I, T extends ActionResult>(
  * The codes covered are the ones this schema actually raises: the
  * `mood_checkins` unique constraint, the partial unique indexes added for
  * work sessions and breaks, and the CHECK constraints on task fields.
+ *
+ * The `default` branch deliberately does not return `error.message` — a raw
+ * Postgres message can carry constraint names, column names, and schema
+ * shape, and with toasts (Phase 5 of the modal/toast work) that string is
+ * now surfaced on the most screenshot-and-shared UI surface in the app.
+ * The detail goes to the server log instead, where an actual investigation
+ * can use it; the client gets a message with nothing to leak.
  */
 export function describeDbError(
   error: { code?: string; message: string },
@@ -90,6 +97,7 @@ export function describeDbError(
     case "42501":
       return "You don't have access to do that.";
     default:
-      return error.message;
+      console.error("Unhandled db error:", error.code, error.message);
+      return "Something went wrong. Please try again.";
   }
 }

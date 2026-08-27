@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { Button } from "@/components/ui/Button";
 
 type Size = "sm" | "md" | "lg";
 
@@ -39,6 +40,11 @@ export function Modal({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // A stable per-instance id — a hardcoded "modal-title" broke the moment a
+  // second Modal (e.g. a ConfirmModal) was mounted alongside this one:
+  // aria-labelledby on the second dialog would resolve to the first one's
+  // heading.
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
@@ -63,7 +69,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       // The dialog box fills the whole element, so a click that lands on the
       // dialog itself is a click on the backdrop around it.
       onClick={(event) => {
@@ -73,7 +79,7 @@ export function Modal({
     >
       <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
         <div>
-          <h2 id="modal-title" className="text-base font-semibold text-ink">
+          <h2 id={titleId} className="text-base font-semibold text-ink">
             {title}
           </h2>
           {description && (
@@ -101,9 +107,31 @@ export function Modal({
   );
 }
 
+interface ConfirmModalBaseProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  pending?: boolean;
+}
+
+/**
+ * `tone` controls both button color and whether `confirmLabel` is required.
+ * "destructive" (the original, and still the default) reads red with a
+ * "Delete" fallback — correct for the two `window.confirm` replacements this
+ * component was built for. "default" is for consequential-but-reversible
+ * confirms (mark all read, assign a manager) where red styling would be
+ * false alarm fatigue; `confirmLabel` is required there since "Delete" is
+ * never the right word for one of those actions.
+ */
+type ConfirmModalProps =
+  | (ConfirmModalBaseProps & { tone?: "destructive"; confirmLabel?: string })
+  | (ConfirmModalBaseProps & { tone: "default"; confirmLabel: string });
+
 /**
  * Replaces the `window.confirm` calls scattered through the tasks pillar.
- * Same shape as `Modal`, with the destructive action pre-wired.
+ * Same shape as `Modal`, with the confirm action pre-wired.
  */
 export function ConfirmModal({
   open,
@@ -111,17 +139,10 @@ export function ConfirmModal({
   onConfirm,
   title,
   message,
-  confirmLabel = "Delete",
+  confirmLabel,
+  tone = "destructive",
   pending = false,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  title: string;
-  message: string;
-  confirmLabel?: string;
-  pending?: boolean;
-}) {
+}: ConfirmModalProps) {
   return (
     <Modal
       open={open}
@@ -130,21 +151,17 @@ export function ConfirmModal({
       size="sm"
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-surface-2 px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-line"
-          >
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant={tone === "destructive" ? "danger" : "primary"}
             onClick={onConfirm}
             disabled={pending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-risk-critical/10 px-4 py-2 text-sm font-medium text-risk-critical transition-colors hover:bg-risk-critical/20 disabled:cursor-not-allowed disabled:text-ink-mute"
           >
-            {pending ? "Working…" : confirmLabel}
-          </button>
+            {pending ? "Working…" : (confirmLabel ?? "Delete")}
+          </Button>
         </>
       }
     >

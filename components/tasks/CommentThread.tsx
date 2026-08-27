@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { addComment } from "@/app/(app)/tasks/actions";
+import { useActionToast } from "@/lib/toast-context";
 import type { TaskComment } from "@/types/task";
 
 export function CommentThread({
@@ -22,13 +23,14 @@ export function CommentThread({
   const [items, setItems] = useState(comments);
   const [body, setBody] = useState("");
   const [isPending, startTransition] = useTransition();
+  const run = useActionToast();
 
   function handleAdd() {
     const trimmed = body.trim();
     if (!trimmed) return;
     setBody("");
     startTransition(async () => {
-      const result = await addComment(taskId, projectId, trimmed);
+      const result = await run(() => addComment(taskId, projectId, trimmed));
       if (result.ok) {
         setItems((cur) => [
           ...cur,

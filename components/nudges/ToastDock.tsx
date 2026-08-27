@@ -64,14 +64,15 @@ export function ToastDock({
 
   if (!activeToast || isOnNudgesRoute || suppressed) return null;
 
+  // No positioning here — `ToastStack` (mounted once in the app layout) owns
+  // placement for this and the action-toast queue, so the two never end up
+  // as two independent `fixed bottom-4 right-4` containers overlapping.
   return (
-    <div className="fixed bottom-4 right-4 z-50">
-      <NudgeToastCard
-        type={activeToast.type}
-        onDone={() => resolveToast("done")}
-        onSnooze={() => resolveToast("snooze")}
-        onDismiss={() => resolveToast("done")}
-      />
-    </div>
+    <NudgeToastCard
+      type={activeToast.type}
+      onDone={() => resolveToast("done")}
+      onSnooze={() => resolveToast("snooze")}
+      onDismiss={() => resolveToast("done")}
+    />
   );
 }

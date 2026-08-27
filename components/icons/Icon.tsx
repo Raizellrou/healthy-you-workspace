@@ -19,7 +19,9 @@ export type IconName =
   | "list"
   | "inbox"
   | "settings"
-  | "search";
+  | "search"
+  | "alert-circle"
+  | "info";
 
 export function Icon({
   name,

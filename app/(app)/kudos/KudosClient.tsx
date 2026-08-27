@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Chip } from "@/components/ui/Chip";
 import { KUDOS_PROGRESS_CAP, KUDOS_TAGS } from "@/lib/constants";
 import { submitKudos, rotateBuddies, raiseConcern, decideConcern, proposeCoffee } from "./actions";
+import { useToast } from "@/lib/toast-context";
 import type { Employee } from "@/types/employee";
 
 const TAG_ACCENT: Record<string, string> = {
@@ -68,6 +69,7 @@ export function KudosClient({
   const [progress, setProgress] = useState(initialProgress);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   const [rotating, setRotating] = useState(false);
   const [rotateMsg, setRotateMsg] = useState<string | null>(null);
@@ -97,6 +99,7 @@ export function KudosClient({
         setError(result.error ?? "Something went wrong.");
         return;
       }
+      toast({ title: `Kudos sent to ${buddy.name}.`, variant: "success" });
       setSubmitted(true);
       setProgress((p) => Math.min(KUDOS_PROGRESS_CAP, p + 1));
     });

@@ -7,8 +7,23 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Select } from "@/components/ui/Select";
 import { Field } from "@/components/ui/Field";
 import { Switch } from "@/components/ui/Switch";
+import { ConfirmModal } from "@/components/ui/Modal";
+import { useActionToast } from "@/lib/toast-context";
 import type { Person, Team } from "@/types/person";
 import { assignManager, setHr } from "./actions";
+
+interface ManagerConfirmTarget {
+  teamId: string;
+  teamName: string;
+  employeeId: string;
+  employeeName: string;
+}
+
+interface HrConfirmTarget {
+  employeeId: string;
+  employeeName: string;
+  grant: boolean;
+}
 
 export function TeamsClient({
   teams,
@@ -21,8 +36,10 @@ export function TeamsClient({
 }) {
   const [pendingTeamId, setPendingTeamId] = useState<string | null>(null);
   const [pendingHrId, setPendingHrId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [managerConfirm, setManagerConfirm] = useState<ManagerConfirmTarget | null>(null);
+  const [hrConfirm, setHrConfirm] = useState<HrConfirmTarget | null>(null);
+  const run = useActionToast();
 
   const byTeam = new Map<string, Person[]>();
   for (const e of employees) {
@@ -33,32 +50,25 @@ export function TeamsClient({
   }
 
   function handleAssignManager(teamId: string, employeeId: string) {
-    setError(null);
+    setManagerConfirm(null);
     setPendingTeamId(teamId);
     startTransition(async () => {
-      const result = await assignManager(teamId, employeeId);
+      await run(() => assignManager(teamId, employeeId));
       setPendingTeamId(null);
-      if (!result.ok) setError(result.error ?? "Failed to reassign manager.");
     });
   }
 
   function handleSetHr(employeeId: string, grant: boolean) {
-    setError(null);
+    setHrConfirm(null);
     setPendingHrId(employeeId);
     startTransition(async () => {
-      const result = await setHr(employeeId, grant);
+      await run(() => setHr(employeeId, grant));
       setPendingHrId(null);
-      if (!result.ok) setError(result.error ?? "Failed to update HR access.");
     });
   }
 
   return (
     <div className="flex flex-col gap-6">
-      {error && (
-        <div className="rounded-lg border border-risk-critical/30 bg-risk-critical/10 px-4 py-2 text-sm text-risk-critical">
-          {error}
-        </div>
-      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {teams.map((team) => {
@@ -76,7 +86,12 @@ export function TeamsClient({
                     {...props}
                     value={team.managerId ?? ""}
                     disabled={isPending && pendingTeamId === team.id}
-                    onChange={(e) => handleAssignManager(team.id, e.target.value)}
+                    onChange={(e) => {
+                      const employeeId = e.target.value;
+                      const employee = members.find((m) => m.id === employeeId);
+                      if (!employee) return;
+                      setManagerConfirm({ teamId: team.id, teamName: team.name, employeeId, employeeName: employee.name });
+                    }}
                     options={members.map((m) => ({ value: m.id, label: m.name }))}
                     placeholder={members.length === 0 ? "No members yet" : "Choose a manager"}
                   />
@@ -109,7 +124,7 @@ export function TeamsClient({
                         id={`hr-${m.id}`}
                         label={`Grant HR access to ${m.name}`}
                         checked={m.appRole === "hr"}
-                        onChange={(next) => handleSetHr(m.id, next)}
+                        onChange={(next) => setHrConfirm({ employeeId: m.id, employeeName: m.name, grant: next })}
                       />
                     </label>
                   </li>
@@ -119,6 +134,33 @@ export function TeamsClient({
           );
         })}
       </div>
+
+      <ConfirmModal
+        open={managerConfirm !== null}
+        onClose={() => setManagerConfirm(null)}
+        onConfirm={() => managerConfirm && handleAssignManager(managerConfirm.teamId, managerConfirm.employeeId)}
+        title="Assign manager"
+        message={managerConfirm ? `Assign ${managerConfirm.employeeName} as manager of ${managerConfirm.teamName}?` : ""}
+        tone="default"
+        confirmLabel="Assign"
+        pending={isPending}
+      />
+      <ConfirmModal
+        open={hrConfirm !== null}
+        onClose={() => setHrConfirm(null)}
+        onConfirm={() => hrConfirm && handleSetHr(hrConfirm.employeeId, hrConfirm.grant)}
+        title={hrConfirm?.grant ? "Grant HR access" : "Revoke HR access"}
+        message={
+          hrConfirm
+            ? hrConfirm.grant
+              ? `Grant HR access to ${hrConfirm.employeeName}?`
+              : `Revoke HR access from ${hrConfirm.employeeName}?`
+            : ""
+        }
+        tone="default"
+        confirmLabel={hrConfirm?.grant ? "Grant" : "Revoke"}
+        pending={isPending}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { Switch } from "@/components/ui/Switch";
 import { ThemeToggle } from "@/components/shell/ThemeToggle";
 import { updateUiPreferences } from "@/app/(app)/settings/actions";
+import { useActionToast } from "@/lib/toast-context";
 import type { UiPreferences } from "@/lib/supabase/preferences";
 
 const FONT_SCALES = [
@@ -32,17 +33,15 @@ const TASK_VIEW_OPTIONS = [
 export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
   const [prefs, setPrefs] = useState(initial);
   const [isPending, startTransition] = useTransition();
-  const [saved, setSaved] = useState(false);
+  const run = useActionToast();
 
   function set<K extends keyof UiPreferences>(key: K, value: UiPreferences[K]) {
-    setSaved(false);
     setPrefs((p) => ({ ...p, [key]: value }));
   }
 
   function handleSave() {
     startTransition(async () => {
-      const result = await updateUiPreferences(prefs);
-      setSaved(result.ok);
+      await run(() => updateUiPreferences(prefs), { success: "Appearance saved." });
     });
   }
 
@@ -149,7 +148,6 @@ export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
         <Button onClick={handleSave} disabled={isPending}>
           {isPending ? "Saving…" : "Save"}
         </Button>
-        {saved ? <span className="text-xs text-ink-mute">Saved.</span> : null}
       </div>
       <p className="text-xs text-ink-mute">
         Reduced motion, high contrast, muted palette, and text size apply everywhere immediately after saving. Density,

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { ConfirmModal } from "@/components/ui/Modal";
+import { useActionToast } from "@/lib/toast-context";
 import { computeBurnout } from "@/lib/burnout";
 import { fmtMinutes } from "@/lib/date";
 import type { FocusBlock } from "@/lib/focus-timeline";
@@ -78,11 +80,12 @@ export function FocusClient({
     setManualState(currentEmployeeId && openSession ? openSession.mode : null);
   }
   const [pendingMode, setPendingMode] = useState<FocusMode | "ending" | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<{ tasksCompleted: number; notificationsSuppressed: number } | null>(
     null
   );
   const [isPending, startTransition] = useTransition();
+  const [confirmEndOpen, setConfirmEndOpen] = useState(false);
+  const run = useActionToast();
 
   const employee = employees.find((e) => e.id === employeeId) ?? employees[0];
   const suggested = autoSuggest(employee);
@@ -99,26 +102,23 @@ export function FocusClient({
   function handleStart(mode: WorkspaceState) {
     setManualState(mode);
     if (!isSelf) return;
-    setError(null);
     setPendingMode(mode as FocusMode);
     setLastSummary(null);
     startTransition(async () => {
-      const result = await startFocusSession({ mode, trigger: "manual" });
+      await run(() => startFocusSession({ mode, trigger: "manual" }), {
+        success: `${WORKSPACE_COPY[mode].label} session started.`,
+      });
       setPendingMode(null);
-      if (!result.ok) setError(result.error ?? "Couldn't start that session.");
     });
   }
 
   function handleEnd() {
-    setError(null);
+    setConfirmEndOpen(false);
     setPendingMode("ending");
     startTransition(async () => {
-      const result = await endFocusSession();
+      const result = await run(() => endFocusSession());
       setPendingMode(null);
-      if (!result.ok) {
-        setError(result.error ?? "Couldn't end the session.");
-        return;
-      }
+      if (!result.ok) return;
       setLastSummary({
         tasksCompleted: (result as { tasksCompleted?: number }).tasksCompleted ?? 0,
         notificationsSuppressed: (result as { notificationsSuppressed?: number }).notificationsSuppressed ?? 0,
@@ -196,7 +196,7 @@ export function FocusClient({
           </div>
           {isSelf ? (
             openSession ? (
-              <Button variant="secondary" size="sm" onClick={handleEnd} disabled={isPending}>
+              <Button variant="secondary" size="sm" onClick={() => setConfirmEndOpen(true)} disabled={isPending}>
                 {pendingMode === "ending" ? "Ending…" : "End session"}
               </Button>
             ) : (
@@ -204,7 +204,6 @@ export function FocusClient({
             )
           ) : null}
         </div>
-        {error ? <p className="mt-3 text-xs text-risk-critical">{error}</p> : null}
         {lastSummary ? (
           <p className="mt-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
             Session ended — {lastSummary.tasksCompleted} task{lastSummary.tasksCompleted === 1 ? "" : "s"} completed,{" "}
@@ -241,6 +240,16 @@ export function FocusClient({
           </>
         )}
       </Card>
+
+      <ConfirmModal
+        open={confirmEndOpen}
+        onClose={() => setConfirmEndOpen(false)}
+        onConfirm={handleEnd}
+        title="End focus session"
+        message={`End your focus session? ${dueToday} task${dueToday === 1 ? "" : "s"} due today and any held notifications will be released.`}
+        confirmLabel="End session"
+        pending={pendingMode === "ending"}
+      />
     </div>
   );
 }

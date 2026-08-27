@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { PriorityChip } from "@/components/tasks/PriorityChip";
 import { formatDueDate, isOverdue } from "@/lib/tasks";
 import { toggleDone } from "@/app/(app)/tasks/actions";
+import { useActionToast } from "@/lib/toast-context";
 import type { Task } from "@/types/task";
 
 export function TaskRow({
@@ -21,16 +22,16 @@ export function TaskRow({
 }) {
   const [done, setDone] = useState(task.done);
   const [isPending, startTransition] = useTransition();
+  const run = useActionToast();
   const dueLabel = formatDueDate(task.due_date);
   const overdue = !done && isOverdue(task.due_date);
 
   function handleToggle() {
     setDone((d) => !d);
     startTransition(async () => {
-      const result = await toggleDone(task.id, task.project_id);
-      if (!result.ok) {
-        setDone((d) => !d);
-      }
+      await run(() => toggleDone(task.id, task.project_id), {
+        onError: () => setDone((d) => !d),
+      });
     });
   }
 

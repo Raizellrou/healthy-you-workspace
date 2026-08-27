@@ -163,6 +163,22 @@ export function IconSprite() {
             <path d="M21 21l-4.3-4.3" />
           </g>
         </symbol>
+
+        <symbol id="i-alert-circle" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7.5v6" />
+            <path d="M12 16.8h.01" />
+          </g>
+        </symbol>
+
+        <symbol id="i-info" viewBox="0 0 24 24">
+          <g {...ICON_PROPS}>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5.5" />
+            <path d="M12 7.2h.01" />
+          </g>
+        </symbol>
       </defs>
     </svg>
   );

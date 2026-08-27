@@ -7,6 +7,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmModal } from "@/components/ui/Modal";
+import { useActionToast } from "@/lib/toast-context";
 import { markNotificationRead, markAllNotificationsRead } from "./actions";
 import type { InboxNotification, NotificationStatus } from "@/lib/supabase/notifications";
 
@@ -29,6 +31,8 @@ export function InboxClient({ notifications }: { notifications: InboxNotificatio
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>("unread");
   const [isPending, startTransition] = useTransition();
+  const [confirmMarkAllOpen, setConfirmMarkAllOpen] = useState(false);
+  const run = useActionToast();
 
   const counts = useMemo(() => {
     const c = { unread: 0, held: 0, read: 0 };
@@ -47,8 +51,9 @@ export function InboxClient({ notifications }: { notifications: InboxNotificatio
   }
 
   function handleMarkAll() {
+    setConfirmMarkAllOpen(false);
     startTransition(async () => {
-      await markAllNotificationsRead();
+      await run(() => markAllNotificationsRead(), { success: "All notifications marked read." });
       router.refresh();
     });
   }
@@ -76,7 +81,7 @@ export function InboxClient({ notifications }: { notifications: InboxNotificatio
           })}
         </div>
         {counts.unread > 0 && (
-          <Button type="button" size="sm" variant="ghost" onClick={handleMarkAll} disabled={isPending}>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmMarkAllOpen(true)} disabled={isPending}>
             Mark all read
           </Button>
         )}
@@ -129,6 +134,17 @@ export function InboxClient({ notifications }: { notifications: InboxNotificatio
           ))}
         </ul>
       )}
+
+      <ConfirmModal
+        open={confirmMarkAllOpen}
+        onClose={() => setConfirmMarkAllOpen(false)}
+        onConfirm={handleMarkAll}
+        title="Mark all read"
+        message="Mark all notifications as read?"
+        tone="default"
+        confirmLabel="Mark all read"
+        pending={isPending}
+      />
     </div>
   );
 }

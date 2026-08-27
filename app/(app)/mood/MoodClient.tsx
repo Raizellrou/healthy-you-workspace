@@ -8,6 +8,7 @@ import { Axolotl } from "@/components/mood/Axolotl";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { MOODS, MOOD_TAGS } from "@/lib/constants";
 import { submitMoodCheckin, updateMoodDetails } from "./actions";
+import { useActionToast } from "@/lib/toast-context";
 
 export interface TeamAggregate {
   avgMood: number | null;
@@ -48,8 +49,8 @@ export function MoodClient({
   orgTrend: OrgTrendPoint[];
 }) {
   const [picked, setPicked] = useState<1 | 2 | 3 | 4 | 5 | null>(initialPicked);
-  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const run = useActionToast();
   const pickedMood = picked ? MOODS[picked - 1] : null;
   const orgDelta = orgAvgToday !== null && orgAvgLastWeek !== null ? orgAvgToday - orgAvgLastWeek : null;
 
@@ -67,20 +68,19 @@ export function MoodClient({
   }
 
   function handlePick(value: 1 | 2 | 3 | 4 | 5) {
-    setError(null);
     setPicked(value);
     startTransition(async () => {
-      const result = await submitMoodCheckin(value);
-      if (!result.ok) {
-        setPicked(initialPicked);
-        setError(result.error ?? "Something went wrong.");
-      }
+      await run(() => submitMoodCheckin(value), {
+        onError: () => setPicked(initialPicked),
+      });
     });
   }
 
   function handleSaveDetails() {
     startDetailsTransition(async () => {
-      const result = await updateMoodDetails({ energy, note: detailsNote || null, tags });
+      const result = await run(() => updateMoodDetails({ energy, note: detailsNote || null, tags }), {
+        success: "Check-in updated.",
+      });
       if (result.ok) {
         setDetailsSaved(true);
         setDetailsOpen(false);
@@ -116,7 +116,6 @@ export function MoodClient({
                 );
               })}
             </div>
-            {error ? <p className="mb-2 text-sm text-risk-critical">{error}</p> : null}
             <div className="flex items-start gap-2 rounded-lg border border-line bg-surface-2 p-3 text-xs text-ink-soft">
               <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
               <p>
