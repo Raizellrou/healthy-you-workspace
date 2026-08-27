@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
 import { searchIndex, type SearchItem } from "@/lib/search";
+import { useNudges } from "@/lib/nudge-context";
+import { startFocusSession, endFocusSession } from "@/app/(app)/focus/actions";
+import type { OpenFocusSession } from "@/lib/supabase/focus";
 
 const GROUP_LABEL: Record<SearchItem["type"], string> = {
   page: "Pages",
@@ -38,13 +41,48 @@ export const OPEN_PALETTE_EVENT = "axionhr:open-command-palette";
  * Escape specifically, keeping a Menu that happens to be open underneath
  * from also closing when the palette closes.
  */
-export function CommandPalette({ index }: { index: SearchItem[] }) {
+export function CommandPalette({
+  index,
+  openFocusSession,
+}: {
+  index: SearchItem[];
+  /** Null when no focus_sessions row is currently open for this employee —
+   *  the F shortcut below is a binary toggle (start a 'focus' session /
+   *  end whatever's open), not a three-way cycle through standard/focus/
+   *  calm. Refreshed via router.refresh() after toggling, same as the
+   *  mode buttons on /focus itself. */
+  openFocusSession: OpenFocusSession | null;
+}) {
   const router = useRouter();
+  const { activeToast, resolveToast } = useNudges();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+
+  async function toggleFocus(session: OpenFocusSession | null) {
+    if (session) {
+      await endFocusSession();
+    } else {
+      await startFocusSession({ mode: "focus", trigger: "manual" });
+    }
+    router.refresh();
+  }
+
+  // The keydown-registration effect below intentionally has an empty
+  // dependency array so the listener identity stays stable — re-attaching
+  // it on every activeToast/resolveToast change (resolveToast is not
+  // memoized against stable deps in lib/nudge-context.tsx) would mean
+  // constantly tearing down and rebuilding a document listener. Instead
+  // the handler reads through this ref, kept fresh every render, so it
+  // always sees the latest values — including toggleFocus itself, so
+  // there's nothing left for the effect to close over directly — without
+  // needing to be recreated itself.
+  const latestRef = useRef({ open, activeToast, resolveToast, openFocusSession, toggleFocus });
+  useEffect(() => {
+    latestRef.current = { open, activeToast, resolveToast, openFocusSession, toggleFocus };
+  });
 
   const candidates = useMemo(() => searchIndex(index, query, CANDIDATE_LIMIT), [index, query]);
   const groups = useMemo(
@@ -61,6 +99,38 @@ export function CommandPalette({ index }: { index: SearchItem[] }) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setOpen((v) => !v);
+        return;
+      }
+
+      const state = latestRef.current;
+      // The palette owns every key while it's open (handled by
+      // onInputKeyDown below, scoped to its own input) — these shortcuts
+      // only apply when it's closed.
+      if (state.open) return;
+
+      const target = event.target as HTMLElement | null;
+      const typing = Boolean(
+        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      );
+      if (typing) return;
+
+      if (state.activeToast) {
+        if (event.key === "Escape") {
+          state.resolveToast("done"); // matches ToastDock's own onDismiss mapping
+          return;
+        }
+        if (event.key === "s" || event.key === "S") {
+          state.resolveToast("snooze");
+          return;
+        }
+        if (event.key === "Enter") {
+          state.resolveToast("done");
+          return;
+        }
+      }
+
+      if (event.key === "f" || event.key === "F") {
+        void state.toggleFocus(state.openFocusSession);
       }
     }
     function onOpenRequest() {

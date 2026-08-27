@@ -55,14 +55,28 @@ export function FocusClient({
   openSession: OpenFocusSession | null;
 }) {
   const [employeeId, setEmployeeId] = useState(currentEmployeeId ?? employees[0].id);
-  // Reflects an already-open session's real mode on first render, instead
-  // of falling back to the suggested state and only diverging once the
-  // user clicks something — a reload while a session is open was showing
-  // "Standard mode active" text even though the persisted session (and the
+  // Reflects an already-open session's real mode, instead of falling back
+  // to the suggested state and only diverging once the user clicks
+  // something — a reload while a session is open was showing "Standard
+  // mode active" text even though the persisted session (and the
   // highlighted button) said Focus.
+  //
+  // useState's initializer only runs on first mount, so it alone only
+  // covers a hard reload. A *soft* refresh (router.refresh() after a
+  // server action — e.g. the global F keyboard shortcut in
+  // CommandPalette.tsx toggling this from anywhere in the app) re-renders
+  // this component with a new `openSession` prop without remounting it,
+  // which left the same stale-label bug for that path. Resyncing whenever
+  // the session's identity changes — a new session started, or the open
+  // one ended — closes that gap too.
   const [manualState, setManualState] = useState<WorkspaceState | null>(
     currentEmployeeId && openSession ? openSession.mode : null
   );
+  const [prevSessionId, setPrevSessionId] = useState(openSession?.id ?? null);
+  if ((openSession?.id ?? null) !== prevSessionId) {
+    setPrevSessionId(openSession?.id ?? null);
+    setManualState(currentEmployeeId && openSession ? openSession.mode : null);
+  }
   const [pendingMode, setPendingMode] = useState<FocusMode | "ending" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<{ tasksCompleted: number; notificationsSuppressed: number } | null>(

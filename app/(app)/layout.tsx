@@ -13,6 +13,7 @@ import { getUnreadCount } from "@/lib/supabase/notifications";
 import { getUiPreferences, DEFAULT_UI_PREFERENCES } from "@/lib/supabase/preferences";
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
 import { getRespectCalendar } from "@/lib/supabase/nudge-prefs";
+import { getOpenFocusSession } from "@/lib/supabase/focus";
 import { computeBurnout } from "@/lib/burnout";
 import { buildSearchIndex } from "@/lib/search";
 
@@ -28,15 +29,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
   const hasCritical = employees.some((e) => computeBurnout(e).band === "critical");
   const currentEmployee = employees.find((e) => e.id === currentEmployeeId) ?? null;
-  const [unreadInboxCount, uiPreferences, currentMeeting, respectCalendar, myTasks] = currentEmployeeId
+  const [unreadInboxCount, uiPreferences, currentMeeting, respectCalendar, myTasks, openFocusSession] = currentEmployeeId
     ? await Promise.all([
         getUnreadCount(currentEmployeeId),
         getUiPreferences(currentEmployeeId),
         getCurrentMeeting(currentEmployeeId),
         getRespectCalendar(currentEmployeeId),
         getMyTasks(currentEmployeeId),
+        getOpenFocusSession(currentEmployeeId),
       ])
-    : [0, DEFAULT_UI_PREFERENCES, null, true, []];
+    : [0, DEFAULT_UI_PREFERENCES, null, true, [], null];
 
   const searchIndexItems = buildSearchIndex({
     employees,
@@ -88,7 +90,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <NudgePersistence />
       <UiPreferencesApplier prefs={uiPreferences} />
       {currentEmployeeId ? <LiveInboxBadge employeeId={currentEmployeeId} /> : null}
-      <CommandPalette index={searchIndexItems} />
+      <CommandPalette index={searchIndexItems} openFocusSession={openFocusSession} />
     </NudgeProvider>
   );
 }
