@@ -120,6 +120,15 @@ export const KUDOS_TAGS = [
   "Really listened",
 ] as const;
 
+export const MOOD_TAGS = [
+  "Workload",
+  "Team",
+  "Sleep",
+  "Personal",
+  "Deadlines",
+  "Recognition",
+] as const;
+
 export const KUDOS_PROGRESS_START = 5;
 export const KUDOS_PROGRESS_CAP = 8;
 

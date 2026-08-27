@@ -6,7 +6,7 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Icon } from "@/components/icons/Icon";
 import { Axolotl } from "@/components/mood/Axolotl";
 import { Sparkline } from "@/components/burnout/Sparkline";
-import { MOODS } from "@/lib/constants";
+import { MOODS, MOOD_TAGS } from "@/lib/constants";
 import { submitMoodCheckin, updateMoodDetails } from "./actions";
 
 export interface TeamAggregate {
@@ -26,6 +26,7 @@ export function MoodClient({
   initialPicked,
   initialEnergy,
   initialNote,
+  initialTags,
   streak,
   teamAggregates,
   orgAvgToday,
@@ -37,6 +38,7 @@ export function MoodClient({
   initialPicked: 1 | 2 | 3 | 4 | 5 | null;
   initialEnergy: number | null;
   initialNote: string;
+  initialTags: string[];
   streak: number;
   teamAggregates: Record<string, TeamAggregate>;
   orgAvgToday: number | null;
@@ -54,8 +56,15 @@ export function MoodClient({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [energy, setEnergy] = useState<number | null>(initialEnergy);
   const [detailsNote, setDetailsNote] = useState(initialNote);
-  const [detailsSaved, setDetailsSaved] = useState(initialEnergy !== null || initialNote.length > 0);
+  const [tags, setTags] = useState<string[]>(initialTags);
+  const [detailsSaved, setDetailsSaved] = useState(
+    initialEnergy !== null || initialNote.length > 0 || initialTags.length > 0
+  );
   const [detailsPending, startDetailsTransition] = useTransition();
+
+  function toggleTag(tag: string) {
+    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
 
   function handlePick(value: 1 | 2 | 3 | 4 | 5) {
     setError(null);
@@ -71,7 +80,7 @@ export function MoodClient({
 
   function handleSaveDetails() {
     startDetailsTransition(async () => {
-      const result = await updateMoodDetails({ energy, note: detailsNote || null });
+      const result = await updateMoodDetails({ energy, note: detailsNote || null, tags });
       if (result.ok) {
         setDetailsSaved(true);
         setDetailsOpen(false);
@@ -139,20 +148,34 @@ export function MoodClient({
             </div>
 
             {detailsSaved && !detailsOpen ? (
-              <button
-                type="button"
-                onClick={() => setDetailsOpen(true)}
-                className="text-xs font-medium text-brand-ink underline-offset-2 hover:underline"
-              >
-                Edit energy / note
-              </button>
+              <div className="flex flex-col items-center gap-1.5">
+                {tags.length > 0 ? (
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-xs text-ink-soft"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen(true)}
+                  className="text-xs font-medium text-brand-ink underline-offset-2 hover:underline"
+                >
+                  Edit energy / tags / note
+                </button>
+              </div>
             ) : !detailsOpen ? (
               <button
                 type="button"
                 onClick={() => setDetailsOpen(true)}
                 className="text-xs font-medium text-ink-mute underline-offset-2 hover:underline"
               >
-                + Add energy level or a note (optional)
+                + Add energy level, tags, or a note (optional)
               </button>
             ) : null}
 
@@ -173,6 +196,27 @@ export function MoodClient({
                       {n}
                     </button>
                   ))}
+                </div>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">What&apos;s behind it?</div>
+                <div role="group" aria-label="Tags for today's check-in" className="mb-3 flex flex-wrap gap-1.5">
+                  {MOOD_TAGS.map((tag) => {
+                    const isSelected = tags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => toggleTag(tag)}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                          isSelected
+                            ? "border-brand bg-brand-soft text-brand-ink"
+                            : "border-line bg-surface text-ink-mute hover:bg-surface-2"
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
                 </div>
                 <textarea
                   value={detailsNote}

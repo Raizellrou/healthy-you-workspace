@@ -50,6 +50,7 @@ export async function submitMoodCheckin(
 const UpdateMoodDetailsSchema = z.object({
   energy: z.number().int().min(1).max(5).nullable(),
   note: z.string().trim().max(2000).nullable(),
+  tags: z.array(z.string()).default([]),
 });
 
 /** Optional add-on to a check-in that already happened — kept as a
@@ -63,13 +64,21 @@ export async function updateMoodDetails(input: unknown): Promise<ActionResult> {
       const person = await getCurrentPerson();
       const today = todayInTz(person?.timezone);
 
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("mood_checkins")
-        .update({ energy: data.energy, note: data.note || null })
+        .update({ energy: data.energy, note: data.note || null, tags: data.tags })
         .eq("employee_id", employeeId)
-        .eq("date", today);
+        .eq("date", today)
+        .select("id")
+        .maybeSingle();
       if (error) {
         return fail(describeDbError(error));
+      }
+      // RLS filters rather than throws — a zero-row match on employee_id +
+      // date is exactly the silent no-op class that hit before 0017's
+      // UPDATE policy existed, so confirm a row actually matched.
+      if (!updated) {
+        return fail("No check-in found for today to update.");
       }
       revalidatePath("/mood");
       return ok();

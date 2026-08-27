@@ -13,16 +13,23 @@ export default async function MoodPage() {
   let initialPicked: 1 | 2 | 3 | 4 | 5 | null = null;
   let initialEnergy: number | null = null;
   let initialNote = "";
+  let initialTags: string[] = [];
   let streak = 0;
   if (employeeId) {
     const [{ data }, { data: streakData }] = await Promise.all([
-      supabase.from("mood_checkins").select("mood_value, energy, note").eq("employee_id", employeeId).eq("date", today).maybeSingle(),
+      supabase
+        .from("mood_checkins")
+        .select("mood_value, energy, note, tags")
+        .eq("employee_id", employeeId)
+        .eq("date", today)
+        .maybeSingle(),
       supabase.rpc("get_mood_streak", { target_employee_id: employeeId }),
     ]);
     if (data) {
       initialPicked = data.mood_value as 1 | 2 | 3 | 4 | 5;
       initialEnergy = data.energy as number | null;
       initialNote = (data.note as string | null) ?? "";
+      initialTags = (data.tags as string[] | null) ?? [];
     }
     streak = (streakData as number | null) ?? 0;
   }
@@ -85,6 +92,7 @@ export default async function MoodPage() {
         initialPicked={initialPicked}
         initialEnergy={initialEnergy}
         initialNote={initialNote}
+        initialTags={initialTags}
         streak={streak}
         teamAggregates={teamAggregates}
         orgAvgToday={orgAvgToday}
