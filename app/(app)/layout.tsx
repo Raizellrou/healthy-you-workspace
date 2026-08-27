@@ -1,6 +1,7 @@
 import { NavRail } from "@/components/shell/NavRail";
 import { NavPanel } from "@/components/shell/NavPanel";
 import { MobileTabBar } from "@/components/shell/MobileTabBar";
+import { LiveInboxBadge } from "@/components/shell/LiveInboxBadge";
 import { ToastDock } from "@/components/nudges/ToastDock";
 import { NudgePersistence } from "@/components/nudges/NudgePersistence";
 import { UiPreferencesApplier } from "@/components/shell/UiPreferencesApplier";
@@ -75,6 +76,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       <NudgePersistence />
       <UiPreferencesApplier prefs={uiPreferences} />
+      {currentEmployeeId ? <LiveInboxBadge employeeId={currentEmployeeId} /> : null}
     </NudgeProvider>
   );
 }

@@ -9,6 +9,7 @@ import { UserMenu } from "@/components/shell/UserMenu";
 import { NewProjectItem } from "@/components/tasks/NewProjectItem";
 import { sectionFor, sectionsFor, INBOX_ITEMS, SETTINGS_ITEMS, type RailItemDef } from "@/components/shell/navSections";
 import { useNudges } from "@/lib/nudge-context";
+import { subscribeToConnectionState, type ConnectionState } from "@/lib/realtime";
 import type { AppRole } from "@/types/person";
 import type { Project } from "@/types/task";
 
@@ -51,6 +52,9 @@ export function NavPanel({
   const { unseenCount } = useNudges();
   const role = appRole ?? "employee";
   const [collapsed, setCollapsed] = useState(false);
+  const [connectionState, setConnectionStateLocal] = useState<ConnectionState>("disconnected");
+
+  useEffect(() => subscribeToConnectionState(setConnectionStateLocal), []);
 
   useEffect(() => {
     // One-time read of browser-only state on mount — same deferred-effect
@@ -177,6 +181,17 @@ export function NavPanel({
       ) : null}
 
       <div className="mt-auto flex flex-col gap-3 pt-4">
+        {connectionState !== "connected" ? (
+          <div className="flex items-center gap-1.5 px-3 text-[11px] text-ink-mute">
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                connectionState === "connecting" ? "bg-ink-mute" : "bg-risk-high"
+              }`}
+              aria-hidden="true"
+            />
+            {connectionState === "connecting" ? "Connecting…" : "Reconnecting…"}
+          </div>
+        ) : null}
         {currentEmployee ? (
           <UserMenu
             name={currentEmployee.name}
