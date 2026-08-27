@@ -3,7 +3,7 @@ import { getEmployees } from "@/lib/supabase/queries";
 import { getVisibleEmployees } from "@/lib/supabase/people";
 import { buildCapacityWorkload, dueWithin, estimateOrDefault, overdueCount, type CapacityWorkloadEntry } from "@/lib/tasks";
 import type { RebalancePerson, RebalanceTask } from "@/lib/rebalance";
-import type { IsoDate } from "@/lib/date";
+import { addDays, type IsoDate } from "@/lib/date";
 import type { Label, Task, TaskEvent } from "@/types/task";
 
 /**
@@ -413,4 +413,34 @@ export async function getTaskBurnoutSignals(
   }
 
   return out;
+}
+
+/**
+ * Count of this employee's open tasks due on each of the next `days`
+ * calendar days (tomorrow first) — the burnout forecast's (lib/forecast.ts)
+ * look-ahead overdue signal. A task due on day N isn't overdue on day N
+ * itself; forecastNext7Days is what turns "due on day N" into "overdue
+ * from day N+1", not this query — this just counts by due_date.
+ */
+export async function getUpcomingDueTaskCounts(employeeId: string, today: IsoDate, days = 7): Promise<number[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("due_date")
+    .eq("assignee_id", employeeId)
+    .eq("done", false)
+    .gt("due_date", today)
+    .lte("due_date", addDays(today, days))
+    .returns<{ due_date: IsoDate | null }[]>();
+  if (error) {
+    throw new Error(`Failed to load upcoming due tasks: ${error.message}`);
+  }
+
+  const countByDate = new Map<IsoDate, number>();
+  for (const row of data ?? []) {
+    if (!row.due_date) continue;
+    countByDate.set(row.due_date, (countByDate.get(row.due_date) ?? 0) + 1);
+  }
+
+  return Array.from({ length: days }, (_, i) => countByDate.get(addDays(today, i + 1)) ?? 0);
 }

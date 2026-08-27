@@ -41,6 +41,13 @@ export interface OrgTrendPoint {
   checkinCount: number;
 }
 
+export interface CorrelationStat {
+  correlation: number | null;
+  sampleSize: number;
+  avgX: number | null;
+  avgY: number | null;
+}
+
 export interface OrgInsights {
   headcount: number;
   today: IsoDate;
@@ -55,6 +62,8 @@ export interface OrgInsights {
   offHoursByTeam: { team: string; totalSent: number; delayedCount: number }[];
   holds: NotificationHoldRate;
   moodTrend: OrgTrendPoint[];
+  meetingOffHoursCorr: CorrelationStat;
+  offHoursMoodCorr: CorrelationStat;
 }
 
 const WINDOW_DAYS = 30;
@@ -78,28 +87,40 @@ export async function getOrgInsights(timezone?: string): Promise<OrgInsights> {
   const capacityById = new Map(people.map((p) => [p.id, p.weeklyCapacityHours]));
   const timezoneById = new Map(people.map((p) => [p.id, p.timezone]));
 
-  const [attendanceSignals, taskSignals, ptoRes, kudosRes, eventsRes, moodRes, boundaryRes, holdRes] =
-    await Promise.all([
-      getAttendanceSignals(employeeIds, timezoneById, today),
-      getTaskBurnoutSignals(employeeIds, today),
-      supabase
-        .from("pto_requests")
-        .select("employee_id, start_date, end_date, status")
-        .returns<{ employee_id: string; start_date: IsoDate; end_date: IsoDate; status: string }[]>(),
-      supabase
-        .from("kudos")
-        .select("to_employee_id, created_at")
-        .gte("created_at", windowStartIso)
-        .returns<{ to_employee_id: string | null; created_at: string }[]>(),
-      supabase
-        .from("task_events")
-        .select("is_off_hours")
-        .gte("created_at", windowStartIso)
-        .returns<{ is_off_hours: boolean }[]>(),
-      supabase.rpc("get_org_mood_trend", { days: WINDOW_DAYS }),
-      supabase.rpc("get_boundary_offhours_rate", { days: WINDOW_DAYS }),
-      supabase.rpc("get_notification_hold_rate", { days: WINDOW_DAYS }),
-    ]);
+  const [
+    attendanceSignals,
+    taskSignals,
+    ptoRes,
+    kudosRes,
+    eventsRes,
+    moodRes,
+    boundaryRes,
+    holdRes,
+    meetingCorrRes,
+    moodCorrRes,
+  ] = await Promise.all([
+    getAttendanceSignals(employeeIds, timezoneById, today),
+    getTaskBurnoutSignals(employeeIds, today),
+    supabase
+      .from("pto_requests")
+      .select("employee_id, start_date, end_date, status")
+      .returns<{ employee_id: string; start_date: IsoDate; end_date: IsoDate; status: string }[]>(),
+    supabase
+      .from("kudos")
+      .select("to_employee_id, created_at")
+      .gte("created_at", windowStartIso)
+      .returns<{ to_employee_id: string | null; created_at: string }[]>(),
+    supabase
+      .from("task_events")
+      .select("is_off_hours")
+      .gte("created_at", windowStartIso)
+      .returns<{ is_off_hours: boolean }[]>(),
+    supabase.rpc("get_org_mood_trend", { days: WINDOW_DAYS }),
+    supabase.rpc("get_boundary_offhours_rate", { days: WINDOW_DAYS }),
+    supabase.rpc("get_notification_hold_rate", { days: WINDOW_DAYS }),
+    supabase.rpc("get_meeting_burnout_corr", { days: WINDOW_DAYS }),
+    supabase.rpc("get_offhours_mood_corr", { days: WINDOW_DAYS }),
+  ]);
 
   const bandRows: TeamBandRow[] = visibleEmployees.map((employee) => {
     const { scores } = buildBurnoutV2(
@@ -175,5 +196,25 @@ export async function getOrgInsights(timezone?: string): Promise<OrgInsights> {
     moodTrend: ((moodRes.data ?? []) as { day: string; avg_mood: number | null; checkin_count: number }[]).map(
       (row) => ({ day: row.day, avgMood: row.avg_mood, checkinCount: row.checkin_count })
     ),
+    meetingOffHoursCorr: (() => {
+      const row = (
+        meetingCorrRes.data as
+          | { correlation: number | null; sample_size: number; avg_meeting_hours: number | null; avg_off_hours_messages: number | null }[]
+          | null
+      )?.[0];
+      return row
+        ? { correlation: row.correlation, sampleSize: row.sample_size, avgX: row.avg_meeting_hours, avgY: row.avg_off_hours_messages }
+        : { correlation: null, sampleSize: 0, avgX: null, avgY: null };
+    })(),
+    offHoursMoodCorr: (() => {
+      const row = (
+        moodCorrRes.data as
+          | { correlation: number | null; sample_size: number; avg_off_hours_messages: number | null; avg_mood: number | null }[]
+          | null
+      )?.[0];
+      return row
+        ? { correlation: row.correlation, sampleSize: row.sample_size, avgX: row.avg_off_hours_messages, avgY: row.avg_mood }
+        : { correlation: null, sampleSize: 0, avgX: null, avgY: null };
+    })(),
   };
 }

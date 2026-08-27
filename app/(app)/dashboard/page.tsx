@@ -12,14 +12,20 @@ import { ClockWidget } from "@/components/shell/ClockWidget";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployees, getBurnoutHistory, getMyTasks } from "@/lib/supabase/queries";
 import { getCurrentPerson, getVisibleEmployees, getTeams } from "@/lib/supabase/people";
-import { getOpenSession } from "@/lib/supabase/attendance";
+import { getOpenSession, getAttendanceSignals } from "@/lib/supabase/attendance";
+import { getTaskBurnoutSignals } from "@/lib/supabase/tasks";
+import { getForecastsForEmployees } from "@/lib/supabase/forecast";
 import { getMyOneOnOnes } from "@/lib/supabase/one-on-ones";
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
 import { hasCheckedInMoodToday, getNeedsYou } from "@/lib/supabase/needs-you";
 import { computeBurnout } from "@/lib/burnout";
+import { buildBurnoutV2 } from "@/lib/burnout-signals";
 import { visibleTo } from "@/lib/authz";
 import { todayInTz, fmtDate } from "@/lib/date";
 import type { BurnoutBand } from "@/types/burnout";
+import type { BurnoutInputs } from "@/lib/burnout";
+import type { BurnoutV2Extras } from "@/lib/burnout-signals";
+import type { ForecastPoint } from "@/lib/forecast";
 
 const RISK_STROKE: Record<BurnoutBand, string> = {
   low: "var(--risk-low)",
@@ -107,6 +113,40 @@ export default async function DashboardPage() {
   const topFlaggedWithHistory = await Promise.all(
     topFlagged.map(async (r) => ({ ...r, history: await getBurnoutHistory(r.employee.id) }))
   );
+
+  // 7-day forecast, scoped to just these (at most 3) flagged people rather
+  // than the whole org — the same buildBurnoutV2 + getForecastsForEmployees
+  // pipeline app/(app)/burnout/page.tsx runs for every visible employee,
+  // kept small here since the dashboard is the first page every session
+  // loads.
+  const topFlaggedIds = topFlagged.map((r) => r.employee.id);
+  let forecastByEmployee: Record<string, ForecastPoint[]> = {};
+  if (topFlaggedIds.length > 0) {
+    const timezoneByEmployee = new Map(visiblePeople.map((p) => [p.id, p.timezone]));
+    const capacityByEmployee = new Map(visiblePeople.map((p) => [p.id, p.weeklyCapacityHours]));
+    const todayForSignals = todayInTz(me?.timezone);
+    const [attendanceSignals, taskSignals] = await Promise.all([
+      getAttendanceSignals(topFlaggedIds, timezoneByEmployee, todayForSignals),
+      getTaskBurnoutSignals(topFlaggedIds, todayForSignals),
+    ]);
+    const inputsExtrasByEmployee = new Map<string, { inputs: BurnoutInputs; extras: BurnoutV2Extras }>();
+    for (const r of topFlagged) {
+      const weeklyCapacityHours = capacityByEmployee.get(r.employee.id) ?? 40;
+      const { inputs, extras } = buildBurnoutV2(
+        r.employee,
+        attendanceSignals.get(r.employee.id),
+        taskSignals.get(r.employee.id),
+        weeklyCapacityHours
+      );
+      inputsExtrasByEmployee.set(r.employee.id, { inputs, extras });
+    }
+    forecastByEmployee = await getForecastsForEmployees(
+      topFlaggedIds,
+      timezoneByEmployee,
+      capacityByEmployee,
+      inputsExtrasByEmployee
+    );
+  }
 
   // Mood — org-wide numbers only exist through the anti-de-anonymization RPC;
   // direct row reads are scoped to your own check-ins by RLS.
@@ -340,6 +380,19 @@ export default async function DashboardPage() {
                       />
                       <span className="text-xs text-ink-mute">14d</span>
                     </div>
+                    {(() => {
+                      const forecast = forecastByEmployee[employee.id];
+                      const last = forecast?.[forecast.length - 1];
+                      if (!last) return null;
+                      return (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="font-mono text-sm font-semibold" style={{ color: RISK_STROKE[last.bandV2] }}>
+                            {last.compositeV2}
+                          </span>
+                          <span className="text-xs text-ink-mute">in 7d</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </Card>

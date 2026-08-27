@@ -10,12 +10,59 @@ import { BandBar, BandLegend } from "@/components/insights/BandBar";
 import { MetricBar } from "@/components/insights/MetricBar";
 import { getCurrentPerson } from "@/lib/supabase/people";
 import { getOrgInsights } from "@/lib/supabase/insights";
+import { describeCorrelation, MIN_CORRELATION_SAMPLE } from "@/lib/insights";
 import { fmtDate } from "@/lib/date";
 import type { BurnoutBand } from "@/types/burnout";
+import type { CorrelationStat } from "@/lib/supabase/insights";
 
 /** A whole-org drought (nobody thanked anyone all month) would otherwise
  *  render every employee as a row, burying the six panels below it. */
 const DROUGHT_PREVIEW = 8;
+
+/** Shared shape for the two 0028_correlations.sql-backed cards. A low
+ *  sample_size (mood check-ins are opt-in, unlike the synthetic
+ *  daily_activity rows) makes the Pearson coefficient itself misleading —
+ *  the card refuses to show a number below MIN_CORRELATION_SAMPLE rather
+ *  than rendering a coefficient a handful of points could flip the sign
+ *  of. Verified live: get_offhours_mood_corr currently returns
+ *  sample_size=3 against this project's real data, well under the floor,
+ *  so that card renders the empty state today — not a hypothetical case. */
+function CorrelationCard({
+  title,
+  description,
+  stat,
+  xLabel,
+  yLabel,
+}: {
+  title: string;
+  description: string;
+  stat: CorrelationStat;
+  xLabel: string;
+  yLabel: string;
+}) {
+  return (
+    <Card>
+      <h2 className="text-sm font-bold text-ink">{title}</h2>
+      <p className="mt-0.5 mb-3 text-xs text-ink-mute">{description}</p>
+      {stat.sampleSize < MIN_CORRELATION_SAMPLE || stat.correlation === null ? (
+        <EmptyState
+          icon="activity"
+          message={`Only ${stat.sampleSize} matched day${stat.sampleSize === 1 ? "" : "s"} of data — too few to read a correlation from.`}
+        />
+      ) : (
+        <>
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-2xl font-semibold text-ink">{stat.correlation.toFixed(2)}</span>
+            <span className="text-xs text-ink-mute">{describeCorrelation(stat.correlation)}</span>
+          </div>
+          <p className="mt-2 text-xs text-ink-mute">
+            {stat.sampleSize} person-days · avg {stat.avgX?.toFixed(1)} {xLabel}, {stat.avgY?.toFixed(1)} {yLabel}
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
 
 /**
  * HR-only org analytics. Gated with notFound() rather than RoleGate for the
@@ -42,6 +89,8 @@ export default async function InsightsPage() {
     offHoursByTeam,
     holds,
     moodTrend,
+    meetingOffHoursCorr,
+    offHoursMoodCorr,
   } = insights;
 
   const bandTotals = bandsByTeam.reduce(
@@ -273,6 +322,22 @@ export default async function InsightsPage() {
             </div>
           )}
         </Card>
+
+        <CorrelationCard
+          title="Meetings vs. off-hours work"
+          description="Does a heavier meeting day push people into working off-hours? Correlation across every scheduled day, org-wide."
+          stat={meetingOffHoursCorr}
+          xLabel="meeting hours"
+          yLabel="off-hours messages"
+        />
+
+        <CorrelationCard
+          title="Off-hours work vs. mood"
+          description="Does working off-hours track with lower self-reported mood? Correlation on days with both a real signal."
+          stat={offHoursMoodCorr}
+          xLabel="off-hours messages"
+          yLabel="mood (1-5)"
+        />
       </div>
 
       <Card className="mt-5">

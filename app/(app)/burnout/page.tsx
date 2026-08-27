@@ -3,6 +3,7 @@ import { getEmployees, getBurnoutHistory } from "@/lib/supabase/queries";
 import { getCurrentPerson, getVisibleEmployees, getTeams } from "@/lib/supabase/people";
 import { getAttendanceSignals } from "@/lib/supabase/attendance";
 import { getTaskBurnoutSignals } from "@/lib/supabase/tasks";
+import { getForecastsForEmployees } from "@/lib/supabase/forecast";
 import { buildBurnoutV2, type BurnoutV2Extras, type BurnoutV2Scores } from "@/lib/burnout-signals";
 import { visibleTo, isHr, isManagerOf } from "@/lib/authz";
 import { todayInTz } from "@/lib/date";
@@ -56,12 +57,14 @@ export default async function BurnoutPage() {
   ]);
   const historyByEmployee = Object.fromEntries(visibleEmployees.map((e, i) => [e.id, histories[i]]));
 
+  const inputsExtrasByEmployee = new Map<string, { inputs: BurnoutInputs; extras: BurnoutV2Extras }>();
   const rows: BurnoutRow[] = visibleEmployees.map((employee) => {
     const attendance = attendanceSignals.get(employee.id);
     const tasks = taskSignals.get(employee.id);
     const weeklyCapacityHours = capacityByEmployee.get(employee.id) ?? 40;
 
     const { inputs, extras, scores } = buildBurnoutV2(employee, attendance, tasks, weeklyCapacityHours);
+    inputsExtrasByEmployee.set(employee.id, { inputs, extras });
 
     const person = visiblePeople.find((p) => p.id === employee.id);
     const canManage = !!currentPerson && !!person && (isHr(currentPerson.appRole) || isManagerOf(currentPerson, person, teams));
@@ -70,6 +73,13 @@ export default async function BurnoutPage() {
 
     return { employee, scores, inputs, extras, canManage, isSelf, latestIntervention };
   });
+
+  const forecastByEmployee = await getForecastsForEmployees(
+    employeeIds,
+    timezoneByEmployee,
+    capacityByEmployee,
+    inputsExtrasByEmployee
+  );
 
   const avgScore = rows.length === 0 ? 0 : Math.round(rows.reduce((s, r) => s + r.scores.compositeV2, 0) / rows.length);
   const criticalCount = rows.filter((r) => r.scores.bandV2 === "critical").length;
@@ -103,7 +113,7 @@ export default async function BurnoutPage() {
           </div>
         }
       />
-      <BurnoutClient rows={rows} historyByEmployee={historyByEmployee} />
+      <BurnoutClient rows={rows} historyByEmployee={historyByEmployee} forecastByEmployee={forecastByEmployee} />
     </div>
   );
 }

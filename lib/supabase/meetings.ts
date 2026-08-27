@@ -337,3 +337,33 @@ export async function getMeetingInsights(me: Person): Promise<MeetingInsights> {
     deepWorkMinutes: DEEP_WORK_MINUTES,
   };
 }
+
+/**
+ * Meeting hours scheduled on each of the next `days` calendar days
+ * (tomorrow first), in the employee's own timezone — the burnout
+ * forecast's (lib/forecast.ts) look-ahead meeting-load signal.
+ *
+ * Built on get_busy_intervals (0025), the same RLS-safe start/end-only RPC
+ * findCoffeeSlot uses above, rather than a direct calendar_events read.
+ */
+export async function getUpcomingMeetingHours(employeeId: string, timezone: string, days = 7): Promise<number[]> {
+  const supabase = await createClient();
+  const today = todayInTz(timezone);
+  const fromTs = `${addDays(today, 1)}T00:00:00Z`;
+  const toTs = `${addDays(today, days + 1)}T00:00:00Z`;
+
+  const { data } = await supabase.rpc("get_busy_intervals", {
+    target_employee_id: employeeId,
+    from_ts: fromTs,
+    to_ts: toTs,
+  });
+
+  const hoursByDate = new Map<IsoDate, number>();
+  for (const row of (data ?? []) as { starts_at: string; ends_at: string }[]) {
+    const date = dateInTz(new Date(row.starts_at), timezone);
+    const hours = (new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) / 3_600_000;
+    hoursByDate.set(date, (hoursByDate.get(date) ?? 0) + hours);
+  }
+
+  return Array.from({ length: days }, (_, i) => Math.round((hoursByDate.get(addDays(today, i + 1)) ?? 0) * 10) / 10);
+}

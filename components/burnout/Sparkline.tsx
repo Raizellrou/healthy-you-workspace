@@ -8,6 +8,7 @@ export function Sparkline({
   height = 56,
   stroke = "var(--brand)",
   filled = false,
+  ariaLabel = "14-day trend",
 }: {
   seed?: string;
   end?: number;
@@ -16,6 +17,10 @@ export function Sparkline({
   height?: number;
   stroke?: string;
   filled?: boolean;
+  /** Every caller before the burnout forecast card was a 14-day trailing
+   *  trend, hence the default — a forward-looking forecast needs its own
+   *  label so it doesn't misdescribe itself to screen readers. */
+  ariaLabel?: string;
 }) {
   const points = values ?? trendFor(seed!, end!);
   const path = sparkPath(points, width, height);
@@ -27,7 +32,7 @@ export function Sparkline({
       width={width}
       height={height}
       role="img"
-      aria-label="14-day trend"
+      aria-label={ariaLabel}
       className="overflow-visible"
     >
       {areaPath ? (

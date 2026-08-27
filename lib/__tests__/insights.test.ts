@@ -6,6 +6,7 @@ import {
   recognitionCoverage,
   offHoursIndex,
   notificationHoldRate,
+  describeCorrelation,
   type TeamBandRow,
 } from "@/lib/insights";
 
@@ -224,5 +225,22 @@ describe("notificationHoldRate", () => {
     const result = notificationHoldRate([{ heldReason: "some_future_reason", count: 2 }]);
     expect(result.breakdown[0]).toMatchObject({ reason: "some_future_reason", label: "some_future_reason" });
     expect(result.held).toBe(2);
+  });
+});
+
+describe("describeCorrelation", () => {
+  it("labels a near-zero value as no real relationship", () => {
+    expect(describeCorrelation(0.05)).toBe("no real relationship");
+    expect(describeCorrelation(-0.05)).toBe("no real relationship");
+  });
+
+  it("labels increasing magnitude as weak, moderate, strong", () => {
+    expect(describeCorrelation(0.2)).toBe("weak positive relationship");
+    expect(describeCorrelation(0.4)).toBe("moderate positive relationship");
+    expect(describeCorrelation(0.8)).toBe("strong positive relationship");
+  });
+
+  it("carries the sign into the direction word", () => {
+    expect(describeCorrelation(-0.4)).toBe("moderate negative relationship");
   });
 });

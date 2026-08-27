@@ -7,10 +7,12 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 import { BandChip } from "@/components/burnout/BandChip";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { Sparkline } from "@/components/burnout/Sparkline";
+import { ForecastCard } from "@/components/burnout/ForecastCard";
 import { WhatIfSimulator } from "@/components/burnout/WhatIfSimulator";
 import { InterventionPanel } from "@/components/burnout/InterventionPanel";
 import { BAND_COLOR, BAND_LABEL, BAND_ORDER as BANDS } from "@/lib/burnout-bands";
 import type { BurnoutHistoryPoint } from "@/lib/supabase/queries";
+import type { ForecastPoint } from "@/lib/forecast";
 import type { BurnoutRow } from "./page";
 import type { BurnoutBand, SortDirection, SortKey } from "@/types/burnout";
 
@@ -50,9 +52,11 @@ function compareRows(a: BurnoutRow, b: BurnoutRow, key: SortKey): number {
 export function BurnoutClient({
   rows,
   historyByEmployee,
+  forecastByEmployee,
 }: {
   rows: BurnoutRow[];
   historyByEmployee: Record<string, BurnoutHistoryPoint[]>;
+  forecastByEmployee: Record<string, ForecastPoint[]>;
 }) {
   const bandCounts = useMemo(() => {
     const counts: Record<BurnoutBand, number> = { low: 0, medium: 0, high: 0, critical: 0 };
@@ -243,6 +247,10 @@ export function BurnoutClient({
               width={272}
               height={56}
             />
+          </div>
+
+          <div className="mt-5">
+            <ForecastCard forecast={forecastByEmployee[selected.employee.id] ?? []} />
           </div>
 
           <div className="mt-5">

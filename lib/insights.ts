@@ -272,3 +272,18 @@ export function notificationHoldRate(rows: { heldReason: string; count: number }
       .sort((a, b) => b.count - a.count),
   };
 }
+
+/** Below this many paired data points, a Pearson coefficient swings too
+ *  wildly on one extra point to mean anything — the 0028_correlations.sql
+ *  RPCs return whatever count() they found regardless, so the UI has to be
+ *  the thing that decides "too little to read a correlation from". */
+export const MIN_CORRELATION_SAMPLE = 10;
+
+/** Rough-magnitude label for a Pearson r, in plain words — nobody reading a
+ *  dashboard card should have to remember what 0.3 versus 0.6 means. */
+export function describeCorrelation(r: number): string {
+  const magnitude = Math.abs(r);
+  if (magnitude < 0.1) return "no real relationship";
+  const strength = magnitude >= 0.5 ? "strong" : magnitude >= 0.3 ? "moderate" : "weak";
+  return `${strength} ${r > 0 ? "positive" : "negative"} relationship`;
+}
