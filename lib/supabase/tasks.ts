@@ -39,6 +39,7 @@ export interface TaskRichExtras {
   estimateHours: number | null;
   completedAt: string | null;
   blockedBy: string | null;
+  blockedByTask: { id: string; title: string; done: boolean } | null;
   labels: Label[];
   events: TaskEvent[];
 }
@@ -93,6 +94,16 @@ export async function getTaskRichExtras(taskId: string): Promise<TaskRichExtras 
   }
   if (!taskRes.data) return null;
 
+  let blockedByTask: TaskRichExtras["blockedByTask"] = null;
+  if (taskRes.data.blocked_by) {
+    const { data: blocker } = await supabase
+      .from("tasks")
+      .select("id, title, done")
+      .eq("id", taskRes.data.blocked_by)
+      .maybeSingle();
+    if (blocker) blockedByTask = blocker;
+  }
+
   const labelMap = new Map(labels.map((l) => [l.id, l]));
   const taskLabels = (taskLabelRes.data ?? [])
     .map((r) => labelMap.get(r.label_id))
@@ -108,6 +119,7 @@ export async function getTaskRichExtras(taskId: string): Promise<TaskRichExtras 
     estimateHours: taskRes.data.estimate_hours,
     completedAt: taskRes.data.completed_at,
     blockedBy: taskRes.data.blocked_by,
+    blockedByTask,
     labels: taskLabels,
     events,
   };

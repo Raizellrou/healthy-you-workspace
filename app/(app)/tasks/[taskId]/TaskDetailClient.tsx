@@ -6,15 +6,16 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AssigneePicker } from "@/components/tasks/AssigneePicker";
+import { BlockerPicker } from "@/components/tasks/BlockerPicker";
 import { SubtaskChecklist } from "@/components/tasks/SubtaskChecklist";
 import { CommentThread } from "@/components/tasks/CommentThread";
 import { EstimateField } from "@/components/tasks/EstimateField";
 import { LabelPicker } from "@/components/tasks/LabelPicker";
 import { TaskActivity } from "@/components/tasks/TaskActivity";
-import { updateTask, toggleDone, setLabels, deleteTask, duplicateTask } from "@/app/(app)/tasks/actions";
+import { updateTask, toggleDone, setLabels, deleteTask, duplicateTask, setBlockedBy } from "@/app/(app)/tasks/actions";
 import type { TaskDetail } from "@/lib/supabase/queries";
 import type { TaskRichExtras } from "@/lib/supabase/tasks";
-import type { Label, Priority } from "@/types/task";
+import type { Label, Priority, Task } from "@/types/task";
 import type { Employee } from "@/types/employee";
 
 const PRIORITIES: Priority[] = ["low", "medium", "high"];
@@ -24,6 +25,7 @@ export function TaskDetailClient({
   extras,
   allLabels,
   employees,
+  blockerCandidates,
   currentEmployeeName,
   currentEmployeeAvatarColor,
 }: {
@@ -31,6 +33,7 @@ export function TaskDetailClient({
   extras: TaskRichExtras;
   allLabels: Label[];
   employees: Employee[];
+  blockerCandidates: Task[];
   currentEmployeeName?: string;
   currentEmployeeAvatarColor?: string;
 }) {
@@ -46,8 +49,14 @@ export function TaskDetailClient({
   const [estimateHours, setEstimateHours] = useState(extras.estimateHours);
   const [labelIds, setLabelIds] = useState(extras.labels.map((l) => l.id));
   const [done, setDone] = useState(task.done);
+  const [blockedById, setBlockedById] = useState(extras.blockedByTask?.id ?? null);
+  const [blockedByError, setBlockedByError] = useState<string | null>(null);
+  const [doneError, setDoneError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
+
+  const blocker = blockedById ? blockerCandidates.find((t) => t.id === blockedById) : undefined;
+  const isBlocked = Boolean(blocker && !blocker.done && !done);
 
   function save(updates: Partial<Parameters<typeof updateTask>[2]>) {
     startTransition(async () => {
@@ -56,9 +65,27 @@ export function TaskDetailClient({
   }
 
   function handleToggleDone() {
+    setDoneError(null);
     setDone((d) => !d);
     startTransition(async () => {
-      await toggleDone(task.id, task.project_id);
+      const result = await toggleDone(task.id, task.project_id);
+      if (!result.ok) {
+        setDone((d) => !d);
+        setDoneError(result.error ?? "Couldn't update that task.");
+      }
+    });
+  }
+
+  function handleBlockedByChange(id: string | null) {
+    setBlockedByError(null);
+    const previous = blockedById;
+    setBlockedById(id);
+    startTransition(async () => {
+      const result = await setBlockedBy(task.id, task.project_id, id);
+      if (!result.ok) {
+        setBlockedById(previous);
+        setBlockedByError(result.error ?? "Couldn't update the blocker.");
+      }
     });
   }
 
@@ -114,9 +141,10 @@ export function TaskDetailClient({
             role="checkbox"
             aria-checked={done}
             aria-label={done ? "Mark not done" : "Mark done"}
+            title={isBlocked ? `Blocked by "${blocker!.title}" — that task isn't done yet.` : undefined}
             onClick={handleToggleDone}
-            disabled={isPending}
-            className={`mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-60 ${
+            disabled={isPending || isBlocked}
+            className={`mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               done ? "border-success bg-success" : "border-line bg-surface hover:border-brand"
             }`}
           >
@@ -133,6 +161,17 @@ export function TaskDetailClient({
             }`}
           />
         </div>
+
+        {isBlocked ? (
+          <p className="mt-1.5 pl-8 text-xs text-risk-high">
+            Blocked by{" "}
+            <Link href={`/tasks/${blocker!.id}`} className="underline hover:text-ink">
+              {blocker!.title}
+            </Link>{" "}
+            — can&apos;t be marked done until that task is.
+          </p>
+        ) : null}
+        {doneError ? <p className="mt-1.5 pl-8 text-xs text-risk-critical">{doneError}</p> : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-3 border-b border-line pb-4">
           <div className="flex items-center gap-2">
@@ -205,7 +244,19 @@ export function TaskDetailClient({
               disabled={isPending}
             />
           </div>
+          {blockerCandidates.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">Blocked by</span>
+              <BlockerPicker
+                candidates={blockerCandidates}
+                value={blockedById}
+                disabled={isPending}
+                onChange={handleBlockedByChange}
+              />
+            </div>
+          )}
         </div>
+        {blockedByError ? <p className="mt-1 text-xs text-risk-critical">{blockedByError}</p> : null}
 
         <div className="mt-4">
           <label htmlFor="task-description" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">

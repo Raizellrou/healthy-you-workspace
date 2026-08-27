@@ -8,7 +8,17 @@ import { formatDueDate, isOverdue } from "@/lib/tasks";
 import { toggleDone } from "@/app/(app)/tasks/actions";
 import type { Task } from "@/types/task";
 
-export function TaskRow({ task }: { task: Task }) {
+export function TaskRow({
+  task,
+  selected,
+  onToggleSelect,
+}: {
+  task: Task;
+  /** Omit entirely to render the row without selection — e.g. anywhere
+   *  outside My Tasks that doesn't have bulk actions wired up. */
+  selected?: boolean;
+  onToggleSelect?: () => void;
+}) {
   const [done, setDone] = useState(task.done);
   const [isPending, startTransition] = useTransition();
   const dueLabel = formatDueDate(task.due_date);
@@ -26,6 +36,15 @@ export function TaskRow({ task }: { task: Task }) {
 
   return (
     <li className="flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2.5">
+      {onToggleSelect ? (
+        <input
+          type="checkbox"
+          checked={Boolean(selected)}
+          onChange={onToggleSelect}
+          aria-label={`Select "${task.title}"`}
+          className="h-4 w-4 shrink-0 accent-brand"
+        />
+      ) : null}
       <button
         type="button"
         role="checkbox"

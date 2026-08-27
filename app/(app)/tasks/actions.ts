@@ -75,7 +75,7 @@ export async function toggleDone(
 
   const { data: current, error: fetchError } = await supabase
     .from("tasks")
-    .select("done")
+    .select("done, blocked_by")
     .eq("id", taskId)
     .single();
   if (fetchError || !current) {
@@ -83,6 +83,17 @@ export async function toggleDone(
   }
 
   const nextDone = !current.done;
+
+  // The UI disables the done toggle while blocked, but that's advisory —
+  // this is the actual gate. Re-checked here rather than trusted from the
+  // client because a Server Action is a public HTTP surface.
+  if (nextDone && current.blocked_by) {
+    const { data: blocker } = await supabase.from("tasks").select("title, done").eq("id", current.blocked_by).single();
+    if (blocker && !blocker.done) {
+      return fail(`Blocked by "${blocker.title}" — that task isn't done yet.`);
+    }
+  }
+
   const { error } = await supabase.from("tasks").update({ done: nextDone }).eq("id", taskId);
   if (error) {
     return fail(describeDbError(error));
@@ -312,17 +323,25 @@ export async function duplicateTask(taskId: string, projectId: string): Promise<
   });
 }
 
+/** Revalidates every distinct project touched by a bulk op, plus the
+ *  cross-project surfaces (My Tasks, Workload). Bulk actions are callable
+ *  from My Tasks — which spans every project the caller has tasks in, not
+ *  one board — so there's no single projectId to trust from the caller;
+ *  the affected set is whatever the fetched rows actually say. */
+function revalidateBulk(projectIds: Iterable<string>) {
+  revalidatePath("/tasks");
+  revalidatePath("/tasks/workload");
+  for (const projectId of new Set(projectIds)) revalidateProjectViews(projectId);
+}
+
 /** Reassigns a batch of tasks in one call — the primitive the P8 workload
  *  rebalancer builds on, but useful on its own from day one. */
-export async function bulkReassign(
-  taskIds: string[],
-  projectId: string,
-  assigneeId: string | null
-): Promise<ActionResult> {
+export async function bulkReassign(taskIds: string[], assigneeId: string | null): Promise<ActionResult> {
   if (taskIds.length === 0) return ok();
   const supabase = await createClient();
 
-  const { data: current } = await supabase.from("tasks").select("id, title, assignee_id").in("id", taskIds);
+  const { data: current } = await supabase.from("tasks").select("id, project_id, title, assignee_id").in("id", taskIds);
+  const rows = current ?? [];
 
   const { error } = await supabase.from("tasks").update({ assignee_id: assigneeId }).in("id", taskIds);
   if (error) {
@@ -330,7 +349,7 @@ export async function bulkReassign(
   }
 
   const person = assigneeId ? await getCurrentPerson() : null;
-  for (const row of current ?? []) {
+  for (const row of rows) {
     if (row.assignee_id !== assigneeId) {
       await recordEvent(supabase, row.id, assigneeId ? "assigned" : "unassigned", {
         from: row.assignee_id,
@@ -342,9 +361,85 @@ export async function bulkReassign(
     }
   }
 
-  revalidatePath("/tasks");
+  revalidateBulk(rows.map((r) => r.project_id));
+  return ok();
+}
+
+/** Closes a batch of tasks in one call — bulkReassign's sibling primitive.
+ *  A task whose blocker isn't done yet is silently skipped rather than
+ *  failing the whole batch: the same rule toggleDone enforces one at a
+ *  time, applied here so bulk-close can't be used to route around it. */
+export async function bulkClose(taskIds: string[]): Promise<ActionResult & { skipped?: number }> {
+  if (taskIds.length === 0) return ok();
+  const supabase = await createClient();
+
+  const { data: currentRes } = await supabase.from("tasks").select("id, project_id, done, blocked_by").in("id", taskIds);
+  const rows = currentRes ?? [];
+
+  const blockerIds = Array.from(new Set(rows.map((r) => r.blocked_by).filter((id): id is string => id !== null)));
+  const blockerDoneById = new Map<string, boolean>();
+  if (blockerIds.length > 0) {
+    const { data: blockers } = await supabase.from("tasks").select("id, done").in("id", blockerIds);
+    for (const b of blockers ?? []) blockerDoneById.set(b.id, b.done);
+  }
+
+  const closable = rows.filter((r) => !r.done && (!r.blocked_by || blockerDoneById.get(r.blocked_by) !== false));
+  const closableIds = closable.map((r) => r.id);
+  const skipped = rows.length - closableIds.length;
+
+  if (closableIds.length === 0) return ok({ skipped });
+
+  const { error } = await supabase.from("tasks").update({ done: true }).in("id", closableIds);
+  if (error) {
+    return fail(describeDbError(error));
+  }
+
+  for (const id of closableIds) {
+    await recordEvent(supabase, id, "completed");
+  }
+
+  revalidateBulk(closable.map((r) => r.project_id));
+  return ok({ skipped });
+}
+
+/** Sets or clears a task's single blocker (tasks.blocked_by, 0011) — the
+ *  column has existed since P3 with no writer until now. One blocker per
+ *  task by design, not a dependency graph: rejects self-blocking and the
+ *  direct A-blocks-B-blocks-A case, but doesn't walk a longer chain. */
+export async function setBlockedBy(
+  taskId: string,
+  projectId: string,
+  blockerId: string | null
+): Promise<ActionResult> {
+  const supabase = await createClient();
+
+  if (blockerId) {
+    if (blockerId === taskId) {
+      return fail("A task can't block itself.");
+    }
+    const { data: blocker, error: blockerError } = await supabase
+      .from("tasks")
+      .select("id, project_id, blocked_by")
+      .eq("id", blockerId)
+      .single();
+    if (blockerError || !blocker) {
+      return fail("That task couldn't be found.");
+    }
+    if (blocker.project_id !== projectId) {
+      return fail("A blocker must be in the same project.");
+    }
+    if (blocker.blocked_by === taskId) {
+      return fail("That would create a cycle — it's already blocked by this task.");
+    }
+  }
+
+  const { error } = await supabase.from("tasks").update({ blocked_by: blockerId }).eq("id", taskId);
+  if (error) {
+    return fail(describeDbError(error));
+  }
+
   revalidateProjectViews(projectId);
-  revalidatePath("/tasks/workload");
+  revalidatePath(`/tasks/${taskId}`);
   return ok();
 }
 
