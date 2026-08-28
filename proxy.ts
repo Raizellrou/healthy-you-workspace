@@ -29,15 +29,18 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
+  // "/" is the public landing page — both branches below must treat it the
+  // same as "/login", or an unauthenticated visitor gets bounced to /login
+  // before ever seeing it.
+  const isPublicRoute = request.nextUrl.pathname === "/" || request.nextUrl.pathname.startsWith("/login");
 
-  if (!user && !isLoginRoute) {
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isLoginRoute) {
+  if (user && isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

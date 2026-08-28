@@ -1,25 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useTheme } from "@/lib/use-theme";
 
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    // One-time read of browser-only state on mount, deferred to an effect
-    // so the SSR pass and first client render agree before this can diverge.
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsDark(stored ? stored === "dark" : prefersDark);
-  }, []);
-
-  function toggle() {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.setAttribute("data-theme", next ? "dark" : "light");
-    localStorage.setItem("theme", next ? "dark" : "light");
-  }
+  const { isDark, toggle } = useTheme();
 
   return (
     <button
