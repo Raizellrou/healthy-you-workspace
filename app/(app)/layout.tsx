@@ -97,7 +97,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <ToastViewport />
         </ToastStack>
         <NudgePersistence />
-        <UiPreferencesApplier prefs={uiPreferences} />
+        <UiPreferencesApplier prefs={uiPreferences} focusMode={openFocusSession?.mode ?? null} />
         {currentEmployeeId ? <LiveInboxBadge employeeId={currentEmployeeId} /> : null}
         <CommandPalette index={searchIndexItems} openFocusSession={openFocusSession} />
       </NudgeProvider>
