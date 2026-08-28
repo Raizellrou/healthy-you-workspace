@@ -70,6 +70,18 @@ describe("evaluateBoundaryV2", () => {
     expect(result.status).toBe("warned");
     expect(result.message).toContain("currently on PTO");
   });
+
+  it("delays inside working hours when quiet hours overlap them (an evening shift)", () => {
+    // 14:00-22:00 work, 20:00-08:00 quiet — the two overlap 20:00-22:00.
+    const eveningShift: WorkSchedule = { ...schedule, startMin: 14 * 60, endMin: 22 * 60 };
+    // 2026-08-19 21:00 Manila (Wed) = 13:00 UTC — inside working hours, but also quiet hours.
+    const result = evaluateBoundaryV2({
+      ...base,
+      recipientSchedule: eveningShift,
+      instant: new Date("2026-08-19T13:00:00Z"),
+    });
+    expect(result.status).toBe("delayed");
+  });
 });
 
 describe("fmtInstant", () => {

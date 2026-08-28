@@ -14,6 +14,14 @@ export interface SlackSendResult {
   error?: string;
 }
 
+/** Slack's mrkdwn gives `&`, `<`, `>` special meaning — unescaped, a
+ *  message containing `<!channel>` or `<!here>` would actually page
+ *  everyone in the channel. Required escaping per Slack's API docs for
+ *  any text built from free-form user input, which a boundary message is. */
+export function escapeSlackText(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 export async function sendSlackMessage(text: string): Promise<SlackSendResult> {
   const token = process.env.SLACK_BOT_TOKEN;
   const channel = process.env.SLACK_CHANNEL_ID;
@@ -28,7 +36,7 @@ export async function sendSlackMessage(text: string): Promise<SlackSendResult> {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json; charset=utf-8",
       },
-      body: JSON.stringify({ channel, text }),
+      body: JSON.stringify({ channel, text: escapeSlackText(text) }),
     });
     const data = (await res.json()) as { ok: boolean; error?: string };
     return data.ok ? { ok: true } : { ok: false, error: data.error ?? "unknown_error" };
