@@ -29,7 +29,9 @@ const CreateInterventionSchema = z.object({
  * (0019_interventions.sql), so this action doesn't re-check the caller's
  * role itself, matching app/(app)/teams/actions.ts#assignManager's
  * reasoning: if that policy ever regresses, this fails loudly instead of
- * silently no-opping.
+ * silently no-opping. (That file's docstring also notes the one place this
+ * rule doesn't apply: tasks/projects, whose RLS never covered these writes
+ * to begin with, so those actions self-check role instead.)
  *
  * For driver in {streak, pto} (lib/interventions.ts's `immediate: true`),
  * this also inserts a real pending pto_requests row on the spot — the one

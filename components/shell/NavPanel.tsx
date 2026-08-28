@@ -10,6 +10,7 @@ import { NewProjectItem } from "@/components/tasks/NewProjectItem";
 import { sectionFor, sectionsFor, INBOX_ITEMS, SETTINGS_ITEMS, type RailItemDef } from "@/components/shell/navSections";
 import { useNudges } from "@/lib/nudge-context";
 import { subscribeToConnectionState, type ConnectionState } from "@/lib/realtime";
+import { canManageProjects } from "@/lib/authz";
 import type { AppRole } from "@/types/person";
 import type { Project } from "@/types/task";
 
@@ -176,7 +177,9 @@ export function NavPanel({
               </Link>
             );
           })}
-          <NewProjectItem projectCount={projects.length} defaultView={defaultTaskView} />
+          {canManageProjects(role) ? (
+            <NewProjectItem projectCount={projects.length} defaultView={defaultTaskView} />
+          ) : null}
         </div>
       ) : null}
 

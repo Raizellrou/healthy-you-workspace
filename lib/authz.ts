@@ -2,7 +2,8 @@ import type { AppRole, Person, Team } from "@/types/person";
 
 /**
  * Pure mirror of the SQL policy logic in
- * supabase/migrations/0010_rls_v2.sql (can_see_employee / manages / is_hr).
+ * supabase/migrations/0010_rls_v2.sql (can_see_employee / manages / is_hr) —
+ * with one exception, canManageProjects, noted at its own definition below.
  *
  * This is UI gating only — hiding a nav link, disabling a control — not the
  * security boundary. RLS is the boundary; the database enforces visibility
@@ -13,6 +14,20 @@ import type { AppRole, Person, Team } from "@/types/person";
 
 export function isHr(role: AppRole): boolean {
   return role === "hr";
+}
+
+/**
+ * Whether `role` may create or delete projects and delete tasks.
+ *
+ * Unlike every other helper in this file, this mirrors no SQL policy:
+ * 0007_tasks_rls.sql leaves `projects` writes and `tasks` deletes open to
+ * any authenticated user ("for all ... using (true) with check (true)").
+ * The corresponding Server Actions (createProject, deleteProject,
+ * deleteTask in app/(app)/tasks/actions.ts) self-check this instead, since
+ * there's no RLS layer underneath them to catch a UI bypass.
+ */
+export function canManageProjects(role: AppRole): boolean {
+  return role !== "employee";
 }
 
 /** Mirrors `manages(target)`: true when `viewer` manages `target`'s team. */

@@ -4,7 +4,8 @@ import { ViewSwitcher, VIEW_KEYS } from "@/components/tasks/ViewSwitcher";
 import { FilterBar } from "@/components/tasks/FilterBar";
 import { getProject, getEmployees, getCurrentEmployeeId } from "@/lib/supabase/queries";
 import { getTasksForProjectRich, getLabels, getTaskViews } from "@/lib/supabase/tasks";
-import { getVisibleEmployees } from "@/lib/supabase/people";
+import { getVisibleEmployees, getCurrentPerson } from "@/lib/supabase/people";
+import { canManageProjects } from "@/lib/authz";
 import { filterTasks, type TaskFilters } from "@/lib/tasks";
 import { addDays, todayInTz } from "@/lib/date";
 import { BoardClient } from "./BoardClient";
@@ -42,15 +43,18 @@ export default async function ProjectViewPage({
     labelId: asString(sp.label),
   };
 
-  const [projectResult, tasks, employees, labels, savedViews, people, currentEmployeeId] = await Promise.all([
-    getProject(projectId),
-    getTasksForProjectRich(projectId),
-    getEmployees(),
-    getLabels(),
-    getTaskViews(projectId),
-    getVisibleEmployees(),
-    getCurrentEmployeeId(),
-  ]);
+  const [projectResult, tasks, employees, labels, savedViews, people, currentEmployeeId, currentPerson] =
+    await Promise.all([
+      getProject(projectId),
+      getTasksForProjectRich(projectId),
+      getEmployees(),
+      getLabels(),
+      getTaskViews(projectId),
+      getVisibleEmployees(),
+      getCurrentEmployeeId(),
+      getCurrentPerson(),
+    ]);
+  const canManage = currentPerson ? canManageProjects(currentPerson.appRole) : false;
 
   if (!projectResult) notFound();
 
@@ -81,7 +85,7 @@ export default async function ProjectViewPage({
         <h1 className="text-2xl font-semibold text-ink">{projectResult.project.name}</h1>
         <div className="ml-auto flex items-center gap-2">
           <ViewSwitcher projectId={projectId} view={view} search={searchString} />
-          <ProjectMenu projectId={projectId} projectName={projectResult.project.name} />
+          <ProjectMenu projectId={projectId} projectName={projectResult.project.name} canManage={canManage} />
         </div>
       </div>
 

@@ -18,6 +18,13 @@ import { ok, fail, validated, type ActionResult } from "@/lib/action-result";
  * (0010_rls_v2.sql) are the actual enforcement. This action doesn't check
  * the caller's role itself; if RLS ever regresses, these calls fail with a
  * Postgres permission error, not a silent no-op.
+ *
+ * This is the general rule in this codebase, not a universal one: actions
+ * rely on RLS wherever RLS actually covers the write, and self-check role
+ * only where it doesn't. Tasks/projects are the exception — 0007_tasks_rls.sql
+ * leaves project create/delete and task delete open to any authenticated
+ * user, so app/(app)/tasks/actions.ts's createProject/deleteProject/deleteTask
+ * self-check via lib/authz.ts#canManageProjects instead.
  */
 export async function assignManager(
   teamId: string,

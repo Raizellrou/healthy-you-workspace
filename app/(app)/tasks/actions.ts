@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/supabase/people";
+import { canManageProjects } from "@/lib/authz";
 import { getEmployees } from "@/lib/supabase/queries";
 import { isOffHoursMoment } from "@/lib/tasks";
 import { enqueue, buildMentionLookup, parseMentions } from "@/lib/notify";
@@ -237,7 +238,17 @@ export async function createTask(input: unknown): Promise<ActionResult & { id?: 
   );
 }
 
+/**
+ * Deletes a task. Self-checks the caller's role rather than relying on RLS —
+ * 0007_tasks_rls.sql's "tasks deletable by authenticated" policy is wide
+ * open, so this is the only gate (see canManageProjects in lib/authz.ts).
+ */
 export async function deleteTask(taskId: string, projectId: string): Promise<ActionResult> {
+  const person = await getCurrentPerson();
+  if (!person || !canManageProjects(person.appRole)) {
+    return fail("Only managers and HR can do that.");
+  }
+
   const supabase = await createClient();
 
   // Recorded before the delete: task_events.task_id is ON DELETE SET NULL
@@ -678,7 +689,18 @@ export async function moveTask(
 
 const DEFAULT_SECTIONS = ["To do", "In progress", "Done"];
 
+/**
+ * Creates a project. Self-checks the caller's role rather than relying on
+ * RLS — 0007_tasks_rls.sql's "projects modifiable by authenticated" policy
+ * is wide open, so this is the only gate (see canManageProjects in
+ * lib/authz.ts).
+ */
 export async function createProject(name: string, color: string): Promise<ActionResult & { id?: string }> {
+  const person = await getCurrentPerson();
+  if (!person || !canManageProjects(person.appRole)) {
+    return fail("Only managers and HR can do that.");
+  }
+
   const trimmed = name.trim();
   if (!trimmed) return fail("Project name can't be empty.");
 
@@ -703,7 +725,18 @@ export async function createProject(name: string, color: string): Promise<Action
   return ok({ id: project.id as string });
 }
 
+/**
+ * Deletes a project. Self-checks the caller's role rather than relying on
+ * RLS — 0007_tasks_rls.sql's "projects modifiable by authenticated" policy
+ * is wide open, so this is the only gate (see canManageProjects in
+ * lib/authz.ts).
+ */
 export async function deleteProject(projectId: string): Promise<ActionResult> {
+  const person = await getCurrentPerson();
+  if (!person || !canManageProjects(person.appRole)) {
+    return fail("Only managers and HR can do that.");
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("projects").delete().eq("id", projectId);
   if (error) {

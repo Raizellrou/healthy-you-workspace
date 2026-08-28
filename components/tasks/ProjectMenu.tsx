@@ -15,7 +15,15 @@ import { truncateForConfirm } from "@/lib/format";
  * task, subtask and comment in a project, on the screen you visit most.
  * Same confirm text, same action; only the affordance changed.
  */
-export function ProjectMenu({ projectId, projectName }: { projectId: string; projectName: string }) {
+export function ProjectMenu({
+  projectId,
+  projectName,
+  canManage,
+}: {
+  projectId: string;
+  projectName: string;
+  canManage: boolean;
+}) {
   const [isPending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const router = useRouter();
@@ -27,6 +35,8 @@ export function ProjectMenu({ projectId, projectName }: { projectId: string; pro
       router.push("/tasks");
     });
   }
+
+  if (!canManage) return null;
 
   return (
     <>

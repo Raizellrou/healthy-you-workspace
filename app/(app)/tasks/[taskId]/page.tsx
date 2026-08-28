@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getCurrentEmployeeId, getEmployees, getTaskDetail } from "@/lib/supabase/queries";
 import { getTaskRichExtras, getLabels, getTasksForProjectRich } from "@/lib/supabase/tasks";
+import { getCurrentPerson } from "@/lib/supabase/people";
+import { canManageProjects } from "@/lib/authz";
 import { TaskDetailClient } from "./TaskDetailClient";
 
 export default async function TaskDetailPage({
@@ -9,13 +11,15 @@ export default async function TaskDetailPage({
   params: Promise<{ taskId: string }>;
 }) {
   const { taskId } = await params;
-  const [detail, extras, allLabels, employees, currentEmployeeId] = await Promise.all([
+  const [detail, extras, allLabels, employees, currentEmployeeId, currentPerson] = await Promise.all([
     getTaskDetail(taskId),
     getTaskRichExtras(taskId),
     getLabels(),
     getEmployees(),
     getCurrentEmployeeId(),
+    getCurrentPerson(),
   ]);
+  const canDelete = currentPerson ? canManageProjects(currentPerson.appRole) : false;
 
   if (!detail || !extras) notFound();
 
@@ -36,6 +40,7 @@ export default async function TaskDetailPage({
       blockerCandidates={blockerCandidates}
       currentEmployeeName={currentEmployee?.name}
       currentEmployeeAvatarColor={currentEmployee?.avatarColor}
+      canDelete={canDelete}
     />
   );
 }

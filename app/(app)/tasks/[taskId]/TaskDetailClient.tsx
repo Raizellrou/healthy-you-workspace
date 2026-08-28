@@ -31,6 +31,7 @@ export function TaskDetailClient({
   blockerCandidates,
   currentEmployeeName,
   currentEmployeeAvatarColor,
+  canDelete,
 }: {
   detail: TaskDetail;
   extras: TaskRichExtras;
@@ -39,6 +40,7 @@ export function TaskDetailClient({
   blockerCandidates: Task[];
   currentEmployeeName?: string;
   currentEmployeeAvatarColor?: string;
+  canDelete: boolean;
 }) {
   const { task, project, subtasks, comments } = detail;
   const router = useRouter();
@@ -125,15 +127,17 @@ export function TaskDetailClient({
           <Button type="button" variant="secondary" size="sm" onClick={handleDuplicate} disabled={isPending}>
             Duplicate
           </Button>
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            onClick={() => setConfirmDeleteOpen(true)}
-            disabled={isDeleting}
-          >
-            {isDeleting ? "Deleting…" : "Delete"}
-          </Button>
+          {canDelete ? (
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </Button>
+          ) : null}
         </div>
       </div>
 
