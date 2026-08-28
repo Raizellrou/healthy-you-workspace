@@ -66,9 +66,8 @@ export function formatDueDate(dueDate: string | null): string | null {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export function isOverdue(dueDate: string | null): boolean {
+export function isOverdue(dueDate: string | null, today: IsoDate = new Date().toISOString().slice(0, 10)): boolean {
   if (!dueDate) return false;
-  const today = new Date().toISOString().slice(0, 10);
   return dueDate < today;
 }
 
@@ -99,8 +98,8 @@ export function capacityLoad(committedHours: number, weeklyCapacityHours: number
   return Math.max(0, Math.round((committedHours / weeklyCapacityHours) * 100));
 }
 
-export function overdueCount(tasks: Pick<Task, "done" | "due_date">[]): number {
-  return tasks.filter((t) => !t.done && isOverdue(t.due_date)).length;
+export function overdueCount(tasks: Pick<Task, "done" | "due_date">[], today?: IsoDate): number {
+  return tasks.filter((t) => !t.done && isOverdue(t.due_date, today)).length;
 }
 
 /** Open tasks due within `days` of `today`, today included. */

@@ -61,22 +61,16 @@ describe("capacityLoad", () => {
 });
 
 describe("overdueCount", () => {
-  const REAL_DATE_NOW = Date.now;
-  const FIXED_NOW = new Date("2026-08-22T12:00:00Z").getTime();
+  const FIXED_TODAY = "2026-08-22";
 
   it("counts only open tasks with a due_date in the past", () => {
-    Date.now = () => FIXED_NOW;
-    try {
-      const tasks = [
-        { done: false, due_date: "2026-08-20" }, // overdue
-        { done: false, due_date: "2026-08-25" }, // not yet due
-        { done: true, due_date: "2026-08-19" }, // done — doesn't count
-        { done: false, due_date: null }, // no due date — doesn't count
-      ];
-      expect(overdueCount(tasks)).toBe(1);
-    } finally {
-      Date.now = REAL_DATE_NOW;
-    }
+    const tasks = [
+      { done: false, due_date: "2026-08-20" }, // overdue
+      { done: false, due_date: "2026-08-25" }, // not yet due
+      { done: true, due_date: "2026-08-19" }, // done — doesn't count
+      { done: false, due_date: null }, // no due date — doesn't count
+    ];
+    expect(overdueCount(tasks, FIXED_TODAY)).toBe(1);
   });
 });
 
