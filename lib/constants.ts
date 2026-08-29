@@ -152,6 +152,12 @@ export const FOCUS_TIMELINE: TimelineBlock[] = [
 
 export type WorkspaceState = "standard" | "focus" | "calm";
 
+// Every bullet here now describes a real effect (components/shell/
+// UiPreferencesApplier.tsx forces single-column for focus and muted-
+// palette/reduced-motion for calm; lib/notify.ts holds notifications for
+// any open session). Calm's original third bullet, a breathing prompt
+// shown between tasks, was cut rather than kept as a description of
+// nothing — no such prompt exists anywhere in the app.
 export const WORKSPACE_COPY: Record<
   WorkspaceState,
   { label: string; bullets: string[] }
@@ -174,10 +180,6 @@ export const WORKSPACE_COPY: Record<
   },
   calm: {
     label: "Calm / Recovery",
-    bullets: [
-      "Muted color palette and reduced motion",
-      "Meeting and message reminders paused",
-      "Optional breathing prompt shown between tasks",
-    ],
+    bullets: ["Muted color palette and reduced motion", "Meeting and message reminders paused"],
   },
 };
