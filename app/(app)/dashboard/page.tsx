@@ -173,17 +173,17 @@ export default async function DashboardPage() {
       : null;
 
   // Kudos — readable org-wide by design (kudos are semi-public praise).
+  // The count and the recent rows don't depend on each other, so they go
+  // out together rather than as two back-to-back round trips.
   const weekStart = startOfWeekISO();
-  const { count: kudosWeekCount } = await supabase
-    .from("kudos")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", weekStart);
-
-  const { data: recentKudosRows } = await supabase
-    .from("kudos")
-    .select("id, from_employee_id, to_employee_id, created_at")
-    .order("created_at", { ascending: false })
-    .limit(5);
+  const [{ count: kudosWeekCount }, { data: recentKudosRows }] = await Promise.all([
+    supabase.from("kudos").select("id", { count: "exact", head: true }).gte("created_at", weekStart),
+    supabase
+      .from("kudos")
+      .select("id, from_employee_id, to_employee_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
   const employeeName = new Map(employees.map((e) => [e.id, e.name]));
   const recentKudos = (recentKudosRows ?? []).map((row) => ({
     id: row.id as string,

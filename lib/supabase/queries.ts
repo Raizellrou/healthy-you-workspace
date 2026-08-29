@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { computeBurnout } from "@/lib/burnout";
 import { buildWorkload, sortByDueDate, type WorkloadEntry } from "@/lib/tasks";
@@ -118,7 +119,21 @@ function toEmployee(row: EmployeeRow, index: number, stats: DerivedStats): Emplo
   };
 }
 
-export async function getEmployees(): Promise<Employee[]> {
+/**
+ * The org roster, with 30 days of derived activity stats per person.
+ *
+ * `cache()`d per request. This is the single most-called read in the app —
+ * 22 call sites, and a /dashboard render reaches it seven times (the app
+ * shell, the page itself, and transitively through getMyTasks,
+ * getMyOneOnOnes, getNeedsYou and getForecastsForEmployees). Against the
+ * hosted project that was 14 network round trips for identical data:
+ * measured at ~681ms for the seven versus ~207ms for one.
+ *
+ * The memo is per-request, so a mutation followed by revalidatePath still
+ * re-reads on the next render — this changes how often the query runs
+ * within one render, never how fresh the data is across renders.
+ */
+export const getEmployees = cache(async function getEmployees(): Promise<Employee[]> {
   const supabase = await createClient();
   const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
 
@@ -155,17 +170,23 @@ export async function getEmployees(): Promise<Employee[]> {
     const stats = rows && rows.length > 0 ? deriveStats(rows) : EMPTY_STATS;
     return toEmployee(row, i, stats);
   });
-}
+});
 
-export async function getEmployee(id: string): Promise<Employee | undefined> {
+export const getEmployee = cache(async function getEmployee(id: string): Promise<Employee | undefined> {
   const employees = await getEmployees();
   return employees.find((e) => e.id === id);
-}
+});
 
 // Resolves the logged-in session to their employees.id — server actions
 // derive identity from this, never from client-supplied values, so a
 // request can never act as anyone but the authenticated caller.
-export async function getCurrentEmployeeId(): Promise<string | null> {
+//
+// `cache()`d: auth.getUser() is a ~140ms network call to the auth server
+// (not a local token decode), and this runs from the app shell, the page,
+// and every server action's withEmployee() wrapper. Memoising is per
+// request, so it can't leak one caller's identity into another's — a
+// different request gets a different cache.
+export const getCurrentEmployeeId = cache(async function getCurrentEmployeeId(): Promise<string | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -180,7 +201,7 @@ export async function getCurrentEmployeeId(): Promise<string | null> {
 
   if (error || !data) return null;
   return data.id as string;
-}
+});
 
 export interface BurnoutHistoryPoint {
   date: string;
@@ -248,10 +269,10 @@ interface TaskRow {
 
 type EmployeeLookup = Map<string, { name: string; avatarColor: string }>;
 
-async function getEmployeeLookup(): Promise<EmployeeLookup> {
+const getEmployeeLookup = cache(async function getEmployeeLookup(): Promise<EmployeeLookup> {
   const employees = await getEmployees();
   return new Map(employees.map((e) => [e.id, { name: e.name, avatarColor: e.avatarColor }]));
-}
+});
 
 function toTask(
   row: TaskRow,
@@ -310,7 +331,9 @@ async function attachSubtaskCounts(
   return rows.map((r) => toTask(r, employeeLookup, counts.get(r.id)));
 }
 
-export async function getProjects(): Promise<Project[]> {
+/** `cache()`d — the app shell loads this for the sidebar's project list on
+ *  every route, and getMyTasks reaches for it again on the same render. */
+export const getProjects = cache(async function getProjects(): Promise<Project[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("projects")
@@ -322,7 +345,7 @@ export async function getProjects(): Promise<Project[]> {
     throw new Error(`Failed to load projects: ${error.message}`);
   }
   return data ?? [];
-}
+});
 
 export async function getProject(
   id: string
