@@ -36,7 +36,7 @@ export default async function FocusPage() {
       </div>
       <PageHead
         title="Focus Mode"
-        description="Adapt the workspace to how stretched someone currently is — from real clocked hours and today's task load."
+        description="Adapt the workspace to how stretched someone currently is. From real clocked hours and today's task load."
       />
       <FocusClient
         employees={employees}

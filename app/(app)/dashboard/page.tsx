@@ -19,9 +19,10 @@ import { getMyOneOnOnes } from "@/lib/supabase/one-on-ones";
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
 import { hasCheckedInMoodToday, getNeedsYou } from "@/lib/supabase/needs-you";
 import { computeBurnout } from "@/lib/burnout";
+import { weightedMoodAverage } from "@/lib/mood";
 import { buildBurnoutV2 } from "@/lib/burnout-signals";
 import { visibleTo } from "@/lib/authz";
-import { todayInTz, fmtDate } from "@/lib/date";
+import { todayInTz, fmtDate, startOfWeekISO, relativeTime } from "@/lib/date";
 import type { BurnoutBand } from "@/types/burnout";
 import type { BurnoutInputs } from "@/lib/burnout";
 import type { BurnoutV2Extras } from "@/lib/burnout-signals";
@@ -33,25 +34,6 @@ const RISK_STROKE: Record<BurnoutBand, string> = {
   high: "var(--risk-high)",
   critical: "var(--risk-critical)",
 };
-
-function startOfWeekISO(): string {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const diff = (day === 0 ? -6 : 1) - day; // Monday as the start of the week
-  const monday = new Date(now);
-  monday.setUTCDate(now.getUTCDate() + diff);
-  monday.setUTCHours(0, 0, 0, 0);
-  return monday.toISOString();
-}
-
-function relativeTime(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.max(1, Math.round(diffMs / 60000));
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  return `${Math.round(hrs / 24)} d ago`;
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -159,12 +141,7 @@ export default async function DashboardPage() {
     })
   );
   const totalCheckinsToday = teamAggregates.reduce((s, a) => s + a.checkinCount, 0);
-  const avgEligible = teamAggregates.filter((a) => a.avgMood !== null);
-  const avgWeightedCount = avgEligible.reduce((s, a) => s + a.checkinCount, 0);
-  const orgAvgMood =
-    avgWeightedCount > 0
-      ? avgEligible.reduce((s, a) => s + a.avgMood! * a.checkinCount, 0) / avgWeightedCount
-      : null;
+  const orgAvgMood = weightedMoodAverage(teamAggregates);
 
   // Kudos — readable org-wide by design (kudos are semi-public praise).
   const weekStart = startOfWeekISO();

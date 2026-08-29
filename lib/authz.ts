@@ -16,6 +16,10 @@ export function isHr(role: AppRole): boolean {
   return role === "hr";
 }
 
+export function isManagerOrHr(role: AppRole): boolean {
+  return role === "manager" || role === "hr";
+}
+
 /**
  * Whether `role` may create or delete projects and delete tasks.
  *

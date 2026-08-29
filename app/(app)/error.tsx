@@ -31,7 +31,7 @@ export default function AppError({
       <Card className="mx-auto max-w-md text-center">
         <h1 className="text-lg font-semibold text-ink">Something went wrong</h1>
         <p className="mt-2 text-sm text-ink-soft">
-          This screen couldn&apos;t load. It&apos;s usually temporary — try again, and if it
+          This screen couldn&apos;t load. It&apos;s usually temporary. Try again, and if it
           keeps happening the details are in the server log.
         </p>
         {error.digest && (

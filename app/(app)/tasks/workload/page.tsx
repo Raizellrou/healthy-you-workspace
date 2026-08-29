@@ -13,7 +13,7 @@ export default async function WorkloadPage() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
       <PageHead
-        title="Workload"
+        title="Employees Workload"
         description="Committed hours as a share of each person's weekly capacity, across every project."
       />
       {entries.length === 0 ? (

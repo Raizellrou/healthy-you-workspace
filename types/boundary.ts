@@ -15,6 +15,7 @@ export interface BoundaryInput {
 
 export interface ActivityEntry {
   id: string;
+  recipientName: string;
   preview: string;
   status: BoundaryStatus;
   message: string;

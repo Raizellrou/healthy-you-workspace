@@ -77,7 +77,7 @@ export default async function BoundaryPage() {
   if (currentEmployeeId) {
     const { data } = await supabase
       .from("boundary_events")
-      .select("id, message_preview, action, sent_at, scheduled_delivery")
+      .select("id, recipient_id, message_preview, action, sent_at, scheduled_delivery")
       .eq("sender_id", currentEmployeeId)
       .order("sent_at", { ascending: false })
       .limit(10);
@@ -101,8 +101,10 @@ export default async function BoundaryPage() {
               minute: "2-digit",
             })}`
           : FALLBACK_MESSAGE[status];
+      const recipientName = employees.find((e) => e.id === row.recipient_id)?.name ?? "Unknown";
       return {
         id: row.id as string,
+        recipientName,
         preview: row.message_preview as string,
         status,
         message,

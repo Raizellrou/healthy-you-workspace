@@ -6,7 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { evaluateBoundaryV2, fmtInstant } from "@/lib/boundary-v2";
-import type { WorkSchedule } from "@/lib/schedule";
+import { isWithinWorkingHours, type WorkSchedule } from "@/lib/schedule";
 import { sendBoundaryMessage } from "./actions";
 import type { Employee } from "@/types/employee";
 import type { ActivityEntry, BoundaryStatus } from "@/types/boundary";
@@ -77,7 +77,7 @@ export function BoundaryClient({
   const [channel, setChannel] = useState<(typeof CHANNELS)[number]>("Slack");
   const [sendAt, setSendAt] = useState(defaultSendAt());
   const [message, setMessage] = useState(
-    "Hey — no rush, just following up on the Q3 handoff doc when you're back."
+    "Hey. No rush, just following up on the Q3 handoff doc when you're back."
   );
   const [activity, setActivity] = useState<ActivityEntry[]>(initialActivity);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -125,6 +125,9 @@ export function BoundaryClient({
   const recipientNow = recipientAvailability
     ? fmtInstant(new Date(), recipientAvailability.schedule.timezone)
     : null;
+  const recipientCurrentlyWorking = recipientAvailability
+    ? isWithinWorkingHours(recipientAvailability.schedule, new Date())
+    : false;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
@@ -149,11 +152,13 @@ export function BoundaryClient({
               onChange={(e) => setRecipientId(e.target.value)}
               className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
             >
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
+              {employees
+                .filter((e) => e.id !== sender.id)
+                .map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
             </select>
           </div>
         </div>
@@ -172,8 +177,9 @@ export function BoundaryClient({
               On PTO{recipientAvailability.returnDate ? ` · back ${recipientAvailability.returnDate}` : ""}
             </Chip>
           ) : recipientAvailability ? (
-            <Chip tone="success">
-              Working hours {String(Math.floor(recipientAvailability.schedule.startMin / 60)).padStart(2, "0")}:
+            <Chip tone={recipientCurrentlyWorking ? "success" : "warning"}>
+              {recipientCurrentlyWorking ? "Working hours" : "Off hours"}{" "}
+              {String(Math.floor(recipientAvailability.schedule.startMin / 60)).padStart(2, "0")}:
               {String(recipientAvailability.schedule.startMin % 60).padStart(2, "0")}–
               {String(Math.floor(recipientAvailability.schedule.endMin / 60)).padStart(2, "0")}:
               {String(recipientAvailability.schedule.endMin % 60).padStart(2, "0")}
@@ -282,6 +288,7 @@ export function BoundaryClient({
                         {new Date(entry.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
+                    <p className="mt-1 truncate text-xs font-medium text-ink">To {entry.recipientName}</p>
                     <p className="mt-1 truncate text-ink-soft">
                       {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
                     </p>
@@ -295,7 +302,7 @@ export function BoundaryClient({
 
         {offHoursByTeam.length > 0 ? (
           <Card>
-            <div className="mb-1 text-sm font-semibold text-ink">Off-hours send rate — HR</div>
+            <div className="mb-1 text-sm font-semibold text-ink">Off-hours send rate (HR)</div>
             <p className="mb-3 text-xs text-ink-mute">Share of messages sent outside the recipient&apos;s hours, last 30 days.</p>
             <ul className="space-y-2">
               {offHoursByTeam.map((row) => {

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { useActionToast } from "@/lib/toast-context";
+import { fmtDateTime } from "@/lib/date";
 import { markNotificationRead, markAllNotificationsRead } from "./actions";
 import type { InboxNotification, NotificationStatus } from "@/lib/supabase/notifications";
 
@@ -19,10 +20,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "held", label: "Held for later" },
   { key: "all", label: "All" },
 ];
-
-function fmtWhen(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-}
 
 /** No realtime subscription here by design — the badge and this list
  *  refresh the same way every other Sidebar badge in this app already
@@ -70,8 +67,10 @@ export function InboxClient({ notifications }: { notifications: InboxNotificatio
                 type="button"
                 aria-pressed={tab === t.key}
                 onClick={() => setTab(t.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  tab === t.key ? "bg-ink text-white" : "border border-line text-ink-mute hover:bg-surface-2"
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  tab === t.key
+                    ? "border-brand bg-brand-soft text-brand-ink"
+                    : "border-line text-ink-mute hover:bg-surface-2"
                 }`}
               >
                 {t.label}
@@ -121,10 +120,10 @@ export function InboxClient({ notifications }: { notifications: InboxNotificatio
                   </div>
                   {n.body ? <div className="mt-0.5 truncate text-xs text-ink-mute">{n.body}</div> : null}
                   <div className="mt-1 flex items-center gap-2 text-[11px] text-ink-mute">
-                    <span>{fmtWhen(n.createdAt)}</span>
+                    <span>{fmtDateTime(n.createdAt)}</span>
                     {n.status === "held" ? (
                       <Chip tone="warning">
-                        {n.heldReason === "quiet_hours" ? `Held until ${fmtWhen(n.deliverAfter)}` : "Batched"}
+                        {n.heldReason === "quiet_hours" ? `Held until ${fmtDateTime(n.deliverAfter)}` : "Batched"}
                       </Chip>
                     ) : null}
                   </div>
