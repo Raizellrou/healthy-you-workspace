@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { BandChip } from "@/components/burnout/BandChip";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
@@ -87,6 +88,10 @@ export function BurnoutClient({
   const [selectedId, setSelectedId] = useState<string | null>(
     () => visibleRows[0]?.employee.id ?? null
   );
+
+  if (rows.length === 0) {
+    return <EmptyState icon="users" message="No one visible in your scope yet." />;
+  }
 
   const selected = visibleRows.find((r) => r.employee.id === selectedId) ?? visibleRows[0];
 

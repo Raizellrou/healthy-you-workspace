@@ -8,11 +8,13 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/icons/Icon";
 import { BandChip } from "@/components/burnout/BandChip";
 import { Sparkline } from "@/components/burnout/Sparkline";
-import { ClockWidget } from "@/components/shell/ClockWidget";
+import { SessionBar } from "@/components/dashboard/SessionBar";
+import { LiveSessionRefresh } from "@/components/dashboard/LiveSessionRefresh";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployees, getBurnoutHistory, getMyTasks } from "@/lib/supabase/queries";
 import { getCurrentPerson, getVisibleEmployees, getTeams } from "@/lib/supabase/people";
-import { getOpenSession, getAttendanceSignals } from "@/lib/supabase/attendance";
+import { getOpenSession, getAttendanceSignals, getMyRollups } from "@/lib/supabase/attendance";
+import { getMySettings } from "@/lib/supabase/notifications";
 import { getTaskBurnoutSignals } from "@/lib/supabase/tasks";
 import { getForecastsForEmployees } from "@/lib/supabase/forecast";
 import { getMyOneOnOnes } from "@/lib/supabase/one-on-ones";
@@ -78,7 +80,7 @@ export default async function DashboardPage() {
   // --- Zone A/B/C: personal signals. Nothing here fires if `me` is null
   // (session mid-migration, no matching employee row) — same defensive
   // posture app/(app)/layout.tsx already takes for openSession et al.
-  const [openSession, myTasks, myOneOnOnes, currentMeeting, moodCheckedIn, needsYou] = me
+  const [openSession, myTasks, myOneOnOnes, currentMeeting, moodCheckedIn, needsYou, myRollups, mySettings] = me
     ? await Promise.all([
         getOpenSession(me.id),
         getMyTasks(me.id),
@@ -86,8 +88,12 @@ export default async function DashboardPage() {
         getCurrentMeeting(me.id),
         hasCheckedInMoodToday(me.id, me.timezone),
         getNeedsYou(me),
+        getMyRollups(me.id, 7),
+        getMySettings(me.id),
       ])
-    : [null, [], [], null, false, []];
+    : [null, [], [], null, false, [], [], null];
+
+  const last7DaysHours = myRollups.reduce((sum, r) => sum + r.netHours, 0);
 
   const today = me ? todayInTz(me.timezone) : null;
   const dueToday = myTasks.filter((t) => t.due_date === today);
@@ -217,10 +223,16 @@ export default async function DashboardPage() {
         <Card>
           <SectionLabel className="mb-3">Your session</SectionLabel>
           {me ? (
-            <ClockWidget openSession={openSession} />
+            <SessionBar
+              openSession={openSession}
+              schedule={mySettings ? { startMin: mySettings.schedule.startMin, endMin: mySettings.schedule.endMin } : null}
+              timezone={me.timezone}
+              last7DaysHours={last7DaysHours}
+            />
           ) : (
             <p className="text-xs text-ink-mute">Sign in to clock in.</p>
           )}
+          {currentEmployeeId ? <LiveSessionRefresh employeeId={currentEmployeeId} /> : null}
         </Card>
 
         <Card>

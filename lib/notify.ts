@@ -230,6 +230,7 @@ export async function sweepDueSoon(employeeId: string, timezone?: string): Promi
     .select("id, title, due_date")
     .eq("assignee_id", employeeId)
     .eq("done", false)
+    .is("deleted_at", null)
     .in("due_date", [today, tomorrow])
     .returns<{ id: string; title: string; due_date: string }[]>();
   if (!tasks || tasks.length === 0) return;

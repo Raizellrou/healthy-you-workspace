@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import { AssigneePicker } from "@/components/tasks/AssigneePicker";
 import { SelectionBar } from "@/components/ui/SelectionBar";
+import { ConfirmModal } from "@/components/ui/Modal";
 import { bulkReassign, bulkClose } from "@/app/(app)/tasks/actions";
 import type { Task } from "@/types/task";
 import type { Employee } from "@/types/employee";
@@ -24,6 +25,7 @@ export function MyTasksList({ tasks, employees }: { tasks: Task[]; employees: Em
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
 
   const selectedIds = tasks.filter((t) => selected.has(t.id)).map((t) => t.id);
 
@@ -54,6 +56,7 @@ export function MyTasksList({ tasks, employees }: { tasks: Task[]; employees: Em
   }
 
   function handleClose() {
+    setConfirmCloseOpen(false);
     setError(null);
     startTransition(async () => {
       const result = await bulkClose(selectedIds);
@@ -92,7 +95,7 @@ export function MyTasksList({ tasks, employees }: { tasks: Task[]; employees: Em
             </div>
             <button
               type="button"
-              onClick={handleClose}
+              onClick={() => setConfirmCloseOpen(true)}
               disabled={isPending}
               className="rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-line disabled:cursor-not-allowed disabled:text-ink-mute"
             >
@@ -100,6 +103,16 @@ export function MyTasksList({ tasks, employees }: { tasks: Task[]; employees: Em
             </button>
           </>
         }
+      />
+      <ConfirmModal
+        open={confirmCloseOpen}
+        onClose={() => setConfirmCloseOpen(false)}
+        onConfirm={handleClose}
+        title="Close selected tasks?"
+        message={`Close ${selectedIds.length} selected task${selectedIds.length === 1 ? "" : "s"}?`}
+        tone="default"
+        confirmLabel="Close tasks"
+        pending={isPending}
       />
     </>
   );

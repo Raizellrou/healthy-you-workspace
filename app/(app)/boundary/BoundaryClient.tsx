@@ -5,9 +5,12 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { ConfirmModal } from "@/components/ui/Modal";
 import { evaluateBoundaryV2, fmtInstant } from "@/lib/boundary-v2";
+import { useToast, useActionToast } from "@/lib/toast-context";
+import type { ToastVariant } from "@/lib/toast-context";
 import type { WorkSchedule } from "@/lib/schedule";
-import { sendBoundaryMessage } from "./actions";
+import { sendBoundaryMessage, cancelBoundaryMessage } from "./actions";
 import type { Employee } from "@/types/employee";
 import type { ActivityEntry, BoundaryStatus } from "@/types/boundary";
 
@@ -32,6 +35,16 @@ const STATUS_ACCENT: Record<BoundaryStatus, string> = {
   warned: "#FFD700",
   delivered: "#87D380",
   delayed: "#87CEEB",
+};
+
+/** Non-"delayed" outcomes resolve immediately, so they're surfaced as a
+ *  toast rather than a row in the persistent activity panel below — that
+ *  panel is reserved for messages still waiting on the recipient's working
+ *  hours (see BoundaryPage's query). */
+const RESULT_TOAST_VARIANT: Record<Exclude<BoundaryStatus, "delayed">, ToastVariant> = {
+  blocked: "error",
+  warned: "info",
+  delivered: "success",
 };
 
 export interface RecipientAvailability {
@@ -83,6 +96,10 @@ export function BoundaryClient({
   const [flashId, setFlashId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [isCancelling, startCancelTransition] = useTransition();
+  const { toast } = useToast();
+  const run = useActionToast();
 
   const recipient = employees.find((e) => e.id === recipientId) ?? employees[1];
   const recipientAvailability = availabilityByEmployee[recipientId];
@@ -113,10 +130,26 @@ export function BoundaryClient({
         return;
       }
       const entry = result.entry;
-      setActivity((prev) => [entry, ...prev]);
-      setFlashId(entry.id);
+      if (entry.status === "delayed") {
+        setActivity((prev) => [entry, ...prev]);
+        setFlashId(entry.id);
+        window.setTimeout(() => setFlashId((cur) => (cur === entry.id ? null : cur)), 1400);
+      } else {
+        toast({ title: `${recipient.name}: ${entry.message}`, variant: RESULT_TOAST_VARIANT[entry.status] });
+      }
       setMessage("");
-      window.setTimeout(() => setFlashId((cur) => (cur === entry.id ? null : cur)), 1400);
+    });
+  }
+
+  function handleCancel() {
+    const id = cancelTarget;
+    if (!id) return;
+    setCancelTarget(null);
+    startCancelTransition(async () => {
+      const result = await run(() => cancelBoundaryMessage(id), { success: "Message cancelled." });
+      if (result.ok) {
+        setActivity((prev) => prev.filter((entry) => entry.id !== id));
+      }
     });
   }
 
@@ -257,9 +290,12 @@ export function BoundaryClient({
 
       <div className="flex flex-col gap-6">
         <Card>
-          <div className="mb-3 text-sm font-semibold text-ink">Recent activity</div>
+          <div className="mb-0.5 text-sm font-semibold text-ink">Your held messages</div>
+          <p className="mb-3 text-xs text-ink-mute">
+            Messages you sent that are waiting on the recipient&apos;s working hours.
+          </p>
           {activity.length === 0 ? (
-            <p className="text-sm text-ink-mute">Nothing sent yet.</p>
+            <p className="text-sm text-ink-mute">Nothing held right now.</p>
           ) : (
             <ul className="space-y-2">
               {activity.map((entry) => {
@@ -282,10 +318,22 @@ export function BoundaryClient({
                         {new Date(entry.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
-                    <p className="mt-1 truncate text-ink-soft">
+                    <p className="mt-1 text-xs font-medium text-ink-soft">To {entry.recipientName}</p>
+                    <p className="mt-0.5 truncate text-ink-soft">
                       {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
                     </p>
                     <p className="mt-0.5 text-xs text-ink-mute">{entry.message}</p>
+                    {!entry.resolved ? (
+                      <div className="mt-1.5 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setCancelTarget(entry.id)}
+                          className="text-xs font-medium text-ink-mute underline-offset-2 hover:text-risk-critical hover:underline"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}
@@ -313,6 +361,17 @@ export function BoundaryClient({
           </Card>
         ) : null}
       </div>
+
+      <ConfirmModal
+        open={cancelTarget !== null}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={handleCancel}
+        title="Cancel this message?"
+        message="The recipient won't receive it once their working hours begin. This can't be undone."
+        tone="default"
+        confirmLabel="Cancel message"
+        pending={isCancelling}
+      />
     </div>
   );
 }

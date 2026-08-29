@@ -49,6 +49,7 @@ export function MoodClient({
   orgTrend: OrgTrendPoint[];
 }) {
   const [picked, setPicked] = useState<1 | 2 | 3 | 4 | 5 | null>(initialPicked);
+  const [isChangingMood, setIsChangingMood] = useState(false);
   const [isPending, startTransition] = useTransition();
   const run = useActionToast();
   const pickedMood = picked ? MOODS[picked - 1] : null;
@@ -68,11 +69,23 @@ export function MoodClient({
   }
 
   function handlePick(value: 1 | 2 | 3 | 4 | 5) {
+    // A truthy `picked` at click time means today's mood was already
+    // submitted and this is a re-pick (isChangingMood) — route to the
+    // update path instead of submitMoodCheckin, which would otherwise hit
+    // the (employee_id, date) unique-constraint conflict.
+    const previous = picked;
     setPicked(value);
+    setIsChangingMood(false);
     startTransition(async () => {
-      await run(() => submitMoodCheckin(value), {
-        onError: () => setPicked(initialPicked),
-      });
+      if (previous !== null) {
+        await run(() => updateMoodDetails({ moodValue: value, energy, note: detailsNote || null, tags }), {
+          onError: () => setPicked(previous),
+        });
+      } else {
+        await run(() => submitMoodCheckin(value), {
+          onError: () => setPicked(previous),
+        });
+      }
     });
   }
 
@@ -93,7 +106,7 @@ export function MoodClient({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card>
-        {!pickedMood ? (
+        {!pickedMood || isChangingMood ? (
           <>
             <div role="group" aria-label="How are you feeling today?" className="mb-6 flex flex-wrap gap-3">
               {MOODS.map((mood) => {
@@ -102,7 +115,7 @@ export function MoodClient({
                   <button
                     key={mood.value}
                     type="button"
-                    disabled={picked !== null || isPending}
+                    disabled={(picked !== null && !isChangingMood) || isPending}
                     aria-pressed={isPicked}
                     onClick={() => handlePick(mood.value)}
                     className={`group flex w-20 flex-col items-center gap-2 rounded-xl border px-2 py-3 transition-colors disabled:cursor-not-allowed ${
@@ -116,6 +129,15 @@ export function MoodClient({
                 );
               })}
             </div>
+            {isChangingMood ? (
+              <button
+                type="button"
+                onClick={() => setIsChangingMood(false)}
+                className="mb-3 text-xs font-medium text-ink-mute underline-offset-2 hover:underline"
+              >
+                Cancel
+              </button>
+            ) : null}
             <div className="flex items-start gap-2 rounded-lg border border-line bg-surface-2 p-3 text-xs text-ink-soft">
               <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
               <p>
@@ -144,6 +166,13 @@ export function MoodClient({
               <p className="mt-4 text-sm text-ink-mute">
                 That&apos;s today&apos;s check-in — see you back here tomorrow.
               </p>
+              <button
+                type="button"
+                onClick={() => setIsChangingMood(true)}
+                className="mt-2 text-xs font-medium text-ink-mute underline-offset-2 hover:underline"
+              >
+                Change today&apos;s mood
+              </button>
             </div>
 
             {detailsSaved && !detailsOpen ? (

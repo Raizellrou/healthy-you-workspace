@@ -9,7 +9,7 @@ export function EmptyState({
   message: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line px-6 py-10 text-center text-ink-mute">
+    <div role="status" className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line px-6 py-10 text-center text-ink-mute">
       <Icon name={icon} size={24} />
       <p className="text-sm">{message}</p>
     </div>

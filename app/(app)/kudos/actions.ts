@@ -39,7 +39,7 @@ export async function submitKudos(
   });
 
   if (error) {
-    return { ok: false, error: error.message };
+    return { ok: false, error: describeDbError(error) };
   }
 
   revalidatePath("/kudos");

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Avatar } from "@/components/ui/Avatar";
 import { Select } from "@/components/ui/Select";
 import { Field } from "@/components/ui/Field";
@@ -65,6 +66,10 @@ export function TeamsClient({
       await run(() => setHr(employeeId, grant));
       setPendingHrId(null);
     });
+  }
+
+  if (teams.length === 0) {
+    return <EmptyState icon="users" message="No teams set up yet." />;
   }
 
   return (

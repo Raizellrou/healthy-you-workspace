@@ -358,6 +358,7 @@ export async function getTasksForProject(projectId: string): Promise<Task[]> {
         "id, project_id, section_id, title, description, assignee_id, created_by, priority, due_date, done, position, created_at, updated_at"
       )
       .eq("project_id", projectId)
+      .is("deleted_at", null)
       .returns<TaskRow[]>(),
     getEmployeeLookup(),
   ]);
@@ -382,6 +383,7 @@ export async function getMyTasks(employeeId: string): Promise<Task[]> {
       )
       .eq("assignee_id", employeeId)
       .eq("done", false)
+      .is("deleted_at", null)
       .returns<TaskRow[]>(),
     getEmployeeLookup(),
     getProjects(),
@@ -410,6 +412,7 @@ export async function getWorkload(): Promise<WorkloadEntry[]> {
       .from("tasks")
       .select("assignee_id, priority, done")
       .eq("done", false)
+      .is("deleted_at", null)
       .returns<{ assignee_id: string | null; priority: string; done: boolean }[]>(),
     getEmployees(),
   ]);
@@ -452,6 +455,7 @@ export async function getTaskDetail(taskId: string): Promise<TaskDetail | null> 
         "id, project_id, section_id, title, description, assignee_id, created_by, priority, due_date, done, position, created_at, updated_at"
       )
       .eq("id", taskId)
+      .is("deleted_at", null)
       .maybeSingle()
       .returns<TaskRow | null>(),
     getEmployeeLookup(),

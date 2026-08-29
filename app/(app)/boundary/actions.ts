@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployee } from "@/lib/supabase/queries";
 import { evaluateBoundaryV2 } from "@/lib/boundary-v2";
@@ -7,6 +8,7 @@ import { nextWorkStart, DEFAULT_QUIET_START_MIN, DEFAULT_QUIET_END_MIN, type Wor
 import { DEFAULT_TIMEZONE } from "@/lib/date";
 import { enqueue } from "@/lib/notify";
 import { sendSlackMessage } from "@/lib/slack";
+import { ok, fail, withEmployee, describeDbError, type ActionResult } from "@/lib/action-result";
 import type { ActivityEntry } from "@/types/boundary";
 
 export interface SendBoundaryResult {
@@ -105,7 +107,7 @@ export async function sendBoundaryMessage(
     .single();
 
   if (error) {
-    return { ok: false, error: error.message };
+    return { ok: false, error: describeDbError(error) };
   }
 
   if (result.status === "delayed") {
@@ -139,6 +141,36 @@ export async function sendBoundaryMessage(
       status: result.status,
       message: resultMessage,
       timestamp: sentAt.getTime(),
+      recipientId,
+      recipientName: recipient.name,
+      scheduledDelivery: scheduledDelivery ? scheduledDelivery.toISOString() : null,
     },
   };
+}
+
+/** Cancels a message still held for the recipient's working hours. Guarded
+ *  both here (`.eq("action", "delayed")`) and at the database level (0032's
+ *  RLS policy carries the same condition), so a message that's already
+ *  "delivered" can't be cancelled even if this were somehow called on a
+ *  stale client-side row. */
+export async function cancelBoundaryMessage(id: string): Promise<ActionResult> {
+  return withEmployee(async (employeeId) => {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("boundary_events")
+      .update({ action: "cancelled" })
+      .eq("id", id)
+      .eq("sender_id", employeeId)
+      .eq("action", "delayed")
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      return fail(describeDbError(error));
+    }
+    if (!data) {
+      return fail("This message can no longer be cancelled.");
+    }
+    revalidatePath("/boundary");
+    return ok();
+  });
 }

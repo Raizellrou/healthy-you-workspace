@@ -38,6 +38,24 @@ export function TimeOffClient({
   pendingForOthers: PtoRequest[];
 }) {
   const router = useRouter();
+  const [mineRows, setMineRows] = useState(mine);
+  const [othersRows, setOthersRows] = useState(pendingForOthers);
+  // router.refresh() re-renders this component with fresh server props
+  // without remounting it, so local optimistic state needs to resync once
+  // the real data lands — same render-time-resync shape FocusClient uses
+  // for its session-identity prop.
+  const mineSignature = mine.map((r) => `${r.id}:${r.status}`).join(",");
+  const [prevMineSignature, setPrevMineSignature] = useState(mineSignature);
+  if (mineSignature !== prevMineSignature) {
+    setPrevMineSignature(mineSignature);
+    setMineRows(mine);
+  }
+  const othersSignature = pendingForOthers.map((r) => r.id).join(",");
+  const [prevOthersSignature, setPrevOthersSignature] = useState(othersSignature);
+  if (othersSignature !== prevOthersSignature) {
+    setPrevOthersSignature(othersSignature);
+    setOthersRows(pendingForOthers);
+  }
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [kind, setKind] = useState<PtoRequest["kind"]>("vacation");
@@ -79,8 +97,11 @@ export function TimeOffClient({
     setCancelTarget(null);
     setPendingRowId(id);
     startTransition(async () => {
-      await run(() => cancelPto(id), { success: "Time off request cancelled." });
+      const result = await run(() => cancelPto(id), { success: "Time off request cancelled." });
       setPendingRowId(null);
+      if (result.ok) {
+        setMineRows((rows) => rows.map((r) => (r.id === id ? { ...r, status: "cancelled" } : r)));
+      }
       router.refresh();
     });
   }
@@ -89,10 +110,13 @@ export function TimeOffClient({
     setDenyTarget(null);
     setPendingRowId(id);
     startTransition(async () => {
-      await run(() => decidePto({ requestId: id, status }), {
+      const result = await run(() => decidePto({ requestId: id, status }), {
         success: status === "approved" ? "Request approved." : "Request denied.",
       });
       setPendingRowId(null);
+      if (result.ok) {
+        setOthersRows((rows) => rows.filter((r) => r.id !== id));
+      }
       router.refresh();
     });
   }
@@ -105,11 +129,11 @@ export function TimeOffClient({
         </Button>
       </div>
 
-      {pendingForOthers.length > 0 && (
+      {othersRows.length > 0 && (
         <Card>
           <div className="mb-3 text-sm font-semibold text-ink">Pending approvals</div>
           <ul className="space-y-2">
-            {pendingForOthers.map((r) => (
+            {othersRows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded-lg border border-line px-3 py-2.5">
                 <Avatar name={r.employeeName} color={r.avatarColor} size={32} />
                 <div className="min-w-0 flex-1">
@@ -145,11 +169,11 @@ export function TimeOffClient({
 
       <Card>
         <div className="mb-3 text-sm font-semibold text-ink">My requests</div>
-        {mine.length === 0 ? (
+        {mineRows.length === 0 ? (
           <p className="text-xs text-ink-mute">No requests yet.</p>
         ) : (
           <ul className="space-y-2">
-            {mine.map((r) => (
+            {mineRows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded-lg border border-line px-3 py-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-ink">

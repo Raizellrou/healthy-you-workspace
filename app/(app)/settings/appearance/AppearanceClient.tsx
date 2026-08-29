@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -34,6 +34,17 @@ export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
   const [prefs, setPrefs] = useState(initial);
   const [isPending, startTransition] = useTransition();
   const run = useActionToast();
+  const isDirty = (Object.keys(initial) as (keyof UiPreferences)[]).some((key) => prefs[key] !== initial[key]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   function set<K extends keyof UiPreferences>(key: K, value: UiPreferences[K]) {
     setPrefs((p) => ({ ...p, [key]: value }));

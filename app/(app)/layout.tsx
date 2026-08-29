@@ -85,7 +85,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               the whole layout shifts as you navigate. The track is
               transparent (globals.css), so the reserved strip is invisible
               until there is something to scroll. */}
-          <main className="min-w-0 flex-1 overflow-y-auto pb-16 [scrollbar-gutter:stable] md:pb-0">{children}</main>
+          <main id="main-content" className="min-w-0 flex-1 overflow-y-auto pb-16 [scrollbar-gutter:stable] md:pb-0">
+            {children}
+          </main>
         </div>
         {/* ToastStack is the single positioned/portaled container for both
             the nudge dock and the action-toast queue — see ToastStack.tsx. */}

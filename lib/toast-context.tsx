@@ -18,6 +18,7 @@ interface ToastInput {
   title: string;
   variant?: ToastVariant;
   duration?: number;
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToastContextValue {
@@ -50,7 +51,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (input: ToastInput) => {
       const id = crypto.randomUUID();
       const duration = input.duration ?? DEFAULT_DURATION;
-      const entry: Toast = { id, title: input.title, variant: input.variant ?? "info", duration };
+      const entry: Toast = {
+        id,
+        title: input.title,
+        variant: input.variant ?? "info",
+        duration,
+        action: input.action,
+      };
       setToasts((cur) => enqueue(cur, entry));
       const timer = setTimeout(() => dismiss(id), duration);
       timers.current.set(id, timer);

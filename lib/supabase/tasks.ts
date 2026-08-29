@@ -75,6 +75,7 @@ export async function getTaskRichExtras(taskId: string): Promise<TaskRichExtras 
       .from("tasks")
       .select("start_date, estimate_hours, completed_at, blocked_by")
       .eq("id", taskId)
+      .is("deleted_at", null)
       .maybeSingle()
       .returns<RichTaskColumns | null>(),
     supabase.from("task_labels").select("label_id").eq("task_id", taskId).returns<{ label_id: string }[]>(),
@@ -100,6 +101,7 @@ export async function getTaskRichExtras(taskId: string): Promise<TaskRichExtras 
       .from("tasks")
       .select("id, title, done")
       .eq("id", taskRes.data.blocked_by)
+      .is("deleted_at", null)
       .maybeSingle();
     if (blocker) blockedByTask = blocker;
   }
@@ -189,7 +191,12 @@ function toRichTask(
 export async function getTasksForProjectRich(projectId: string): Promise<Task[]> {
   const supabase = await createClient();
   const [tasksRes, lookup, labels] = await Promise.all([
-    supabase.from("tasks").select(RICH_TASK_COLUMNS).eq("project_id", projectId).returns<RichTaskRow[]>(),
+    supabase
+      .from("tasks")
+      .select(RICH_TASK_COLUMNS)
+      .eq("project_id", projectId)
+      .is("deleted_at", null)
+      .returns<RichTaskRow[]>(),
     employeeLookup(),
     getLabels(),
   ]);
@@ -276,6 +283,7 @@ export async function getRebalanceCandidates(): Promise<{
       .from("tasks")
       .select("id, title, assignee_id, priority, done, estimate_hours, due_date")
       .eq("done", false)
+      .is("deleted_at", null)
       .returns<OpenTaskRow[]>(),
     getVisibleEmployees(),
   ]);
@@ -385,6 +393,7 @@ export async function getTaskBurnoutSignals(
     .select("assignee_id, priority, done, estimate_hours, due_date")
     .in("assignee_id", employeeIds)
     .eq("done", false)
+    .is("deleted_at", null)
     .returns<OpenTaskRow[]>();
   if (error) {
     throw new Error(`Failed to load tasks for burnout signals: ${error.message}`);
@@ -429,6 +438,7 @@ export async function getUpcomingDueTaskCounts(employeeId: string, today: IsoDat
     .select("due_date")
     .eq("assignee_id", employeeId)
     .eq("done", false)
+    .is("deleted_at", null)
     .gt("due_date", today)
     .lte("due_date", addDays(today, days))
     .returns<{ due_date: IsoDate | null }[]>();

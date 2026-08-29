@@ -1,5 +1,6 @@
 import { PageHead } from "@/components/ui/PageHead";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { StatTile } from "@/components/ui/StatTile";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Avatar } from "@/components/ui/Avatar";
@@ -118,31 +119,39 @@ export default async function AttendancePage() {
         }`}
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatTile label="Clocked in now" value={working.length} color={ATTENDANCE_COLOR.clockedIn} dot />
-        <StatTile label="On PTO" value={onPto.length} color={ATTENDANCE_COLOR.pto} dot />
-        <StatTile label="Off today" value={off.length} color={ATTENDANCE_COLOR.off} dot />
-        <StatTile label="Total" value={visiblePeople.length} color={ATTENDANCE_COLOR.total} dot />
-      </div>
+      {visiblePeople.length === 0 ? (
+        <div className="mt-6">
+          <EmptyState icon="users" message="No one visible in your scope yet." />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatTile label="Clocked in now" value={working.length} color={ATTENDANCE_COLOR.clockedIn} dot />
+            <StatTile label="On PTO" value={onPto.length} color={ATTENDANCE_COLOR.pto} dot />
+            <StatTile label="Off today" value={off.length} color={ATTENDANCE_COLOR.off} dot />
+            <StatTile label="Total" value={visiblePeople.length} color={ATTENDANCE_COLOR.total} dot />
+          </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <PersonGroup
-          label="Clocked in now"
-          color={ATTENDANCE_COLOR.clockedIn}
-          people={working}
-          meta={(p) => {
-            const session = openByEmployeeId.get(p.id);
-            if (!session) return "";
-            const elapsed = Date.now() - new Date(session.clockIn).getTime();
-            return session.onBreak ? "On break" : fmtDuration(elapsed);
-          }}
-        />
-        <PersonGroup label="On PTO today" color={ATTENDANCE_COLOR.pto} people={onPto} />
-      </div>
+          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <PersonGroup
+              label="Clocked in now"
+              color={ATTENDANCE_COLOR.clockedIn}
+              people={working}
+              meta={(p) => {
+                const session = openByEmployeeId.get(p.id);
+                if (!session) return "";
+                const elapsed = Date.now() - new Date(session.clockIn).getTime();
+                return session.onBreak ? "On break" : fmtDuration(elapsed);
+              }}
+            />
+            <PersonGroup label="On PTO today" color={ATTENDANCE_COLOR.pto} people={onPto} />
+          </div>
 
-      <div className="mt-4">
-        <PersonGroup label="Off today" color={ATTENDANCE_COLOR.off} people={off} />
-      </div>
+          <div className="mt-4">
+            <PersonGroup label="Off today" color={ATTENDANCE_COLOR.off} people={off} />
+          </div>
+        </>
+      )}
 
       {currentEmployeeId ? (
         <Card className="mt-6">

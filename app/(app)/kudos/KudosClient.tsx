@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Chip } from "@/components/ui/Chip";
 import { KUDOS_PROGRESS_CAP, KUDOS_TAGS } from "@/lib/constants";
 import { submitKudos, rotateBuddies, raiseConcern, decideConcern, proposeCoffee } from "./actions";
-import { useToast } from "@/lib/toast-context";
+import { useActionToast } from "@/lib/toast-context";
 import type { Employee } from "@/types/employee";
 
 const TAG_ACCENT: Record<string, string> = {
@@ -60,6 +61,7 @@ export function KudosClient({
   concerns: ConcernItem[];
   employees: Employee[];
 }) {
+  const router = useRouter();
   const [coffeeResult, setCoffeeResult] = useState<string | null>(null);
   const [coffeePending, setCoffeePending] = useState(false);
   const [tag, setTag] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export function KudosClient({
   const [progress, setProgress] = useState(initialProgress);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const { toast } = useToast();
+  const run = useActionToast();
 
   const [rotating, setRotating] = useState(false);
   const [rotateMsg, setRotateMsg] = useState<string | null>(null);
@@ -94,12 +96,10 @@ export function KudosClient({
     }
     setError(null);
     startTransition(async () => {
-      const result = await submitKudos(buddy.id, tag, note, flagToHR);
-      if (!result.ok) {
-        setError(result.error ?? "Something went wrong.");
-        return;
-      }
-      toast({ title: `Kudos sent to ${buddy.name}.`, variant: "success" });
+      const result = await run(() => submitKudos(buddy.id, tag, note, flagToHR), {
+        success: `Kudos sent to ${buddy.name}.`,
+      });
+      if (!result.ok) return;
       setSubmitted(true);
       setProgress((p) => Math.min(KUDOS_PROGRESS_CAP, p + 1));
     });
@@ -111,7 +111,12 @@ export function KudosClient({
     startTransition(async () => {
       const result = await rotateBuddies();
       setRotating(false);
-      setRotateMsg(result.ok ? "Rotated. Refresh to see new pairing." : (result.error ?? "Rotate failed."));
+      if (result.ok) {
+        setRotateMsg("Rotated to a new pairing.");
+        router.refresh();
+      } else {
+        setRotateMsg(result.error ?? "Rotate failed.");
+      }
     });
   }
 
@@ -195,8 +200,9 @@ export function KudosClient({
         )}
 
         <div className="mt-4">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-mute">
             What stood out?
+            {!submitted && buddy ? <span className="normal-case text-ink-mute/70">(required)</span> : null}
           </div>
           <div className="flex flex-wrap gap-2">
             {KUDOS_TAGS.map((t) => {

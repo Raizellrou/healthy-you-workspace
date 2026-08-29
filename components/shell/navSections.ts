@@ -115,7 +115,10 @@ export function sectionFor(pathname: string): NavSectionKey | "inbox" | "setting
     if (section.items.some((item) => matches(pathname, item.href))) return section.key;
   }
   if (INBOX_ITEMS.some((item) => matches(pathname, item.href))) return "inbox";
-  if (SETTINGS_ITEMS.some((item) => matches(pathname, item.href))) return "settings";
+  // "/settings" itself has no rail item — it's a redirect-only page.tsx
+  // (M17) that immediately forwards to /settings/schedule — but it still
+  // belongs to the settings section while that redirect is in flight.
+  if (pathname === "/settings" || SETTINGS_ITEMS.some((item) => matches(pathname, item.href))) return "settings";
   return null;
 }
 

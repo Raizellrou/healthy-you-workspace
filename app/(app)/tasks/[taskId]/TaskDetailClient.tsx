@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { truncateForConfirm } from "@/lib/format";
-import { useActionToast } from "@/lib/toast-context";
+import { useActionToast, useToast } from "@/lib/toast-context";
 import { AssigneePicker } from "@/components/tasks/AssigneePicker";
 import { BlockerPicker } from "@/components/tasks/BlockerPicker";
 import { SubtaskChecklist } from "@/components/tasks/SubtaskChecklist";
@@ -15,7 +15,15 @@ import { CommentThread } from "@/components/tasks/CommentThread";
 import { EstimateField } from "@/components/tasks/EstimateField";
 import { LabelPicker } from "@/components/tasks/LabelPicker";
 import { TaskActivity } from "@/components/tasks/TaskActivity";
-import { updateTask, toggleDone, setLabels, deleteTask, duplicateTask, setBlockedBy } from "@/app/(app)/tasks/actions";
+import {
+  updateTask,
+  toggleDone,
+  setLabels,
+  deleteTask,
+  restoreTask,
+  duplicateTask,
+  setBlockedBy,
+} from "@/app/(app)/tasks/actions";
 import type { TaskDetail } from "@/lib/supabase/queries";
 import type { TaskRichExtras } from "@/lib/supabase/tasks";
 import type { Label, Priority, Task } from "@/types/task";
@@ -59,6 +67,7 @@ export function TaskDetailClient({
   const [isDeleting, startDeleteTransition] = useTransition();
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const run = useActionToast();
+  const { toast } = useToast();
 
   const blocker = blockedById ? blockerCandidates.find((t) => t.id === blockedById) : undefined;
   const isBlocked = Boolean(blocker && !blocker.done && !done);
@@ -99,7 +108,12 @@ export function TaskDetailClient({
     setConfirmDeleteOpen(false);
     startDeleteTransition(async () => {
       const result = await deleteTask(task.id, task.project_id);
-      if (result.ok) router.push(`/tasks/project/${task.project_id}/board`);
+      if (!result.ok) return;
+      toast({
+        title: "Task deleted",
+        action: { label: "Undo", onClick: () => restoreTask(task.id, task.project_id) },
+      });
+      router.push(`/tasks/project/${task.project_id}/board`);
     });
   }
 
@@ -170,7 +184,12 @@ export function TaskDetailClient({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => {
-              if (title.trim() && title !== task.title) save({ title: title.trim() });
+              if (!title.trim()) {
+                setTitle(task.title);
+                toast({ title: "Title can't be empty.", variant: "error" });
+                return;
+              }
+              if (title !== task.title) save({ title: title.trim() });
             }}
             className={`w-full border-none bg-transparent text-lg font-semibold text-ink outline-none ${
               done ? "text-ink-mute line-through" : ""

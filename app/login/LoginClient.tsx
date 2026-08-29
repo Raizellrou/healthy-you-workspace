@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getSafeReturnUrl } from "./returnUrl";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { gradientButtonClassName } from "@/components/ui/Button";
+import { Icon } from "@/components/icons/Icon";
 import { createClient } from "@/lib/supabase/client";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "./demoAccounts";
 
@@ -15,6 +17,7 @@ export function LoginClient() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,7 +39,7 @@ export function LoginClient() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(getSafeReturnUrl(window.location.search));
     router.refresh();
   }
 
@@ -70,13 +73,24 @@ export function LoginClient() {
         </Field>
         <Field label="Password" required>
           {(p) => (
-            <Input
-              {...p}
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="relative">
+              <Input
+                {...p}
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-ink-mute hover:text-ink"
+              >
+                <Icon name={showPassword ? "eye-off" : "eye"} size={16} />
+              </button>
+            </div>
           )}
         </Field>
 

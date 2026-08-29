@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -53,9 +53,35 @@ export function ScheduleClient({
   const [quietEndMin, setQuietEndMin] = useState(schedule.quietEndMin);
   const [batchingMode, setBatchingMode] = useState(prefs.batchingMode);
   const [mutedKinds, setMutedKinds] = useState(new Set(prefs.mutedKinds));
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
   const run = useActionToast();
+
+  const scheduleDirty =
+    startMin !== schedule.startMin ||
+    endMin !== schedule.endMin ||
+    quietStartMin !== schedule.quietStartMin ||
+    quietEndMin !== schedule.quietEndMin ||
+    workdays.size !== schedule.workdays.length ||
+    [...workdays].some((d) => !schedule.workdays.includes(d));
+  const prefsDirty =
+    batchingMode !== prefs.batchingMode ||
+    mutedKinds.size !== prefs.mutedKinds.length ||
+    [...mutedKinds].some((k) => !prefs.mutedKinds.includes(k));
+
+  // Same beforeunload guard shape as Focus Mode's active-session warning
+  // (C2) — an unsaved schedule/notification change is just as easy to lose
+  // to an accidental tab close.
+  useEffect(() => {
+    if (!scheduleDirty && !prefsDirty) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [scheduleDirty, prefsDirty]);
 
   function toggleDay(day: number) {
     setWorkdays((cur) => {
@@ -76,6 +102,11 @@ export function ScheduleClient({
   }
 
   function handleSaveSchedule() {
+    if (startMin >= endMin) {
+      setScheduleError("Start time must be before end time.");
+      return;
+    }
+    setScheduleError(null);
     startTransition(async () => {
       await run(
         () =>
@@ -172,6 +203,7 @@ export function ScheduleClient({
           </Field>
         </div>
 
+        {scheduleError ? <p className="mt-3 text-xs text-risk-critical">{scheduleError}</p> : null}
         <div className="mt-4 flex items-center gap-3">
           <Button type="button" size="sm" onClick={handleSaveSchedule} disabled={isPending}>
             {isPending ? "Saving…" : "Save schedule"}
