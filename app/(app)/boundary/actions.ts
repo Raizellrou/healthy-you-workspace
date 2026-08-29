@@ -6,6 +6,7 @@ import { evaluateBoundaryV2 } from "@/lib/boundary-v2";
 import { nextWorkStart, DEFAULT_QUIET_START_MIN, DEFAULT_QUIET_END_MIN, type WorkSchedule } from "@/lib/schedule";
 import { DEFAULT_TIMEZONE } from "@/lib/date";
 import { enqueue } from "@/lib/notify";
+import { sendSlackMessage } from "@/lib/slack";
 import type { ActivityEntry } from "@/types/boundary";
 
 export interface SendBoundaryResult {
@@ -23,11 +24,10 @@ interface AvailabilityRow {
   pto_return_date: string | null;
 }
 
-/** get_recipient_availability doesn't carry quiet-hours minutes — Right to
- *  Disconnect's send-time evaluation only ever checks working hours
- *  (isWithinWorkingHours), never isQuietHours, matching the frozen
- *  lib/boundary.ts's original semantics. These two fields exist purely so
- *  the object satisfies WorkSchedule's shape; nothing here reads them. */
+/** get_recipient_availability doesn't carry per-employee quiet-hours
+ *  minutes, so this fills in the app-wide defaults (lib/schedule.ts) rather
+ *  than leaving them unset — evaluateBoundaryV2 does check isQuietHours,
+ *  same as the real notification pipeline, so these need a real value. */
 function toSchedule(row: AvailabilityRow | null): WorkSchedule {
   if (!row) {
     return {
@@ -121,13 +121,23 @@ export async function sendBoundaryMessage(
     });
   }
 
+  // Only a "delivered" result is actually sent anywhere real — "delayed"
+  // means Right to Disconnect is deliberately not letting it out yet, and
+  // there's no scheduler in this app to fire it later, so posting to Slack
+  // now would defeat the feature. "blocked"/"warned" never reach this line.
+  let resultMessage = result.message;
+  if (result.status === "delivered" && channel === "Slack") {
+    const slackResult = await sendSlackMessage(`*${sender.name} → ${recipient.name}*\n${message}`);
+    if (slackResult.ok) resultMessage = `${result.message} — sent to Slack`;
+  }
+
   return {
     ok: true,
     entry: {
       id: data.id as string,
       preview,
       status: result.status,
-      message: result.message,
+      message: resultMessage,
       timestamp: sentAt.getTime(),
     },
   };
