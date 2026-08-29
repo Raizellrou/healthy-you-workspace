@@ -20,4 +20,10 @@ export interface ActivityEntry {
   status: BoundaryStatus;
   message: string;
   timestamp: number;
+  /** True once a "delayed" entry's held-until time has actually passed.
+   *  `status` stays "delayed" forever — get_boundary_offhours_rate counts
+   *  it as an off-hours send, a historical fact that shouldn't change —
+   *  but the UI needs to stop showing something long-delivered as still
+   *  pending. Always false for "blocked"/"warned"/"delivered". */
+  resolved?: boolean;
 }

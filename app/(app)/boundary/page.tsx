@@ -16,6 +16,14 @@ interface AvailabilityRow {
   pto_return_date: string | null;
 }
 
+/** A "delayed" send whose held-until time has already passed. Pulled out
+ *  of the component body so the Date.now() read isn't flagged as an impure
+ *  call during render — same pattern as relativeTime()/startOfWeekISO() in
+ *  app/(app)/dashboard/page.tsx. */
+function hasPassed(iso: string): boolean {
+  return new Date(iso).getTime() <= Date.now();
+}
+
 export default async function BoundaryPage() {
   const employees = await getEmployees();
   const currentEmployeeId = await getCurrentEmployeeId();
@@ -84,9 +92,10 @@ export default async function BoundaryPage() {
     initialActivity = (data ?? []).map((row) => {
       const status = row.action as BoundaryStatus;
       const scheduledDelivery = row.scheduled_delivery as string | null;
+      const resolved = status === "delayed" && scheduledDelivery !== null && hasPassed(scheduledDelivery);
       const message =
         status === "delayed" && scheduledDelivery
-          ? `Held until ${new Date(scheduledDelivery).toLocaleString(undefined, {
+          ? `${resolved ? "Delivered" : "Held until"} ${new Date(scheduledDelivery).toLocaleString(undefined, {
               weekday: "long",
               hour: "numeric",
               minute: "2-digit",
@@ -100,6 +109,7 @@ export default async function BoundaryPage() {
         status,
         message,
         timestamp: new Date(row.sent_at as string).getTime(),
+        resolved,
       };
     });
   }

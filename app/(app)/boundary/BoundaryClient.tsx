@@ -268,25 +268,34 @@ export function BoundaryClient({
             <p className="text-sm text-ink-mute">Nothing sent yet.</p>
           ) : (
             <ul className="space-y-2">
-              {activity.map((entry) => (
-                <li
-                  key={entry.id}
-                  className={`rounded-lg border p-2.5 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
-                  style={{ borderColor: "var(--line)", borderLeftColor: STATUS_ACCENT[entry.status], borderLeftWidth: 3 }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <Chip tone={STATUS_TONE[entry.status]}>{STATUS_LABEL[entry.status]}</Chip>
-                    <span className="text-[11px] text-ink-mute">
-                      {new Date(entry.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <p className="mt-1 truncate text-xs font-medium text-ink">To {entry.recipientName}</p>
-                  <p className="mt-1 truncate text-ink-soft">
-                    {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
-                  </p>
-                  <p className="mt-0.5 text-xs text-ink-mute">{entry.message}</p>
-                </li>
-              ))}
+              {activity.map((entry) => {
+                // `resolved` overrides the display only — entry.status stays
+                // "delayed" (see types/boundary.ts) so a message held past
+                // working hours doesn't read as still-pending forever once
+                // that time has come and gone.
+                const displayTone = entry.resolved ? "success" : STATUS_TONE[entry.status];
+                const displayLabel = entry.resolved ? "Delivered" : STATUS_LABEL[entry.status];
+                const displayAccent = entry.resolved ? STATUS_ACCENT.delivered : STATUS_ACCENT[entry.status];
+                return (
+                  <li
+                    key={entry.id}
+                    className={`rounded-lg border p-2.5 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
+                    style={{ borderColor: "var(--line)", borderLeftColor: displayAccent, borderLeftWidth: 3 }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <Chip tone={displayTone}>{displayLabel}</Chip>
+                      <span className="text-[11px] text-ink-mute">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs font-medium text-ink">To {entry.recipientName}</p>
+                    <p className="mt-1 truncate text-ink-soft">
+                      {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-mute">{entry.message}</p>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>
