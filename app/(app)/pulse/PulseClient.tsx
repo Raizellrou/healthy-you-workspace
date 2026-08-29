@@ -35,7 +35,7 @@ export function PulseClient({
       <Card>
         <p className="text-sm font-medium text-ink">Answer recorded.</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-mute">
-          Your score isn&rsquo;t readable by anyone — not your manager, not HR, not the person who set the
+          Your score isn&rsquo;t readable by anyone. Not your manager, not HR, not the person who set the
           question. Results appear below once at least three people have answered.
         </p>
       </Card>

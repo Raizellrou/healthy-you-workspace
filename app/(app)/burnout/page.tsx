@@ -95,7 +95,7 @@ export default async function BurnoutPage() {
       </div>
       <PageHead
         title="Burnout Risk Analytics"
-        description="Task-aware composite: work streak, meeting load, off-hours activity, and time since PTO — plus real committed task load, overdue tasks, and recovery time."
+        description="Task-aware composite: work streak, meeting load, off-hours activity, and time since PTO. Plus real committed task load, overdue tasks, and recovery time."
         actions={
           <div className="flex gap-2">
             {[

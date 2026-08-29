@@ -37,11 +37,11 @@ function permissionCopy(state: string): string {
     case "unsupported":
       return "Notifications aren't supported in this browser.";
     case "granted":
-      return "Notifications are enabled — you'll get an alert if a nudge fires while you're on another tab.";
+      return "Notifications are enabled. You'll get an alert if a nudge fires while you're on another tab.";
     case "denied":
       return "Notifications are blocked. Enable them in your browser settings to get alerts on other tabs.";
     default:
-      return "Notifications haven't been requested yet — click Start to ask.";
+      return "Notifications haven't been requested yet. Click Start to ask.";
   }
 }
 
@@ -78,7 +78,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
       </div>
       <PageHead
         title="Nudges"
-        description="Simulated wellness nudges — quiet-hours-aware, capped, and snoozable."
+        description="Simulated wellness nudges. Quiet-hours-aware, capped, and snoozable."
       />
 
       {noBreakMinutes !== null && noBreakMinutes >= 180 ? (
@@ -91,7 +91,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
             <span className="font-semibold text-ink">
               {Math.floor(noBreakMinutes / 60)}h {noBreakMinutes % 60}m
             </span>{" "}
-            clocked in with no break recorded today — real signal, from your actual open session.
+            clocked in with no break recorded today. Real signal, from your actual open session.
           </p>
         </div>
       ) : null}
@@ -187,7 +187,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
       <Card>
         <div className="mb-3 text-sm font-semibold text-ink">Nudge log</div>
         {log.length === 0 ? (
-          <p className="text-sm text-ink-mute">Nothing yet — start a session to begin.</p>
+          <p className="text-sm text-ink-mute">Nothing yet. Start a session to begin.</p>
         ) : (
           <ul aria-live="polite" className="flex flex-col gap-2">
             {log.map((entry) => {
@@ -220,7 +220,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
                   </div>
                   <Chip tone={RESULT_TONE[entry.result]}>
                     {RESULT_LABEL[entry.result]}
-                    {entry.reason ? ` — ${entry.reason}` : ""}
+                    {entry.reason ? `: ${entry.reason}` : ""}
                   </Chip>
                 </li>
               );

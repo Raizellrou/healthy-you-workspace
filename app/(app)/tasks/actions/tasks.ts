@@ -4,69 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/supabase/people";
-import { canManageProjects } from "@/lib/authz";
-import { getEmployees } from "@/lib/supabase/queries";
-import { isOffHoursMoment } from "@/lib/tasks";
-import { enqueue, buildMentionLookup, parseMentions } from "@/lib/notify";
+import { canManageProjects, isManagerOrHr } from "@/lib/authz";
+import { enqueue } from "@/lib/notify";
 import { ok, fail, validated, withEmployee, describeDbError, type ActionResult } from "@/lib/action-result";
-import type { Task, TaskEventKind } from "@/types/task";
-
-/** Best-effort task-assignment notification, skipped when you assign a
- *  task to yourself — nobody needs to be told they did their own thing. */
-async function notifyAssignee(taskId: string, taskTitle: string, assigneeId: string, actorId: string) {
-  if (assigneeId === actorId) return;
-  await enqueue({
-    recipientId: assigneeId,
-    actorId,
-    kind: "task_assigned",
-    title: `You were assigned "${taskTitle}"`,
-    link: `/tasks/${taskId}`,
-    entityType: "task",
-    entityId: taskId,
-  });
-}
-
-// P5 split one board route into four (/tasks/project/[projectId]/[view]),
-// so a single revalidatePath("/tasks/board/...") no longer reaches whichever
-// view the caller is actually looking at. revalidatePath needs an exact
-// path per call (no wildcard segment), so this just lists the four.
-function revalidateProjectViews(projectId: string) {
-  for (const view of ["list", "board", "calendar", "timeline"]) {
-    revalidatePath(`/tasks/project/${projectId}/${view}`);
-  }
-}
-
-function revalidateTask(taskId: string, projectId: string) {
-  revalidatePath("/tasks");
-  revalidateProjectViews(projectId);
-  revalidatePath(`/tasks/${taskId}`);
-}
-
-/**
- * Writes one row to the append-only task_events log (0011_task_engine.sql).
- * Best-effort by design: a failed or skipped event write (no signed-in
- * person — shouldn't happen behind an authenticated action, but this is
- * cheaper than threading a second failure mode through every caller) never
- * fails the primary mutation it's describing. `is_off_hours` uses the
- * actor's own timezone (P2's employees.timezone), not a fixed zone.
- */
-async function recordEvent(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  taskId: string | null,
-  kind: TaskEventKind,
-  values: { from?: string | null; to?: string | null } = {}
-): Promise<void> {
-  const person = await getCurrentPerson();
-  if (!person) return;
-  await supabase.from("task_events").insert({
-    task_id: taskId,
-    actor_id: person.id,
-    kind,
-    from_value: values.from ?? null,
-    to_value: values.to ?? null,
-    is_off_hours: isOffHoursMoment(new Date(), person.timezone),
-  });
-}
+import { notifyAssignee, revalidateProjectViews, revalidateTask, revalidateBulk, recordEvent } from "./shared";
+import type { Task } from "@/types/task";
 
 export async function toggleDone(
   taskId: string,
@@ -334,17 +276,6 @@ export async function duplicateTask(taskId: string, projectId: string): Promise<
   });
 }
 
-/** Revalidates every distinct project touched by a bulk op, plus the
- *  cross-project surfaces (My Tasks, Workload). Bulk actions are callable
- *  from My Tasks — which spans every project the caller has tasks in, not
- *  one board — so there's no single projectId to trust from the caller;
- *  the affected set is whatever the fetched rows actually say. */
-function revalidateBulk(projectIds: Iterable<string>) {
-  revalidatePath("/tasks");
-  revalidatePath("/tasks/workload");
-  for (const projectId of new Set(projectIds)) revalidateProjectViews(projectId);
-}
-
 /** Reassigns a batch of tasks in one call — the primitive the P8 workload
  *  rebalancer builds on, but useful on its own from day one. */
 export async function bulkReassign(taskIds: string[], assigneeId: string | null): Promise<ActionResult> {
@@ -482,7 +413,7 @@ export async function applyRebalanceMoves(input: unknown): Promise<ActionResult>
   return withEmployee((actorId) =>
     validated(ApplyRebalanceSchema, input, async ({ moves }) => {
       const person = await getCurrentPerson();
-      if (!person || (person.appRole !== "manager" && person.appRole !== "hr")) {
+      if (!person || !isManagerOrHr(person.appRole)) {
         return fail("Only managers or HR can apply a workload rebalance.");
       }
 
@@ -541,119 +472,6 @@ export async function applyRebalanceMoves(input: unknown): Promise<ActionResult>
   );
 }
 
-const SaveTaskViewSchema = z.object({
-  projectId: z.uuid(),
-  name: z.string().trim().min(1, "Name can't be empty.").max(60, "Name is too long."),
-  layout: z.enum(["list", "board", "calendar", "timeline"]),
-  filters: z.record(z.string(), z.string()),
-  isShared: z.boolean().optional(),
-});
-
-/** Filter state lives in the URL, so "saving a view" just names a
- *  querystring — loading one is a plain navigation, not a state restore. */
-export async function saveTaskView(input: unknown): Promise<ActionResult & { id?: string }> {
-  return withEmployee((employeeId) =>
-    validated(SaveTaskViewSchema, input, async (data) => {
-      const supabase = await createClient();
-      const { data: view, error } = await supabase
-        .from("task_views")
-        .insert({
-          owner_id: employeeId,
-          project_id: data.projectId,
-          name: data.name,
-          layout: data.layout,
-          filters: data.filters,
-          is_shared: data.isShared ?? false,
-        })
-        .select("id")
-        .single();
-      if (error) {
-        return fail(describeDbError(error));
-      }
-      revalidatePath(`/tasks/project/${data.projectId}/${data.layout}`);
-      return ok({ id: view.id as string });
-    })
-  );
-}
-
-export async function deleteTaskView(viewId: string, projectId: string, layout: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("task_views").delete().eq("id", viewId);
-  if (error) {
-    return fail(describeDbError(error));
-  }
-  revalidatePath(`/tasks/project/${projectId}/${layout}`);
-  return ok();
-}
-
-export async function addSubtask(
-  taskId: string,
-  projectId: string,
-  title: string
-): Promise<ActionResult & { id?: string }> {
-  const trimmed = title.trim();
-  if (!trimmed) return fail("Subtask title can't be empty.");
-
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("subtasks")
-    .select("id", { count: "exact", head: true })
-    .eq("task_id", taskId);
-
-  const { data, error } = await supabase
-    .from("subtasks")
-    .insert({ task_id: taskId, title: trimmed, position: count ?? 0 })
-    .select("id")
-    .single();
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  revalidateTask(taskId, projectId);
-  return ok({ id: data.id as string });
-}
-
-export async function toggleSubtask(
-  subtaskId: string,
-  taskId: string,
-  projectId: string
-): Promise<ActionResult & { done?: boolean }> {
-  const supabase = await createClient();
-
-  const { data: current, error: fetchError } = await supabase
-    .from("subtasks")
-    .select("done")
-    .eq("id", subtaskId)
-    .single();
-  if (fetchError || !current) {
-    return fail(fetchError?.message ?? "Subtask not found.");
-  }
-
-  const nextDone = !current.done;
-  const { error } = await supabase.from("subtasks").update({ done: nextDone }).eq("id", subtaskId);
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  revalidateTask(taskId, projectId);
-  return ok({ done: nextDone });
-}
-
-export async function deleteSubtask(
-  subtaskId: string,
-  taskId: string,
-  projectId: string
-): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("subtasks").delete().eq("id", subtaskId);
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  revalidateTask(taskId, projectId);
-  return ok();
-}
-
 // Moves `taskId` into `targetSectionId` (or leaves it in its current
 // section) and rewrites positions for every task in the target section to
 // match `orderedTaskIds` — the full, post-move ordering the board computed
@@ -685,165 +503,4 @@ export async function moveTask(
   revalidatePath("/tasks");
   revalidateProjectViews(projectId);
   return ok();
-}
-
-const DEFAULT_SECTIONS = ["To do", "In progress", "Done"];
-
-/**
- * Creates a project. Self-checks the caller's role rather than relying on
- * RLS — 0007_tasks_rls.sql's "projects modifiable by authenticated" policy
- * is wide open, so this is the only gate (see canManageProjects in
- * lib/authz.ts).
- */
-export async function createProject(name: string, color: string): Promise<ActionResult & { id?: string }> {
-  const person = await getCurrentPerson();
-  if (!person || !canManageProjects(person.appRole)) {
-    return fail("Only managers and HR can do that.");
-  }
-
-  const trimmed = name.trim();
-  if (!trimmed) return fail("Project name can't be empty.");
-
-  const supabase = await createClient();
-  const { data: project, error } = await supabase
-    .from("projects")
-    .insert({ name: trimmed, color })
-    .select("id")
-    .single();
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  const { error: sectionError } = await supabase
-    .from("board_sections")
-    .insert(DEFAULT_SECTIONS.map((sectionName, position) => ({ project_id: project.id, name: sectionName, position })));
-  if (sectionError) {
-    return fail(describeDbError(sectionError));
-  }
-
-  revalidatePath("/tasks");
-  return ok({ id: project.id as string });
-}
-
-/**
- * Deletes a project. Self-checks the caller's role rather than relying on
- * RLS — 0007_tasks_rls.sql's "projects modifiable by authenticated" policy
- * is wide open, so this is the only gate (see canManageProjects in
- * lib/authz.ts).
- */
-export async function deleteProject(projectId: string): Promise<ActionResult> {
-  const person = await getCurrentPerson();
-  if (!person || !canManageProjects(person.appRole)) {
-    return fail("Only managers and HR can do that.");
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("projects").delete().eq("id", projectId);
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  revalidatePath("/tasks");
-  return ok();
-}
-
-export async function createSection(projectId: string, name: string): Promise<ActionResult & { id?: string }> {
-  const trimmed = name.trim();
-  if (!trimmed) return fail("Section name can't be empty.");
-
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("board_sections")
-    .select("id", { count: "exact", head: true })
-    .eq("project_id", projectId);
-
-  const { data, error } = await supabase
-    .from("board_sections")
-    .insert({ project_id: projectId, name: trimmed, position: count ?? 0 })
-    .select("id")
-    .single();
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  revalidateProjectViews(projectId);
-  return ok({ id: data.id as string });
-}
-
-export async function renameSection(sectionId: string, projectId: string, name: string): Promise<ActionResult> {
-  const trimmed = name.trim();
-  if (!trimmed) return fail("Section name can't be empty.");
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("board_sections").update({ name: trimmed }).eq("id", sectionId);
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  revalidateProjectViews(projectId);
-  return ok();
-}
-
-export async function deleteSection(sectionId: string, projectId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.from("board_sections").delete().eq("id", sectionId);
-  if (error) {
-    return fail(describeDbError(error));
-  }
-
-  revalidateProjectViews(projectId);
-  revalidatePath("/tasks");
-  return ok();
-}
-
-export async function addComment(
-  taskId: string,
-  projectId: string,
-  body: string
-): Promise<ActionResult & { id?: string }> {
-  const trimmed = body.trim();
-  if (!trimmed) return fail("Comment can't be empty.");
-
-  return withEmployee(async (authorId) => {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("task_comments")
-      .insert({ task_id: taskId, author_id: authorId, body: trimmed })
-      .select("id")
-      .single();
-    if (error) {
-      return fail(describeDbError(error));
-    }
-
-    await recordEvent(supabase, taskId, "commented", { to: trimmed.slice(0, 200) });
-
-    const [employees, task] = await Promise.all([
-      getEmployees(),
-      supabase.from("tasks").select("title").eq("id", taskId).single(),
-    ]);
-    const mentionedIds = parseMentions(trimmed, buildMentionLookup(employees)).filter((id) => id !== authorId);
-    if (mentionedIds.length > 0) {
-      await supabase
-        .from("mentions")
-        .insert(mentionedIds.map((mentioned_employee_id) => ({ comment_id: data.id, mentioned_employee_id })));
-      const taskTitle = task.data?.title ?? "a task";
-      await Promise.all(
-        mentionedIds.map((recipientId) =>
-          enqueue({
-            recipientId,
-            actorId: authorId,
-            kind: "mention",
-            title: `You were mentioned on "${taskTitle}"`,
-            body: trimmed.slice(0, 200),
-            link: `/tasks/${taskId}`,
-            entityType: "task_comment",
-            entityId: data.id as string,
-          })
-        )
-      );
-    }
-
-    revalidateTask(taskId, projectId);
-    return ok({ id: data.id as string });
-  });
 }

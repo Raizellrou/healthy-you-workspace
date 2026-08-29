@@ -15,7 +15,7 @@ export default async function TimeOffPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
-      <PageHead title="Time Off" description="Request PTO and track approvals — vacation, sick, personal, or mental health days." />
+      <PageHead title="Time Off" description="Request PTO and track approvals: vacation, sick, personal, or mental health days." />
       <TimeOffClient mine={mine} pendingForOthers={pendingForOthers} />
     </div>
   );

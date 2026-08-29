@@ -73,7 +73,7 @@ export const NAV_SECTIONS: NavSectionDef[] = [
     icon: "list",
     items: [
       { href: "/tasks", label: "My Tasks", icon: "list", exact: true },
-      { href: "/tasks/workload", label: "Workload", icon: "activity" },
+      { href: "/tasks/workload", label: "Employees Workload", icon: "activity" },
       { href: "/meetings", label: "Meeting load", icon: "calendar", roles: ["manager", "hr"] },
     ],
   },

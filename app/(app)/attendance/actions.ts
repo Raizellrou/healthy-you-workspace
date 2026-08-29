@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentPerson } from "@/lib/supabase/people";
+import { isHr } from "@/lib/authz";
 import { todayInTz, fmtDate } from "@/lib/date";
 import { ptoBlockMessage } from "@/lib/guardrails";
 import { enqueue } from "@/lib/notify";
@@ -62,7 +63,13 @@ export async function clockIn(): Promise<ActionResult> {
   });
 }
 
-export async function clockOut(): Promise<ActionResult> {
+export interface ClockOutSummary {
+  clockIn: string;
+  clockOut: string;
+  breakMinutes: number;
+}
+
+export async function clockOut(): Promise<ActionResult & { summary?: ClockOutSummary }> {
   return withEmployee(async (employeeId) => {
     const supabase = await createClient();
 
@@ -71,7 +78,7 @@ export async function clockOut(): Promise<ActionResult> {
     // closes it), silently corrupting that day's break_hours math.
     const { data: openSession } = await supabase
       .from("work_sessions")
-      .select("id")
+      .select("id, clock_in")
       .eq("employee_id", employeeId)
       .is("clock_out", null)
       .maybeSingle();
@@ -83,15 +90,34 @@ export async function clockOut(): Promise<ActionResult> {
       .eq("session_id", openSession.id)
       .is("break_end", null);
 
+    const clockOutAt = new Date();
     const { error } = await supabase
       .from("work_sessions")
-      .update({ clock_out: new Date().toISOString() })
+      .update({ clock_out: clockOutAt.toISOString() })
       .eq("id", openSession.id);
     if (error) {
       return fail(describeDbError(error));
     }
+
+    // Read back every break in the session (now that all of them are
+    // closed above) to total up break time for the post-clock-out summary.
+    const { data: breaks } = await supabase
+      .from("session_breaks")
+      .select("break_start, break_end")
+      .eq("session_id", openSession.id);
+    const breakMinutes = (breaks ?? []).reduce((sum, b) => {
+      if (!b.break_end) return sum;
+      return sum + (new Date(b.break_end as string).getTime() - new Date(b.break_start as string).getTime()) / 60_000;
+    }, 0);
+
     revalidateAttendance();
-    return ok();
+    return ok({
+      summary: {
+        clockIn: openSession.clock_in as string,
+        clockOut: clockOutAt.toISOString(),
+        breakMinutes: Math.round(breakMinutes),
+      },
+    });
   });
 }
 
@@ -233,13 +259,34 @@ const DecidePtoSchema = z.object({
   status: z.enum(["approved", "denied"]),
 });
 
-/** Manager/HR decision on someone else's request — RLS (0012) is what
- *  actually restricts who can reach this row; see that migration's write
- *  policy comment for why the column-level check lives here instead. */
+/** Manager/HR decision on someone else's request. RLS (0012) scopes WHO can
+ *  reach the row (self, manager, or HR) but deliberately also allows the
+ *  request's own owner through, since the same policy backs self-cancel —
+ *  so this action, not the policy, is what stops a plain employee from
+ *  approving their own PTO: the caller must be HR, or must manage the
+ *  request's employee, and may never decide on their own request. */
 export async function decidePto(input: unknown): Promise<ActionResult> {
   return withEmployee((approverId) =>
     validated(DecidePtoSchema, input, async (data) => {
       const supabase = await createClient();
+
+      const { data: request } = await supabase
+        .from("pto_requests")
+        .select("employee_id")
+        .eq("id", data.requestId)
+        .maybeSingle();
+      if (!request) {
+        return fail("That request no longer exists.");
+      }
+      if (request.employee_id === approverId) {
+        return fail("You can't decide on your own request.");
+      }
+      const person = await getCurrentPerson();
+      const { data: canManage } = await supabase.rpc("manages", { target: request.employee_id });
+      if (!person || !(isHr(person.appRole) || canManage)) {
+        return fail("Only your manager or HR can decide on this request.");
+      }
+
       const { data: updated, error } = await supabase
         .from("pto_requests")
         .update({ status: data.status, approver_id: approverId, decided_at: new Date().toISOString() })

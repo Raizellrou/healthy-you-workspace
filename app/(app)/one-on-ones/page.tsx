@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { PageHead } from "@/components/ui/PageHead";
 import { getCurrentPerson } from "@/lib/supabase/people";
 import { getReportAgendas, getOneOnOnes } from "@/lib/supabase/one-on-ones";
+import { isManagerOrHr } from "@/lib/authz";
 import { todayInTz } from "@/lib/date";
 import { OneOnOnesClient } from "./OneOnOnesClient";
 
@@ -23,7 +24,7 @@ export default async function OneOnOnesPage() {
   const me = await getCurrentPerson();
   if (!me) notFound();
 
-  const canManage = me.appRole === "manager" || me.appRole === "hr";
+  const canManage = isManagerOrHr(me.appRole);
   const [agendas, meetings] = await Promise.all([
     canManage ? getReportAgendas(me) : Promise.resolve([]),
     getOneOnOnes(),

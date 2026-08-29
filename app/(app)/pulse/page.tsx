@@ -39,7 +39,7 @@ export default async function PulsePage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <PageHead
         title="Weekly pulse"
-        description="One question a week. Answers are anonymous by construction — no policy anywhere lets a response be read back, and results stay hidden until at least three people have replied."
+        description="One question a week. Answers are anonymous by construction. No policy anywhere lets a response be read back, and results stay hidden until at least three people have replied."
       />
 
       <div className="space-y-5">
@@ -54,7 +54,7 @@ export default async function PulsePage() {
           {results.avgScore === null || !results.distribution ? (
             <EmptyState
               icon="lock"
-              message={`Held until 3 people answer — ${results.responseCount} so far. Publishing a result from one or two answers would identify them.`}
+              message={`Held until 3 people answer. ${results.responseCount} so far. Publishing a result from one or two answers would identify them.`}
             />
           ) : (
             <>

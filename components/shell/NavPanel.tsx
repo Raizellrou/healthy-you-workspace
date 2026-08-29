@@ -103,7 +103,7 @@ export function NavPanel({
   return (
     <nav
       aria-label="Section"
-      className="hidden shrink-0 flex-col overflow-y-auto border-r border-line bg-surface px-3 py-4 md:flex md:w-[200px]"
+      className="hidden shrink-0 flex-col overflow-y-auto border-r border-line bg-surface px-3 py-4 md:flex md:w-[12.5rem]"
     >
       <div className="mb-3 flex items-center justify-between px-1">
         <SectionLabel>{heading}</SectionLabel>

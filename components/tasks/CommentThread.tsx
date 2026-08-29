@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { addComment } from "@/app/(app)/tasks/actions";
 import { useActionToast } from "@/lib/toast-context";
+import { fmtDateTime } from "@/lib/date";
 import type { TaskComment } from "@/types/task";
 
 export function CommentThread({
@@ -59,12 +60,7 @@ export function CommentThread({
               <div className="flex items-baseline gap-2">
                 <span className="text-sm font-medium text-ink">{c.author_name ?? "Unknown"}</span>
                 <span className="text-xs text-ink-mute">
-                  {new Date(c.created_at).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
+                  {fmtDateTime(c.created_at)}
                 </span>
               </div>
               <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink-soft">{c.body}</p>

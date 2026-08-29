@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { clockIn, clockOut, startBreak, endBreak } from "@/app/(app)/attendance/actions";
-import { fmtDuration } from "@/lib/date";
+import { clockIn, clockOut, startBreak, endBreak, type ClockOutSummary } from "@/app/(app)/attendance/actions";
+import { fmtDuration, fmtDateTime } from "@/lib/date";
 import { sessionGuardrails } from "@/lib/guardrails";
 import type { OpenSession } from "@/lib/supabase/attendance";
 
@@ -20,12 +20,23 @@ import type { OpenSession } from "@/lib/supabase/attendance";
  * server-rendered markup and trigger a hydration mismatch, the same
  * strict-mode-safe pattern lib/nudge-context.tsx already uses for its timer.
  */
+type PendingAction = "clockIn" | "clockOut" | "break" | "resume" | null;
+
+const PENDING_LABEL: Record<Exclude<PendingAction, null>, string> = {
+  clockIn: "Clocking in…",
+  clockOut: "Clocking out…",
+  break: "Starting break…",
+  resume: "Resuming…",
+};
+
 export function ClockWidget({ openSession }: { openSession: OpenSession | null }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [lastSummary, setLastSummary] = useState<ClockOutSummary | null>(null);
 
   useEffect(() => {
     // One-time read of client-only state (Date.now()) on mount, deferred to
@@ -37,11 +48,20 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
     return () => clearInterval(id);
   }, []);
 
-  function run(action: () => Promise<{ ok: boolean; error?: string }>) {
+  function run(
+    kind: Exclude<PendingAction, null>,
+    action: () => Promise<{ ok: boolean; error?: string; summary?: ClockOutSummary }>
+  ) {
     setError(null);
+    setPendingAction(kind);
     startTransition(async () => {
       const result = await action();
-      if (!result.ok) setError(result.error ?? "Something went wrong.");
+      if (!result.ok) {
+        setError(result.error ?? "Something went wrong.");
+      } else if (kind === "clockOut" && result.summary) {
+        setLastSummary(result.summary);
+      }
+      setPendingAction(null);
       router.refresh();
     });
   }
@@ -49,13 +69,33 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
   if (!openSession) {
     return (
       <div className="flex flex-col gap-1.5">
+        {lastSummary && (
+          <div className="flex flex-col gap-1 rounded-lg border border-line px-3 py-2 text-xs">
+            <span className="font-medium text-ink-soft">Last session</span>
+            <div className="flex items-center justify-between text-ink-mute">
+              <span>Clock in</span>
+              <span className="font-mono text-ink">{fmtDateTime(lastSummary.clockIn)}</span>
+            </div>
+            <div className="flex items-center justify-between text-ink-mute">
+              <span>Break time</span>
+              <span className="font-mono text-ink">{fmtDuration(lastSummary.breakMinutes * 60_000)}</span>
+            </div>
+            <div className="flex items-center justify-between text-ink-mute">
+              <span>Clock out</span>
+              <span className="font-mono text-ink">{fmtDateTime(lastSummary.clockOut)}</span>
+            </div>
+          </div>
+        )}
         <button
           type="button"
-          onClick={() => run(clockIn)}
+          onClick={() => {
+            setLastSummary(null);
+            run("clockIn", clockIn);
+          }}
           disabled={isPending}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
         >
-          Clock in
+          {isPending && pendingAction === "clockIn" ? PENDING_LABEL.clockIn : "Clock in"}
         </button>
         {error && <p className="text-xs text-risk-critical">{error}</p>}
       </div>
@@ -95,29 +135,29 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
         {onBreak ? (
           <button
             type="button"
-            onClick={() => run(endBreak)}
+            onClick={() => run("resume", endBreak)}
             disabled={isPending}
             className="flex-1 rounded-lg bg-brand px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
           >
-            Resume
+            {isPending && pendingAction === "resume" ? PENDING_LABEL.resume : "Resume"}
           </button>
         ) : (
           <button
             type="button"
-            onClick={() => run(() => startBreak("short"))}
+            onClick={() => run("break", () => startBreak("short"))}
             disabled={isPending}
             className="flex-1 rounded-lg bg-surface-2 px-2 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-line disabled:opacity-60"
           >
-            Break
+            {isPending && pendingAction === "break" ? PENDING_LABEL.break : "Break"}
           </button>
         )}
         <button
           type="button"
-          onClick={() => run(clockOut)}
+          onClick={() => run("clockOut", clockOut)}
           disabled={isPending}
           className="flex-1 rounded-lg px-2 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:bg-surface-2 disabled:opacity-60"
         >
-          Clock out
+          {isPending && pendingAction === "clockOut" ? PENDING_LABEL.clockOut : "Clock out"}
         </button>
       </div>
       {guardrails.map((g) => (

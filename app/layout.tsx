@@ -12,7 +12,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "PETAL",
-  description: "HR wellbeing platform — burnout analytics, nudges, mood, boundaries, kudos, tasks, and focus mode.",
+  description: "HR wellbeing platform. Burnout analytics, nudges, mood, boundaries, kudos, tasks, and focus mode.",
   icons: {
     icon: "/logo.webp",
   },
