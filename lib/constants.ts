@@ -26,7 +26,7 @@ export const NUDGE_META: Record<NudgeType, { icon: string; title: string; body: 
   hydrate: {
     icon: "droplet",
     title: "Hydrate",
-    body: "Grab a glass of water — you've been heads-down for a while.",
+    body: "Grab a glass of water. You've been heads-down for a while.",
   },
   eye_rest: {
     icon: "eye",
@@ -67,7 +67,7 @@ export const MOODS: Mood[] = [
     light: "#94a3b8",
     frill: "#475569",
     line: "#1e293b",
-    quote: "It's okay to not be okay. Reach out — support is one message away.",
+    quote: "It's okay to not be okay. Reach out, support is one message away.",
     attribution: "PETAL Wellbeing Team",
   },
   {
@@ -97,7 +97,7 @@ export const MOODS: Mood[] = [
     light: "#5eead4",
     frill: "#14b8a6",
     line: "#134e4a",
-    quote: "Nice momentum — keep noticing what's working.",
+    quote: "Nice momentum. Keep noticing what's working.",
     attribution: "PETAL Wellbeing Team",
   },
   {
@@ -109,7 +109,7 @@ export const MOODS: Mood[] = [
     line: "#581c87",
     quote: "Fantastic! Bottle this feeling and share some of it around.",
     attribution: "PETAL Wellbeing Team",
-    kicker: "Consider giving a teammate kudos today — good moods are contagious.",
+    kicker: "Consider giving a teammate kudos today. Good moods are contagious.",
   },
 ];
 

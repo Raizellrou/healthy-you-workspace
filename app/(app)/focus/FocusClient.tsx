@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/Modal";
+import { PokeBadge } from "@/components/ui/PokeBadge";
 import { useActionToast } from "@/lib/toast-context";
 import { computeBurnout } from "@/lib/burnout";
 import { fmtMinutes } from "@/lib/date";
@@ -32,6 +33,13 @@ const BLOCK_LABEL: Record<FocusBlock["kind"], string> = {
   worked: "Clocked in",
   break: "On break",
   gap: "Open",
+};
+
+/** Purely decorative — a poke on the active-mode badge, no data implication. */
+const STATE_REACTIONS: Record<WorkspaceState, string[]> = {
+  standard: ["Steady pace", "All systems go", "Business as usual"],
+  focus: ["Locked in", "Deep work mode", "In the zone"],
+  calm: ["Take it easy", "Nice and calm", "Breathe"],
 };
 
 /** Real replacement for the old computeBurnout-only suggestion: Calm once
@@ -179,12 +187,18 @@ export function FocusClient({
       <Card className="mb-8">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold"
-              style={{ background: `${STATE_ACCENT[activeState]}18`, color: STATE_ACCENT[activeState] }}
+            <PokeBadge
+              reactions={STATE_REACTIONS[activeState]}
+              label={`Tap the ${WORKSPACE_COPY[activeState].label.toLowerCase()} badge`}
+              shapeClassName="rounded-lg"
             >
-              {WORKSPACE_COPY[activeState].label.charAt(0)}
-            </span>
+              <span
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold transition-colors duration-200"
+                style={{ background: `${STATE_ACCENT[activeState]}18`, color: STATE_ACCENT[activeState] }}
+              >
+                {WORKSPACE_COPY[activeState].label.charAt(0)}
+              </span>
+            </PokeBadge>
             <div>
               <div className="text-sm font-bold text-ink">{WORKSPACE_COPY[activeState].label} mode active</div>
               <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-mute">
@@ -205,7 +219,7 @@ export function FocusClient({
           ) : null}
         </div>
         {lastSummary ? (
-          <p className="mt-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
+          <p className="animate-toast-in mt-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
             Session ended. {lastSummary.tasksCompleted} task{lastSummary.tasksCompleted === 1 ? "" : "s"} completed,{" "}
             {lastSummary.notificationsSuppressed} notification{lastSummary.notificationsSuppressed === 1 ? "" : "s"}{" "}
             held and now released to your inbox.

@@ -128,7 +128,7 @@ export async function sendBoundaryMessage(
   let resultMessage = result.message;
   if (result.status === "delivered" && channel === "Slack") {
     const slackResult = await sendSlackMessage(`*${sender.name} → ${recipient.name}*\n${message}`);
-    if (slackResult.ok) resultMessage = `${result.message} — sent to Slack`;
+    if (slackResult.ok) resultMessage = `${result.message} (sent to Slack)`;
   }
 
   return {

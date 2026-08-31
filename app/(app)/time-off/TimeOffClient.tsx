@@ -48,6 +48,7 @@ export function TimeOffClient({
   const [cancelTarget, setCancelTarget] = useState<PtoRequest | null>(null);
   const [denyTarget, setDenyTarget] = useState<PtoRequest | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [flashId, setFlashId] = useState<string | null>(null);
   const run = useActionToast();
 
   function handleSubmit() {
@@ -79,8 +80,12 @@ export function TimeOffClient({
     setCancelTarget(null);
     setPendingRowId(id);
     startTransition(async () => {
-      await run(() => cancelPto(id), { success: "Time off request cancelled." });
+      const result = await run(() => cancelPto(id), { success: "Time off request cancelled." });
       setPendingRowId(null);
+      if (result.ok) {
+        setFlashId(id);
+        window.setTimeout(() => setFlashId((cur) => (cur === id ? null : cur)), 1400);
+      }
       router.refresh();
     });
   }
@@ -150,7 +155,10 @@ export function TimeOffClient({
         ) : (
           <ul className="space-y-2">
             {mine.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 rounded-lg border border-line px-3 py-2.5">
+              <li
+                key={r.id}
+                className={`flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 ${flashId === r.id ? "animate-row-flash" : ""}`}
+              >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-ink">
                     {KIND_LABEL[r.kind]} · {fmtDate(r.startDate)} – {fmtDate(r.endDate)}

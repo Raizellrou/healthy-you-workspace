@@ -89,7 +89,7 @@ export function buildAgenda(input: AgendaInput): AgendaItem[] {
       kind: "overdue",
       severity: input.overdueTaskCount >= 6 ? "urgent" : "watch",
       headline: `${input.overdueTaskCount} tasks are past their due date.`,
-      prompt: "Work out which of these are genuinely still wanted — some may just need closing or reassigning.",
+      prompt: "Work out which of these are genuinely still wanted, since some may just need closing or reassigning.",
     });
   }
 
@@ -119,14 +119,14 @@ export function buildAgenda(input: AgendaInput): AgendaItem[] {
       severity: "watch",
       headline: "No approved leave on record.",
       prompt:
-        "Check whether they have leave available and something is stopping them taking it — their history may also simply predate this system.",
+        "Check whether they have leave available and something is stopping them taking it. Their history may also simply predate this system.",
     });
   } else if (input.daysSincePto >= 60) {
     items.push({
       kind: "no_pto",
       severity: input.daysSincePto >= 90 ? "urgent" : "watch",
       headline: `No time off taken in ${input.daysSincePto} days.`,
-      prompt: "Ask whether something is blocking it — unused leave is usually a workload signal, not a preference.",
+      prompt: "Ask whether something is blocking it: unused leave is usually a workload signal, not a preference.",
     });
   }
 
@@ -167,7 +167,7 @@ export function buildAgenda(input: AgendaInput): AgendaItem[] {
       kind: "recognition",
       severity: "info",
       headline: "Nobody has sent them kudos recently.",
-      prompt: "Name something specific they did well — recognition gaps compound quietly.",
+      prompt: "Name something specific they did well: recognition gaps compound quietly.",
     });
   }
 

@@ -13,7 +13,7 @@ export function LandingFooter() {
         </span>
       </div>
       <p className="mt-5 text-[13px] text-ink-mute">
-        Petal — an HR wellbeing dashboard · {new Date().getFullYear()}
+        Petal, an HR wellbeing dashboard · {new Date().getFullYear()}
       </p>
     </footer>
   );

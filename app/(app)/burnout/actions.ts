@@ -68,7 +68,7 @@ export async function createIntervention(input: unknown): Promise<ActionResult> 
             end_date: day,
             kind: "mental_health",
             status: "pending",
-            note: `Suggested by a burnout intervention — ${spec.label.toLowerCase()}.`,
+            note: `Suggested by a burnout intervention: ${spec.label.toLowerCase()}.`,
           })
           .select("id")
           .single();
@@ -101,7 +101,7 @@ export async function createIntervention(input: unknown): Promise<ActionResult> 
         actorId,
         kind: "intervention_suggested",
         title: spec.immediate
-          ? `A day off was requested for you — ${spec.label.toLowerCase()}`
+          ? `A day off was requested for you: ${spec.label.toLowerCase()}`
           : `Your manager flagged: ${spec.label}`,
         body: spec.description,
         link: "/burnout",

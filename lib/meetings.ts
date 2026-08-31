@@ -178,6 +178,87 @@ export function auditSeries(series: SeriesInput[]): SeriesAudit[] {
     .map((s, i) => ({ ...s, rank: i + 1 }));
 }
 
+export interface SeriesGroupItem extends SeriesAudit {
+  /** The team name stripped off the front of the title, when the title
+   *  starts with one of `teamNames` — null otherwise, in which case the
+   *  full title is what identifies this item within its group. */
+  team: string | null;
+}
+
+export interface SeriesGroup {
+  key: string;
+  /** The shared meeting-type text once each item's team prefix is
+   *  stripped (e.g. "weekly planning") — only set when the group has more
+   *  than one item AND every one of them reduces to the same text. A
+   *  group can exist (same cost) without a label (titles don't line up);
+   *  the numbers are what define the group, the label is just a bonus. */
+  label: string | null;
+  durationMinutes: number;
+  attendeeCount: number;
+  occurrences: number;
+  /** Every item in a group ties on this by construction (see groupBy key). */
+  personHoursEach: number;
+  items: SeriesGroupItem[];
+}
+
+/**
+ * Clusters recurring series that cost exactly the same per occurrence —
+ * same duration, same attendee count, same cadence — which in practice is
+ * usually every team running its own copy of the same meeting (standup,
+ * retro, weekly planning). Grouped by the numbers that actually drive
+ * personHours, not by matching keywords in the title, so it doesn't care
+ * how a meeting is phrased. `teamNames` is used only to make the label
+ * nicer (stripping a known team name off the front of a title); an unknown
+ * naming style still groups correctly, it just renders without a label.
+ */
+export function groupSeriesByCadence(series: SeriesAudit[], teamNames: string[]): SeriesGroup[] {
+  // Longest name first: if one team's name were a prefix of another's,
+  // matching the short one first would strip the wrong amount.
+  const teamsByLength = [...teamNames].sort((a, b) => b.length - a.length);
+
+  function splitTeam(title: string): { team: string | null; rest: string } {
+    const lower = title.toLowerCase();
+    for (const team of teamsByLength) {
+      const prefix = `${team.toLowerCase()} `;
+      if (lower.startsWith(prefix)) {
+        return { team, rest: title.slice(prefix.length).trim() };
+      }
+    }
+    return { team: null, rest: title };
+  }
+
+  const byKey = new Map<string, SeriesAudit[]>();
+  for (const s of series) {
+    const key = `${s.durationMinutes}|${s.attendeeCount}|${s.occurrences}`;
+    const list = byKey.get(key) ?? [];
+    list.push(s);
+    byKey.set(key, list);
+  }
+
+  return [...byKey.entries()]
+    .map(([key, items]) => {
+      const splits = items.map((s) => splitTeam(s.title));
+      const [firstSplit, ...restSplits] = splits;
+      const shared =
+        items.length > 1 &&
+        firstSplit.team !== null &&
+        restSplits.every((s) => s.team !== null && s.rest.toLowerCase() === firstSplit.rest.toLowerCase());
+      const groupItems: SeriesGroupItem[] = items
+        .map((s, i) => ({ ...s, team: splits[i].team }))
+        .sort((a, b) => a.title.localeCompare(b.title));
+      return {
+        key,
+        label: shared ? firstSplit.rest : null,
+        durationMinutes: items[0].durationMinutes,
+        attendeeCount: items[0].attendeeCount,
+        occurrences: items[0].occurrences,
+        personHoursEach: items[0].personHours,
+        items: groupItems,
+      };
+    })
+    .sort((a, b) => b.personHoursEach - a.personHoursEach || b.items.length - a.items.length);
+}
+
 /**
  * The first window both people are free, scanning day by day.
  *

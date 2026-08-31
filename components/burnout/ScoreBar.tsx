@@ -15,7 +15,7 @@ export function ScoreBar({ label, value }: { label: string; value: number }) {
         className="h-2 w-full overflow-hidden rounded-full bg-surface-2"
       >
         <div
-          className="h-full rounded-full bg-brand"
+          className="h-full rounded-full bg-brand transition-[width] duration-300 ease-out"
           style={{ width: `${pct}%` }}
         />
       </div>

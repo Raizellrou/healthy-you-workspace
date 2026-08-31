@@ -10,7 +10,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggle}
       aria-pressed={isDark}
-      className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:bg-surface-2"
+      className="flex w-full items-center gap-2 whitespace-nowrap rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:bg-surface-2"
     >
       {isDark ? (
         <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
@@ -22,7 +22,7 @@ export function ThemeToggle() {
           <path d="M17 11.5A7.5 7.5 0 018.5 3 7.5 7.5 0 1017 11.5z" strokeLinejoin="round" />
         </svg>
       )}
-      {isDark ? "Light mode" : "Dark mode"}
+      {isDark ? "Switch to light mode" : "Switch to dark mode"}
     </button>
   );
 }
