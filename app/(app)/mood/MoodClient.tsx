@@ -145,7 +145,7 @@ export function MoodClient({
               <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
               <p>
                 Your check-in is completely private. Team results only ever show once 3 or
-                more people have responded — individual responses are never visible.
+                more people have responded. Individual responses are never visible.
               </p>
             </div>
           </>
@@ -167,7 +167,7 @@ export function MoodClient({
                 <p className="mt-3 text-sm font-medium text-brand-ink">{pickedMood.kicker}</p>
               ) : null}
               <p className="mt-4 text-sm text-ink-mute">
-                That&apos;s today&apos;s check-in — see you back here tomorrow.
+                That&apos;s today&apos;s check-in. See you back here tomorrow.
               </p>
               <button
                 type="button"
@@ -300,13 +300,13 @@ export function MoodClient({
           {trendValues.some((v) => v > 0) ? (
             <Sparkline values={trendValues} stroke="var(--pillar-mood)" filled width={272} height={48} />
           ) : (
-            <p className="text-xs text-ink-mute">Not enough org-wide check-ins yet — each day needs 3+ to show.</p>
+            <p className="text-xs text-ink-mute">Not enough org-wide check-ins yet. Each day needs 3+ to show.</p>
           )}
           <p className="mt-1 text-xs text-ink-mute">Days with fewer than 3 check-ins are excluded, never shown as zero.</p>
         </Card>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-ink">Team trends — today</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink">Team trends (today)</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {Object.entries(teamAggregates).map(([team, agg]) => {
               const repMood = agg.avgMood !== null ? MOODS[Math.round(agg.avgMood) - 1] : MOODS[2];

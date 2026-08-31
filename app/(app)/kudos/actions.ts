@@ -72,6 +72,9 @@ const RaiseConcernSchema = z.object({
 export async function raiseConcern(input: unknown): Promise<ActionResult> {
   return withEmployee((employeeId) =>
     validated(RaiseConcernSchema, input, async (data) => {
+      if (data.aboutEmployeeId === employeeId) {
+        return fail("You can't raise a concern about yourself.");
+      }
       const supabase = await createClient();
       const { error } = await supabase.from("concern_flags").insert({
         about_employee_id: data.aboutEmployeeId,

@@ -94,6 +94,10 @@ export default async function BoundaryPage() {
       const status = row.action as BoundaryStatus;
       const recipientId = row.recipient_id as string;
       const scheduledDelivery = row.scheduled_delivery as string | null;
+      // Held-until times render in the *recipient's* timezone via
+      // fmtInstant, not the viewer's own — this message is about when the
+      // recipient's quiet hours end, so a sender in a different timezone
+      // reading a bare toLocaleString() would see the wrong clock time.
       const resolved = scheduledDelivery !== null && hasPassed(scheduledDelivery);
       const recipientTimezone = availabilityByEmployee[recipientId]?.schedule.timezone ?? DEFAULT_TIMEZONE;
       const message = scheduledDelivery

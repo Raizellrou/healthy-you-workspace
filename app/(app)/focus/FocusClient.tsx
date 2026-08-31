@@ -266,7 +266,7 @@ export function FocusClient({
         </div>
         {lastSummary ? (
           <p className="mt-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
-            Session ended — {lastSummary.tasksCompleted} task{lastSummary.tasksCompleted === 1 ? "" : "s"} completed,{" "}
+            Session ended. {lastSummary.tasksCompleted} task{lastSummary.tasksCompleted === 1 ? "" : "s"} completed,{" "}
             {lastSummary.notificationsSuppressed} notification{lastSummary.notificationsSuppressed === 1 ? "" : "s"}{" "}
             held and now released to your inbox.
           </p>

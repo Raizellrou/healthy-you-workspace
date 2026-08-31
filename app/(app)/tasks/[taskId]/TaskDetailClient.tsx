@@ -171,7 +171,7 @@ export function TaskDetailClient({
             role="checkbox"
             aria-checked={done}
             aria-label={done ? "Mark not done" : "Mark done"}
-            title={isBlocked ? `Blocked by "${blocker!.title}" — that task isn't done yet.` : undefined}
+            title={isBlocked ? `Blocked by "${blocker!.title}". That task isn't done yet.` : undefined}
             onClick={handleToggleDone}
             disabled={isPending || isBlocked}
             className={`mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -202,8 +202,8 @@ export function TaskDetailClient({
             Blocked by{" "}
             <Link href={`/tasks/${blocker!.id}`} className="underline hover:text-ink">
               {blocker!.title}
-            </Link>{" "}
-            — can&apos;t be marked done until that task is.
+            </Link>
+            {". Can't be marked done until that task is."}
           </p>
         ) : null}
 

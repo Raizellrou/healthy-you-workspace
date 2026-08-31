@@ -2,6 +2,7 @@ import { PageHead } from "@/components/ui/PageHead";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployees } from "@/lib/supabase/queries";
 import { getCurrentPerson } from "@/lib/supabase/people";
+import { isHr as isHrRole } from "@/lib/authz";
 import { KUDOS_PROGRESS_CAP } from "@/lib/constants";
 import { KudosClient, type HrViewItem, type ConcernItem } from "./KudosClient";
 
@@ -10,7 +11,7 @@ export default async function KudosPage() {
   const employees = await getEmployees();
   const employeeId = await getCurrentEmployeeId();
   const currentPerson = await getCurrentPerson();
-  const isHr = currentPerson?.appRole === "hr";
+  const isHr = currentPerson ? isHrRole(currentPerson.appRole) : false;
 
   let buddy = null as (typeof employees)[number] | null;
   let alreadySubmitted = false;
@@ -95,6 +96,7 @@ export default async function KudosPage() {
         isHr={isHr}
         concerns={concerns}
         employees={employees}
+        currentEmployeeId={employeeId}
       />
     </div>
   );

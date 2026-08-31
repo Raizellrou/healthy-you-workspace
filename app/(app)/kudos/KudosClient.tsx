@@ -52,6 +52,7 @@ export function KudosClient({
   isHr,
   concerns,
   employees,
+  currentEmployeeId,
 }: {
   buddy: Employee | null;
   alreadySubmitted: boolean;
@@ -60,8 +61,10 @@ export function KudosClient({
   isHr: boolean;
   concerns: ConcernItem[];
   employees: Employee[];
+  currentEmployeeId: string | null;
 }) {
   const router = useRouter();
+  const reportableEmployees = employees.filter((e) => e.id !== currentEmployeeId);
   const [coffeeResult, setCoffeeResult] = useState<string | null>(null);
   const [coffeePending, setCoffeePending] = useState(false);
   const [tag, setTag] = useState<string | null>(null);
@@ -77,7 +80,7 @@ export function KudosClient({
   const [rotateMsg, setRotateMsg] = useState<string | null>(null);
 
   const [concernOpen, setConcernOpen] = useState(false);
-  const [concernAbout, setConcernAbout] = useState(employees[0]?.id ?? "");
+  const [concernAbout, setConcernAbout] = useState(reportableEmployees[0]?.id ?? "");
   const [concernCategory, setConcernCategory] = useState("wellbeing");
   const [concernNote, setConcernNote] = useState("");
   const [concernAnon, setConcernAnon] = useState(true);
@@ -164,7 +167,7 @@ export function KudosClient({
       setCoffeePending(false);
       setCoffeeResult(
         result.ok
-          ? `Coffee proposed — they've been sent the invite. Picked as the first 30 minutes you're both free.`
+          ? `Coffee proposed. They've been sent the invite. Picked as the first 30 minutes you're both free.`
           : (result.error ?? "Couldn't find a slot.")
       );
     });
@@ -296,7 +299,7 @@ export function KudosClient({
 
         {isHr ? (
           <Card>
-            <div className="mb-2 text-sm font-semibold text-ink">Buddy rotation — HR</div>
+            <div className="mb-2 text-sm font-semibold text-ink">Buddy rotation (HR)</div>
             <Button variant="secondary" size="sm" onClick={handleRotate} disabled={rotating}>
               {rotating ? "Rotating…" : "Rotate this week"}
             </Button>
@@ -305,7 +308,7 @@ export function KudosClient({
         ) : null}
 
         <Card>
-          <div className="mb-2 text-sm font-semibold text-ink">HR view — unlinked</div>
+          <div className="mb-2 text-sm font-semibold text-ink">HR view (unlinked)</div>
           {hrView.length === 0 ? (
             <p className="text-sm text-ink-mute">No flagged kudos yet.</p>
           ) : (
@@ -321,7 +324,7 @@ export function KudosClient({
             </ul>
           )}
           <p className="mt-3 text-xs text-ink-mute">
-            Flagged kudos are never linked back to the sender — HR only ever sees the
+            Flagged kudos are never linked back to the sender. HR only ever sees the
             team and the note.
           </p>
         </Card>
@@ -346,7 +349,7 @@ export function KudosClient({
                       {...props}
                       value={concernAbout}
                       onChange={(e) => setConcernAbout(e.target.value)}
-                      options={employees.map((e) => ({ value: e.id, label: e.name }))}
+                      options={reportableEmployees.map((e) => ({ value: e.id, label: e.name }))}
                     />
                   )}
                 </Field>
@@ -380,7 +383,7 @@ export function KudosClient({
                   {concernPending ? "Sending…" : "Send to HR"}
                 </Button>
                 <p className="text-[11px] text-ink-mute">
-                  Only HR can ever read this — anonymous means the database itself never records who sent it, not just the UI.
+                  Only HR can ever read this. Anonymous means the database itself never records who sent it, not just the UI.
                 </p>
               </div>
             )
@@ -389,7 +392,7 @@ export function KudosClient({
 
         {isHr && concernRows.length > 0 ? (
           <Card>
-            <div className="mb-2 text-sm font-semibold text-ink">Concern triage — HR</div>
+            <div className="mb-2 text-sm font-semibold text-ink">Concern triage (HR)</div>
             <ul className="space-y-2">
               {concernRows.map((c) => (
                 <li key={c.id} className="rounded-lg border border-line p-2.5 text-sm">

@@ -74,8 +74,8 @@ export function InterventionPanel({
         <>
           <p className="text-xs leading-relaxed text-ink-soft">
             {isCritical
-              ? `Consider a 1:1 check-in this week — driven mainly by ${driver.label}.`
-              : `Monitor closely — driven mainly by ${driver.label}.`}
+              ? `Consider a 1:1 check-in this week. Driven mainly by ${driver.label}.`
+              : `Monitor closely. Driven mainly by ${driver.label}.`}
           </p>
           {latestIntervention ? (
             <p className="mt-2 text-[11px] text-ink-mute">
@@ -94,7 +94,7 @@ export function InterventionPanel({
       ) : (
         <>
           <p className="text-xs leading-relaxed text-ink-soft">
-            <span className="font-medium text-ink">{interventionFor(active.driver).label}</span> —{" "}
+            <span className="font-medium text-ink">{interventionFor(active.driver).label}</span>:{" "}
             {interventionFor(active.driver).description}
           </p>
           {(isSelf || canManage) && active.actionType === "strict_quiet_hours" && isSelf ? (

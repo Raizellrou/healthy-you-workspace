@@ -191,3 +191,32 @@ export function fmtClock(ms: number): string {
   const s = totalSeconds % 60;
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
+
+/** An ISO timestamp rendered as `"Aug 18, 9:41 AM"` in the viewer's own
+ *  locale/timezone (unlike fmtDate, which renders a timezone-free calendar
+ *  date) — for comment/activity/notification timestamps. */
+export function fmtDateTime(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+/** UTC midnight of the Monday on or before `now`, as an ISO instant — the
+ *  start of "this week" for weekly aggregates (e.g. this week's kudos). */
+export function startOfWeekISO(now: Date = new Date()): string {
+  const day = now.getUTCDay();
+  const diff = (day === 0 ? -6 : 1) - day; // Monday as the start of the week
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() + diff);
+  monday.setUTCHours(0, 0, 0, 0);
+  return monday.toISOString();
+}
+
+/** An ISO timestamp rendered as `"12 min ago"` / `"3 hr ago"` / `"2 d ago"`
+ *  relative to `now`. */
+export function relativeTime(iso: string, now: Date = new Date()): string {
+  const diffMs = now.getTime() - new Date(iso).getTime();
+  const mins = Math.max(1, Math.round(diffMs / 60000));
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} hr ago`;
+  return `${Math.round(hrs / 24)} d ago`;
+}

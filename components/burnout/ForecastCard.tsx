@@ -36,7 +36,7 @@ export function ForecastCard({ forecast }: { forecast: ForecastPoint[] }) {
       </div>
       <p className="mt-3 text-xs text-ink-mute">
         Projected forward from today&apos;s score using scheduled meetings, tasks coming due, and booked time
-        off{hasMediumConfidence ? " — later days lean on thinner calendar data" : ""}. Not a prediction of what
+        off.{hasMediumConfidence ? " Later days lean on thinner calendar data." : ""} Not a prediction of what
         will happen, a projection of what&apos;s already on the calendar.
       </p>
     </Card>

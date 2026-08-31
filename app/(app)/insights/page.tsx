@@ -9,6 +9,7 @@ import { Sparkline } from "@/components/burnout/Sparkline";
 import { BandBar, BandLegend } from "@/components/insights/BandBar";
 import { MetricBar } from "@/components/insights/MetricBar";
 import { getCurrentPerson } from "@/lib/supabase/people";
+import { isHr } from "@/lib/authz";
 import { getOrgInsights } from "@/lib/supabase/insights";
 import { describeCorrelation, MIN_CORRELATION_SAMPLE } from "@/lib/insights";
 import { fmtDate } from "@/lib/date";
@@ -47,7 +48,7 @@ function CorrelationCard({
       {stat.sampleSize < MIN_CORRELATION_SAMPLE || stat.correlation === null ? (
         <EmptyState
           icon="activity"
-          message={`Only ${stat.sampleSize} matched day${stat.sampleSize === 1 ? "" : "s"} of data — too few to read a correlation from.`}
+          message={`Only ${stat.sampleSize} matched day${stat.sampleSize === 1 ? "" : "s"} of data. Too few to read a correlation from.`}
         />
       ) : (
         <>
@@ -73,7 +74,7 @@ function CorrelationCard({
  */
 export default async function InsightsPage() {
   const me = await getCurrentPerson();
-  if (!me || me.appRole !== "hr") notFound();
+  if (!me || !isHr(me.appRole)) notFound();
 
   const insights = await getOrgInsights(me.timezone);
   const {
@@ -117,7 +118,7 @@ export default async function InsightsPage() {
     <div className="mx-auto max-w-5xl px-6 py-8">
       <PageHead
         title="Org Insights"
-        description={`Organisation-wide wellbeing and capacity signals over the last ${windowDays} days. Visible to HR only — every number here is an aggregate of data the pillars already collect.`}
+        description={`Organisation-wide wellbeing and capacity signals over the last ${windowDays} days. Visible to HR only. Every number here is an aggregate of data the pillars already collect.`}
       />
 
       {/* Exempt from the single-column preference: four small KPI tiles
@@ -210,7 +211,7 @@ export default async function InsightsPage() {
         <Card>
           <h2 className="text-sm font-bold text-ink">Mood trend</h2>
           <p className="mt-0.5 mb-3 text-xs text-ink-mute">
-            Org-wide daily average. Days with fewer than 3 check-ins are withheld entirely — the anonymity floor
+            Org-wide daily average. Days with fewer than 3 check-ins are withheld entirely. The anonymity floor
             is enforced in the database, not here.
           </p>
           {moodPoints.length === 0 ? (
@@ -270,7 +271,7 @@ export default async function InsightsPage() {
           <h2 className="text-sm font-bold text-ink">Recognition drought</h2>
           <p className="mt-0.5 mb-3 text-xs text-ink-mute">
             Nobody has sent these people kudos in {windowDays} days. A healthy total kudos count can still hide
-            this — the same few people often collect most of it.
+            this. The same few people often collect most of it.
           </p>
           {recognition.drought.length === 0 ? (
             <EmptyState icon="check" message="Everyone has been recognised in the window." />
@@ -344,7 +345,7 @@ export default async function InsightsPage() {
         <h2 className="text-sm font-bold text-ink">Where notifications went</h2>
         <p className="mt-0.5 mb-3 text-xs text-ink-mute">
           Every notification in the window, by what the delivery funnel decided to do with it. This is the
-          right-to-disconnect machinery&rsquo;s actual output — not a settings screen.
+          right-to-disconnect machinery&rsquo;s actual output. Not a settings screen.
         </p>
         {holds.total === 0 ? (
           <EmptyState icon="inbox" message={`No notifications in the last ${windowDays} days.`} />

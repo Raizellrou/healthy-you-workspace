@@ -132,8 +132,10 @@ export function BurnoutClient({
             type="button"
             aria-pressed={teamFilter === t}
             onClick={() => setTeamFilter(t)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              teamFilter === t ? "bg-ink text-white" : "border border-line text-ink-mute hover:bg-surface-2"
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              teamFilter === t
+                ? "border-brand bg-brand-soft text-brand-ink"
+                : "border-line text-ink-mute hover:bg-surface-2"
             }`}
           >
             {t}

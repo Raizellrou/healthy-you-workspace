@@ -68,7 +68,7 @@ export function MyTasksList({ tasks, employees }: { tasks: Task[]; employees: Em
         // Leave selection as-is — the closed tasks drop out of `tasks` on
         // revalidation and self-prune from selectedIds above; whatever's
         // left selected is exactly what got skipped, still visibly blocked.
-        setError(`${result.skipped} task${result.skipped === 1 ? " was" : "s were"} skipped — still blocked.`);
+        setError(`${result.skipped} task${result.skipped === 1 ? " was" : "s were"} skipped. Still blocked.`);
       } else {
         clear();
       }

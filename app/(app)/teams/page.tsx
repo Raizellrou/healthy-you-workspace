@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PageHead } from "@/components/ui/PageHead";
 import { getCurrentPerson, getTeams, getVisibleEmployees } from "@/lib/supabase/people";
+import { isHr } from "@/lib/authz";
 import { TeamsClient } from "./TeamsClient";
 
 /**
@@ -15,7 +16,7 @@ import { TeamsClient } from "./TeamsClient";
  */
 export default async function TeamsPage() {
   const me = await getCurrentPerson();
-  if (!me || me.appRole !== "hr") notFound();
+  if (!me || !isHr(me.appRole)) notFound();
 
   const [teams, employees] = await Promise.all([getTeams(), getVisibleEmployees()]);
 
@@ -23,7 +24,7 @@ export default async function TeamsPage() {
     <div className="mx-auto max-w-5xl px-6 py-8">
       <PageHead
         title="Teams"
-        description="Assign team managers and HR access. Changes take effect immediately — RLS enforces the new scope on every screen, not just this one."
+        description="Assign team managers and HR access. Changes take effect immediately. RLS enforces the new scope on every screen, not just this one."
       />
       <TeamsClient teams={teams} employees={employees} currentPersonId={me.id} />
     </div>

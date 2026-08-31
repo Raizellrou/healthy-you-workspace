@@ -31,7 +31,7 @@ const COLLECTED: Collected[] = [
     where: "work_sessions, session_breaks (0012)",
   },
   {
-    what: "Task activity — created, completed, reassigned, commented",
+    what: "Task activity: created, completed, reassigned, commented",
     why: "Workload, overdue counts, and whether activity happens outside working hours.",
     where: "task_events (0011)",
   },
@@ -47,7 +47,7 @@ const COLLECTED: Collected[] = [
   },
   {
     what: "Kudos sent and received",
-    why: "Recognition coverage — specifically, who is being missed.",
+    why: "Recognition coverage. Specifically, who is being missed.",
     where: "kudos (0003)",
   },
   {
@@ -65,10 +65,10 @@ const COLLECTED: Collected[] = [
 const NOT_COLLECTED = [
   "Keystrokes, mouse movement, or idle detection",
   "Screenshots or screen recording",
-  "The content of your messages — Right to Disconnect stores a short preview you typed yourself, and nothing else",
+  "The content of your messages. Right to Disconnect stores a short preview you typed yourself, and nothing else",
   "Browser history, application usage, or anything outside this app",
   "Location, camera, or microphone",
-  "Anything at all while you are clocked out — the app records events you take in it, not time you spend elsewhere",
+  "Anything at all while you are clocked out. The app records events you take in it, not time you spend elsewhere",
 ];
 
 interface RoleRow {
@@ -106,19 +106,19 @@ const GUARANTEES: Guarantee[] = [
   {
     title: "Mood and pulse answers are never readable per person",
     detail:
-      "Both are gated at three responses. Below that the app returns nothing at all rather than a number you could work backwards from. Pulse answers go further: the responses table grants no read permission to anyone, at any role — including you. The system can tell that you answered, never what you answered.",
+      "Both are gated at three responses. Below that the app returns nothing at all rather than a number you could work backwards from. Pulse answers go further: the responses table grants no read permission to anyone, at any role. Including you. The system can tell that you answered, never what you answered.",
     ref: "0003, 0016, 0023",
   },
   {
     title: "Concern reports can be genuinely anonymous",
     detail:
-      "When you tick anonymous, the reporter column is written as null — not hidden in the interface, absent from the row. There is no query that recovers it because there is nothing to recover.",
+      "When you tick anonymous, the reporter column is written as null. Not hidden in the interface, absent from the row. There is no query that recovers it because there is nothing to recover.",
     ref: "0016",
   },
   {
     title: "Your manager cannot see your mood",
     detail:
-      "This one is deliberately absent rather than merely restricted. The 1:1 agenda generator assembles overdue tasks, workload, streaks and leave — and specifically excludes mood, because a check-in your manager reads is a check-in worth lying to.",
+      "This one is deliberately absent rather than merely restricted. The 1:1 agenda generator assembles overdue tasks, workload, streaks and leave. It specifically excludes mood, because a check-in your manager reads is a check-in worth lying to.",
     ref: "lib/one-on-one.ts",
   },
   {
@@ -181,7 +181,7 @@ export default async function TransparencyPage() {
         <Card>
           <h2 className="text-sm font-bold text-ink">What is not collected</h2>
           <p className="mt-0.5 mb-3 text-xs text-ink-mute">
-            Not &ldquo;not shown&rdquo; — never recorded. There is no table for any of this.
+            Not &ldquo;not shown&rdquo;. Never recorded. There is no table for any of this.
           </p>
           <ul className="space-y-1.5">
             {NOT_COLLECTED.map((item) => (
@@ -198,7 +198,7 @@ export default async function TransparencyPage() {
         <Card>
           <h2 className="text-sm font-bold text-ink">Who sees what</h2>
           <p className="mt-0.5 mb-3 text-xs text-ink-mute">
-            Roles are cumulative — a manager sees everything an employee sees, for their own team.
+            Roles are cumulative. A manager sees everything an employee sees, for their own team.
           </p>
           <div className="space-y-3">
             {ROLE_MATRIX.map((row) => (

@@ -128,7 +128,7 @@ export function WhatIfSimulator({
 
         {isActive && baseline.bandV2 !== projected.bandV2 ? (
           <p className="mt-3 text-xs leading-relaxed text-ink-soft">
-            This combination would move them from {baseline.bandV2} to {projected.bandV2} risk — today it&rsquo;s
+            This combination would move them from {baseline.bandV2} to {projected.bandV2} risk. Today it&rsquo;s
             driven mainly by {dominantDriverV2(baseline).label}.
           </p>
         ) : null}
