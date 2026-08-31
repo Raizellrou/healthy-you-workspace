@@ -5,6 +5,7 @@ import {
   shapeOfDay,
   summarisePerson,
   auditSeries,
+  groupSeriesByCadence,
   noMeetingDayOptions,
   findMutualGap,
   DEEP_WORK_MINUTES,
@@ -156,6 +157,81 @@ describe("auditSeries", () => {
 
   it("returns an empty list for no series", () => {
     expect(auditSeries([])).toEqual([]);
+  });
+});
+
+describe("groupSeriesByCadence", () => {
+  const TEAMS = ["Design", "Engineering", "Sales", "Support"];
+
+  it("groups series that cost the same and share a team-stripped label", () => {
+    const audit = auditSeries(
+      TEAMS.map((team) => ({
+        seriesId: `${team}-standup`,
+        title: `${team} standup`,
+        startMin: 540,
+        endMin: 570,
+        attendeeCount: 6,
+        occurrences: 3,
+      }))
+    );
+    const groups = groupSeriesByCadence(audit, TEAMS);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe("standup");
+    expect(groups[0].items).toHaveLength(4);
+    expect(groups[0].items.map((i) => i.team).sort()).toEqual([...TEAMS].sort());
+  });
+
+  it("keeps a group's numbers tied even when titles don't share a label", () => {
+    const audit = auditSeries([
+      { seriesId: "a", title: "Design standup", startMin: 540, endMin: 570, attendeeCount: 6, occurrences: 3 },
+      { seriesId: "b", title: "Weird one-off name", startMin: 540, endMin: 570, attendeeCount: 6, occurrences: 3 },
+    ]);
+    const groups = groupSeriesByCadence(audit, TEAMS);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBeNull();
+    expect(groups[0].items).toHaveLength(2);
+  });
+
+  it("does not group a single series on its own into a labelled cluster", () => {
+    const audit = auditSeries([
+      { seriesId: "a", title: "Design standup", startMin: 540, endMin: 570, attendeeCount: 6, occurrences: 3 },
+    ]);
+    const groups = groupSeriesByCadence(audit, TEAMS);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBeNull();
+    expect(groups[0].items).toHaveLength(1);
+  });
+
+  it("separates series that differ in cost even with the same base title", () => {
+    const audit = auditSeries([
+      { seriesId: "a", title: "Design retro", startMin: 540, endMin: 585, attendeeCount: 5, occurrences: 3 },
+      { seriesId: "b", title: "Sales retro", startMin: 540, endMin: 570, attendeeCount: 5, occurrences: 3 },
+    ]);
+    const groups = groupSeriesByCadence(audit, TEAMS);
+    expect(groups).toHaveLength(2);
+  });
+
+  it("breaks a tie on equal per-item cost by preferring the bigger group", () => {
+    // Both groups cost 9 person-hours per item; the 4-team standup cluster
+    // should rank ahead of the 2-series pair rather than by insertion order.
+    const audit = auditSeries([
+      ...TEAMS.map((team) => ({
+        seriesId: `${team}-standup`,
+        title: `${team} standup`,
+        startMin: 540,
+        endMin: 570,
+        attendeeCount: 6,
+        occurrences: 3,
+      })),
+      { seriesId: "pair-1", title: "Design pair-sync", startMin: 540, endMin: 555, attendeeCount: 12, occurrences: 3 },
+      { seriesId: "pair-2", title: "Sales pair-sync", startMin: 540, endMin: 555, attendeeCount: 12, occurrences: 3 },
+    ]);
+    expect(audit.every((s) => s.personHours === 9)).toBe(true);
+
+    const groups = groupSeriesByCadence(audit, TEAMS);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].items).toHaveLength(4);
+    expect(groups[1].items).toHaveLength(2);
   });
 });
 

@@ -22,7 +22,7 @@ export function LandingPillars() {
           What PETAL stands for
         </h2>
         <p className="mt-4 max-w-[520px] text-[15px] text-ink-soft">
-          Each pillar sits at its own point on Petal&apos;s spectrum — from focused indigo to warm, connective rose.
+          Each pillar sits at its own point on Petal&apos;s spectrum, from focused indigo to warm, connective rose.
         </p>
       </div>
 

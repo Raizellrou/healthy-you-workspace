@@ -41,7 +41,7 @@ export function LandingHero() {
           </h1>
           <p className="mt-5 max-w-[480px] text-lg leading-relaxed text-ink-soft">
             Petal is a people-first dashboard that predicts burnout, protects boundaries, and strengthens team
-            connection — before anyone burns out.
+            connection, before anyone burns out.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-5">
             <Link href="/login" className={gradientButtonClassName()}>
@@ -121,7 +121,7 @@ export function LandingHero() {
               >
                 <span className={`h-2.5 w-2.5 rotate-45 rounded-sm ${p.dotClass}`} aria-hidden="true" />
                 <span className="font-mono text-[13px] font-semibold text-ink">
-                  {p.letter} — {p.word}
+                  {p.letter}: {p.word}
                 </span>
                 <span className="text-xs leading-snug text-ink-mute">{p.tagline}</span>
               </a>

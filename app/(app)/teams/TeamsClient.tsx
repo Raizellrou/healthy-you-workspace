@@ -39,7 +39,13 @@ export function TeamsClient({
   const [isPending, startTransition] = useTransition();
   const [managerConfirm, setManagerConfirm] = useState<ManagerConfirmTarget | null>(null);
   const [hrConfirm, setHrConfirm] = useState<HrConfirmTarget | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
   const run = useActionToast();
+
+  function flash(id: string) {
+    setFlashId(id);
+    window.setTimeout(() => setFlashId((cur) => (cur === id ? null : cur)), 1400);
+  }
 
   const byTeam = new Map<string, Person[]>();
   for (const e of employees) {
@@ -53,8 +59,9 @@ export function TeamsClient({
     setManagerConfirm(null);
     setPendingTeamId(teamId);
     startTransition(async () => {
-      await run(() => assignManager(teamId, employeeId));
+      const result = await run(() => assignManager(teamId, employeeId));
       setPendingTeamId(null);
+      if (result.ok) flash(employeeId);
     });
   }
 
@@ -62,8 +69,9 @@ export function TeamsClient({
     setHrConfirm(null);
     setPendingHrId(employeeId);
     startTransition(async () => {
-      await run(() => setHr(employeeId, grant));
+      const result = await run(() => setHr(employeeId, grant));
       setPendingHrId(null);
+      if (result.ok) flash(employeeId);
     });
   }
 
@@ -102,9 +110,9 @@ export function TeamsClient({
                 {members.map((m) => (
                   <li
                     key={m.id}
-                    className={`flex items-center gap-2.5 ${
+                    className={`flex items-center gap-2.5 rounded-lg ${
                       isPending && pendingHrId === m.id ? "pointer-events-none opacity-50" : ""
-                    }`}
+                    } ${flashId === m.id ? "animate-row-flash" : ""}`}
                   >
                     <Avatar name={m.name} color={m.avatarColor} size={28} />
                     <div className="min-w-0 flex-1">

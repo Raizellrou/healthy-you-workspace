@@ -5,6 +5,7 @@ import { Stat } from "@/components/ui/Stat";
 import { Chip } from "@/components/ui/Chip";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { BandBar, BandLegend } from "@/components/insights/BandBar";
 import { MetricBar } from "@/components/insights/MetricBar";
@@ -209,11 +210,14 @@ export default async function InsightsPage() {
         </Card>
 
         <Card>
-          <h2 className="text-sm font-bold text-ink">Mood trend</h2>
-          <p className="mt-0.5 mb-3 text-xs text-ink-mute">
-            Org-wide daily average. Days with fewer than 3 check-ins are withheld entirely. The anonymity floor
-            is enforced in the database, not here.
-          </p>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-bold text-ink">Mood trend</h2>
+            <InfoTooltip iconOnly label="About mood trend">
+              Days with fewer than 3 check-ins are withheld entirely, not shown as zero. The anonymity floor is
+              enforced in the database itself, not just in how this page chooses to display it.
+            </InfoTooltip>
+          </div>
+          <p className="mt-0.5 mb-3 text-xs text-ink-mute">Org-wide daily average.</p>
           {moodPoints.length === 0 ? (
             <EmptyState
               icon="smile"
@@ -236,11 +240,13 @@ export default async function InsightsPage() {
         </Card>
 
         <Card>
-          <h2 className="text-sm font-bold text-ink">PTO utilisation</h2>
-          <p className="mt-0.5 mb-3 text-xs text-ink-mute">
-            Approved weekdays taken per team in the window. A weekend inside a request doesn&rsquo;t count as
-            time off.
-          </p>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-bold text-ink">PTO utilisation</h2>
+            <InfoTooltip iconOnly label="About PTO utilisation">
+              Counted in approved weekdays. A weekend that falls inside a request doesn&rsquo;t add to the total.
+            </InfoTooltip>
+          </div>
+          <p className="mt-0.5 mb-3 text-xs text-ink-mute">Approved weekdays taken per team in the window.</p>
           <div className="mb-3 flex items-baseline gap-2">
             <span className="font-mono text-2xl font-semibold text-ink">{pto.avgDaysPerPerson}</span>
             <span className="text-xs text-ink-mute">
@@ -268,10 +274,15 @@ export default async function InsightsPage() {
         </Card>
 
         <Card>
-          <h2 className="text-sm font-bold text-ink">Recognition drought</h2>
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-bold text-ink">Recognition drought</h2>
+            <InfoTooltip iconOnly label="About recognition drought">
+              A healthy org-wide kudos count can still hide this: the same few people often collect most of it,
+              while these people go unrecognised.
+            </InfoTooltip>
+          </div>
           <p className="mt-0.5 mb-3 text-xs text-ink-mute">
-            Nobody has sent these people kudos in {windowDays} days. A healthy total kudos count can still hide
-            this. The same few people often collect most of it.
+            Nobody has sent these people kudos in {windowDays} days.
           </p>
           {recognition.drought.length === 0 ? (
             <EmptyState icon="check" message="Everyone has been recognised in the window." />
@@ -342,10 +353,15 @@ export default async function InsightsPage() {
       </div>
 
       <Card className="mt-5">
-        <h2 className="text-sm font-bold text-ink">Where notifications went</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-sm font-bold text-ink">Where notifications went</h2>
+          <InfoTooltip iconOnly label="About where notifications went">
+            This is the right-to-disconnect machinery&rsquo;s actual output for the window, not a settings
+            screen describing what it&rsquo;s configured to do.
+          </InfoTooltip>
+        </div>
         <p className="mt-0.5 mb-3 text-xs text-ink-mute">
-          Every notification in the window, by what the delivery funnel decided to do with it. This is the
-          right-to-disconnect machinery&rsquo;s actual output. Not a settings screen.
+          Every notification in the window, by what the delivery funnel decided to do with it.
         </p>
         {holds.total === 0 ? (
           <EmptyState icon="inbox" message={`No notifications in the last ${windowDays} days.`} />

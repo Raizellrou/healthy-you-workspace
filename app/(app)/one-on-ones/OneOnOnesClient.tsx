@@ -112,7 +112,7 @@ function ReportCard({
           Already scheduled for {fmtDate(upcoming.scheduledFor)}.
         </p>
       ) : open ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="animate-toast-in mt-3 flex flex-wrap items-center gap-2">
           <Input
             type="date"
             value={date}
@@ -215,7 +215,7 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
           </div>
         </div>
       ) : meeting.sharedNotes ? (
-        <div className="mt-3">
+        <div className="animate-toast-in mt-3">
           <SectionLabel className="mb-1">Shared notes</SectionLabel>
           <p className="whitespace-pre-wrap rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-soft">
             {meeting.sharedNotes}

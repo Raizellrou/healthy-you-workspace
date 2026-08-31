@@ -57,8 +57,8 @@ export async function scheduleOneOnOne(input: unknown): Promise<ActionResult> {
         title: `${me.name} scheduled a 1:1 with you for ${fmtDate(data.scheduledFor)}`,
         body:
           target.items.length > 0
-            ? `${target.items.length} ${target.items.length === 1 ? "topic" : "topics"} on the agenda — you can see all of it.`
-            : "No agenda items flagged — a general check-in.",
+            ? `${target.items.length} ${target.items.length === 1 ? "topic" : "topics"} on the agenda. You can see all of it.`
+            : "No agenda items flagged. Just a general check-in.",
         link: "/one-on-ones",
         entityType: "one_on_one",
         entityId: row.id as string,

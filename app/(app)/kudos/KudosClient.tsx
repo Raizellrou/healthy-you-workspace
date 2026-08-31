@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { Icon } from "@/components/icons/Icon";
+import { PokeBadge } from "@/components/ui/PokeBadge";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -21,6 +22,9 @@ const TAG_ACCENT: Record<string, string> = {
   "Went above and beyond": "#6F49A6",
   "Really listened": "#87CEEB",
 };
+
+/** Purely decorative — a poke on the sent checkmark, no data implication. */
+const KUDOS_SENT_REACTIONS = ["High five!", "Nice one!", "They'll love that", "🎉"];
 
 const CATEGORIES = [
   { value: "workload", label: "Workload" },
@@ -88,6 +92,7 @@ export function KudosClient({
 
   const [concernRows, setConcernRows] = useState(concerns);
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [flashConcernId, setFlashConcernId] = useState<string | null>(null);
 
   function handleSubmit() {
     if (submitted || !buddy) return;
@@ -149,6 +154,8 @@ export function KudosClient({
       setDecidingId(null);
       if (result.ok) {
         setConcernRows((rows) => rows.map((r) => (r.id === id ? { ...r, status } : r)));
+        setFlashConcernId(id);
+        window.setTimeout(() => setFlashConcernId((cur) => (cur === id ? null : cur)), 1400);
       }
     });
   }
@@ -186,7 +193,7 @@ export function KudosClient({
               </Button>
             </div>
             {coffeeResult ? (
-              <p className="mt-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
+              <p className="animate-toast-in mt-2.5 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-soft">
                 {coffeeResult}
               </p>
             ) : null}
@@ -259,10 +266,12 @@ export function KudosClient({
         <div className="mt-5">
           {submitted ? (
             <div
-              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm"
+              className="animate-toast-in flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm"
               style={{ background: "#87D38018", color: "#2A7A26" }}
             >
-              <Icon name="check" size={16} />
+              <PokeBadge reactions={KUDOS_SENT_REACTIONS} label="Tap the checkmark">
+                <Icon name="check" size={16} />
+              </PokeBadge>
               Kudos sent to {buddy?.name}.
             </div>
           ) : (
@@ -283,7 +292,7 @@ export function KudosClient({
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2">
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-full transition-[width] duration-300 ease-out"
               style={{ width: `${(progress / KUDOS_PROGRESS_CAP) * 100}%`, background: "#87D380" }}
             />
           </div>
@@ -332,9 +341,9 @@ export function KudosClient({
           </button>
           {concernOpen ? (
             concernSent ? (
-              <p className="mt-3 text-xs text-ink-soft">Sent to HR. Thanks for flagging it.</p>
+              <p className="animate-toast-in mt-3 text-xs text-ink-soft">Sent to HR. Thanks for flagging it.</p>
             ) : (
-              <div className="mt-3 flex flex-col gap-3">
+              <div className="animate-toast-in mt-3 flex flex-col gap-3">
                 <Field label="About">
                   {(props) => (
                     <Select
@@ -387,7 +396,10 @@ export function KudosClient({
             <div className="mb-2 text-sm font-semibold text-ink">Concern triage (HR)</div>
             <ul className="space-y-2">
               {concernRows.map((c) => (
-                <li key={c.id} className="rounded-lg border border-line p-2.5 text-sm">
+                <li
+                  key={c.id}
+                  className={`rounded-lg border border-line p-2.5 text-sm ${flashConcernId === c.id ? "animate-row-flash" : ""}`}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-ink">{c.aboutName}</span>
                     <Chip tone={c.status === "open" ? "warning" : c.status === "acknowledged" ? "brand" : "success"}>

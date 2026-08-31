@@ -76,7 +76,7 @@ export const PETAL_LETTERS: PetalLetter[] = [
     word: "Predictive Wellness",
     tagline: "Burnout risk scoring and early intervention",
     description:
-      "A composite score blends workload, schedule strain, and check-in signals to flag who's trending toward burnout — early enough for a manager or HR to step in before it becomes a resignation.",
+      "A composite score blends workload, schedule strain, and check-in signals to flag who's trending toward burnout, early enough for a manager or HR to step in before it becomes a resignation.",
     icon: "activity",
     href: "/burnout",
     anchorId: "pillar-1",
@@ -89,7 +89,7 @@ export const PETAL_LETTERS: PetalLetter[] = [
     word: "Ergonomic Health",
     tagline: "Smart nudges for stretching, hydration, posture",
     description:
-      "Quiet-hours-aware reminders land when someone's actually at their desk, not on a fixed timer — nudging a stretch, a glass of water, or a posture check without ever pinging after hours.",
+      "Quiet-hours-aware reminders land when someone's actually at their desk, not on a fixed timer, nudging a stretch, a glass of water, or a posture check without ever pinging after hours.",
     icon: "stretch",
     href: "/nudges",
     anchorId: "pillar-2",
@@ -102,7 +102,7 @@ export const PETAL_LETTERS: PetalLetter[] = [
     word: "Team Connection",
     tagline: "Peer recognition through buddy pairings and kudos",
     description:
-      "A rotating buddy pairing makes sure recognition doesn't just flow to the loudest voices in the room — everyone gets a rotating partner to send a quick, genuine thanks to.",
+      "A rotating buddy pairing makes sure recognition doesn't just flow to the loudest voices in the room. Everyone gets a rotating partner to send a quick, genuine thanks to.",
     icon: "coffee",
     href: "/kudos",
     anchorId: "pillar-3",
@@ -115,7 +115,7 @@ export const PETAL_LETTERS: PetalLetter[] = [
     word: "Adaptive Focus",
     tagline: "Workspace modes that adapt to your current load",
     description:
-      "The workspace itself adjusts to how stretched someone currently is — trimming distractions and surfacing what matters most when the day is already too full.",
+      "The workspace itself adjusts to how stretched someone currently is, trimming distractions and surfacing what matters most when the day is already too full.",
     icon: "focus",
     href: "/focus",
     anchorId: "pillar-4",
@@ -128,7 +128,7 @@ export const PETAL_LETTERS: PetalLetter[] = [
     word: "Life-Work Balance",
     tagline: "Right-to-disconnect enforcement and boundary messaging",
     description:
-      "Messages sent outside someone's working hours are held and delivered when their day actually starts — a boundary the platform enforces automatically, not one people have to defend themselves.",
+      "Messages sent outside someone's working hours are held and delivered when their day actually starts. It's a boundary the platform enforces automatically, not one people have to defend themselves.",
     icon: "shield",
     href: "/boundary",
     anchorId: "pillar-5",

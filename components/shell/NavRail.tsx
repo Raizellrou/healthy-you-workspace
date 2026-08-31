@@ -48,7 +48,7 @@ export function NavRail({
             href={section.items[0].href}
             aria-current={active ? "page" : undefined}
             className={`relative flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-semibold transition-colors ${
-              active ? "bg-brand text-white" : "text-ink-soft hover:bg-surface-2 hover:text-ink"
+              active ? "bg-brand text-brand-fg" : "text-ink-soft hover:bg-surface-2 hover:text-ink"
             }`}
           >
             <Icon name={section.icon} size={18} />
