@@ -1,85 +1,117 @@
 # Petal
 
-A from-scratch Next.js port of the Petal HR wellbeing prototype: a single-page,
-client-only demo with one sidebar shell and nine screens (Dashboard, Directory,
-Attendance, Burnout Risk Analytics, Nudges, Track the Mood, Boundary/Right to
-Disconnect, Kudos, Focus Mode). No backend, no persistence, no external
-dependencies — everything is in-memory React state that resets on reload.
+Petal is a Supabase-backed HR wellbeing platform for a ~24-person
+organization, built from a 6-pillar hackathon concept ("AxionHR") into a real
+app: real Supabase Auth, Postgres Row-Level Security as the actual privacy
+boundary, Server Components/Server Actions, and a real Slack integration for
+one pillar. See [PRD.md](PRD.md) for the full product spec and how it differs
+from the original hackathon submission (preserved at
+`Hackathon Stage 2 PRD.pdf`).
 
 ## Stack
 
-Next.js 16 (App Router) + TypeScript + Tailwind CSS v4. Real routes per pillar
-(`/dashboard`, `/directory`, `/attendance`, `/burnout`, `/nudges`, `/mood`,
-`/boundary`, `/kudos`, `/focus`); `/` redirects to `/dashboard`.
+Next.js **16.3.1** (App Router, Turbopack) + TypeScript (strict) + Tailwind
+CSS v4 + Supabase (Postgres, Auth, RLS). No external UI library — every
+component in `components/ui/` is hand-built, including the icon sprite.
+
+## Pillars and screens
+
+19 routes under `app/(app)/`, gated by `proxy.ts` (Next.js 16's Proxy
+middleware) and, per-route, by role:
+
+- **Burnout Risk Analytics** (`/burnout`) — composite score from attendance,
+  task load, and off-hours signals; role-scoped (self/team/org).
+- **Quick Nudge Tool** (`/nudges`) — client-side, session-local movement
+  reminders.
+- **Track the Mood** (`/mood`) — daily one-tap check-in; team aggregates
+  hidden below 3 respondents.
+- **Right to Disconnect** (`/boundary`) — schedules messages into a
+  recipient's working hours; delivers for real over Slack when configured.
+- **Give Me a Coffee** (`/kudos`) — weekly random buddy pairing + peer
+  recognition + a quiet HR concern flag.
+- **Focus Mode** (`/focus`) — adaptive workspace density, sensitized by the
+  employee's own burnout band.
+- **Tasks** (`/tasks`) — projects, boards, lists, calendar/timeline views,
+  drag-and-drop, workload view.
+- **Attendance** (`/attendance`) / **Time Off** (`/time-off`) — real
+  clock-in/out and PTO requests/approvals.
+- **Directory** (`/directory`) — org browser, burnout band privacy-gated per
+  viewer.
+- **Insights** (`/insights`), **Teams** (`/teams`) — HR-only.
+- **Meetings** (`/meetings`) — manager/HR-only meeting-load analysis.
+- **One-on-Ones** (`/one-on-ones`), **Pulse** (`/pulse`), **Inbox**
+  (`/inbox`) — 1:1 agendas, weekly anonymous survey, notification center.
+- **Transparency** (`/transparency`) — plain-language "what this app knows
+  about you."
+- **Settings** (`/settings/appearance`, `/settings/schedule`) — theme
+  (system/light/dark), accessibility, and quiet-hours configuration.
 
 ## Getting started
 
+This runs against a **hosted** Supabase project — there is no local Supabase
+instance in this workflow.
+
 ```bash
+npm install
+cp .env.local.example .env.local   # fill in from your Supabase project's API settings
+npm run seed                       # creates 24 demo employee/manager auth users
+                                    #   (requires employees already seeded in the DB)
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). Demo password for every
+seeded account: `petal-demo-2026` — **exploration only, never for a real
+deployment** (no password reset, no email confirmation, one shared password).
+
+Optional: set `SLACK_BOT_TOKEN` / `SLACK_CHANNEL_ID` in `.env.local` to make
+Right to Disconnect actually post to Slack. See `.env.local.example` for the
+setup steps. Left blank, the feature still works, it just doesn't post
+anywhere real.
 
 ## Structure
 
-- `app/*/page.tsx` — one route per pillar, plus client components colocated
-  alongside each (`*Client.tsx`) for interactive pieces.
-- `app/layout.tsx` — shell: sidebar + main slot + toast dock, wrapped in the
-  Nudges context provider.
-- `app/globals.css` — design tokens (light/dark via `prefers-color-scheme` and
-  an explicit `data-theme` override) exposed to Tailwind via `@theme inline`,
-  plus shared keyframes.
-- `components/shell` — `Sidebar` (collapses to a horizontal scroll bar under
-  `md`), nav item list.
-- `components/ui` — `Card`, `Chip`, `Button`, `Switch`, `Stat`, `PageHead`,
-  `EmptyState`, `Avatar`.
-- `components/icons` — a hand-built inline SVG `<symbol>` sprite (16 icons,
-  stroke-based, no icon library) + an `Icon` component.
-- `components/burnout`, `components/nudges`, `components/mood` — pillar-specific
-  pieces (score bars, sparkline, toast card/dock, the Axolotl component).
-- `lib/employees.ts` — the 8-employee roster + avatar color assignment (fixed
-  8-color palette by roster index, not hashed by name).
-- `lib/burnout.ts` — `computeBurnout`, `dominantDriver`, `trendFor` (seeded
-  sparkline fabrication), `sparkPath`.
-- `lib/boundary.ts` — `evaluateBoundary` (the single decision function used by
-  both the live preview and the actual send), `nextWorkStart`, `isWorkday`.
-- `lib/time.ts` — `parseTimeInput`, `fmtClock`.
-- `lib/nudge-context.tsx` — the Nudges simulation, provided above route level
-  (session timer, log, toast state, unseen badge, title flash, Notification
-  permission) since with real routing "another panel" becomes "another route."
-- `lib/constants.ts` — days, nudge metadata, moods, kudos tags, focus timeline.
-- `types/*.ts` — shared interfaces.
-
-## Notes on a few implementation choices
-
-The source spec didn't pin down some purely cosmetic details, so these were
-decided during the build rather than left as open questions:
-
-- **Mood axolotl palette** — the five mood colors (body/light/frill/line per
-  mood) and the specific face-mark shapes per mood aren't specified beyond
-  "hand-built pixel-art," so a five-color palette and a distinct eye/mouth
-  style per mood were designed fresh.
-- **Team trend / burnout sparkline "end" values** — `trendFor(seed, end)` is
-  generic per the spec; Burnout detail passes the employee's composite score,
-  Mood team trends pass the team's fabricated average scaled to 0–100.
-- **Boundary default message** — the spec calls for the *default state* to
-  demonstrate the "warned" path (default recipient is Burnout Bob, on PTO),
-  which requires a non-empty starting message; a short filler message is
-  pre-filled for that reason.
+- `app/(app)/*/page.tsx` — one route per pillar; Server Components fetch via
+  `lib/supabase/queries.ts` and related domain modules.
+- `app/(app)/*/{*Client.tsx,actions.ts}` — client interactivity and Server
+  Actions, colocated per route.
+- `app/(app)/layout.tsx` — app shell: nav rail/panel, Nudges provider, toast
+  dock.
+- `app/globals.css` — design tokens (three-state theme, high-contrast and
+  muted-palette variants) exposed to Tailwind via `@theme inline`.
+- `components/ui/` — all UI primitives (Card, Chip, Button, Modal, Avatar,
+  CommandPalette, etc.), no external library.
+- `components/{burnout,mood,shell,tasks,...}/` — pillar-specific pieces.
+- `lib/` — domain logic (`burnout.ts`, `burnout-signals.ts`, `boundary-v2.ts`,
+  `authz.ts`, `schedule.ts`, `tasks.ts`, `contrast.ts`, …) and
+  `lib/supabase/*.ts` — the data-access layer, split by domain.
+- `proxy.ts` — auth guard + session refresh (Next.js 16's renamed
+  middleware).
+- `supabase/migrations/` — 36 numbered migrations, applied by hand in the
+  hosted project's SQL Editor; never edited once applied (see
+  [AGENTS.md](AGENTS.md)).
+- `scripts/` — seeding (`seed.ts`, `seed-org.ts`, `seed-tasks.ts`,
+  `seed-calendar.ts`, `seed-role-accounts.ts`) and verification
+  (`verify-schema.ts`, `verify-rls.ts`, `verify-employee-settings.ts`)
+  utilities using the service-role key.
 
 ## Verification
 
-`tsc --noEmit`, `eslint .`, and `next build` all pass clean. All nine screens
-were exercised in-browser against the feature spec (search/filter, sort +
-selection persistence on Burnout, the Nudges session timer firing and
-resolving nudges via Snooze/Done, the mood one-time pick and reset, the full
-Boundary decision matrix — blocked/warned/delivered/delayed, including the
-Friday-evening-skips-the-weekend case — Kudos submit + progress cap, and the
-Focus auto-suggestion/manual-override interaction).
+```bash
+npx tsc --noEmit   # type check
+npm run lint       # ESLint 9, flat config
+npm test           # Vitest — 29 files under lib/__tests__/
+npm run build      # production build
+```
 
-One real bug was caught and fixed during verification: the Nudges session
-timer used to call side-effecting `setState` calls from inside another
-`setState` updater function, which React's Strict Mode double-invokes in dev
-to catch exactly this kind of impurity — it caused two nudges to fire (and
-log) per 50-minute cycle instead of one. Fixed by moving the counters to refs
-and keeping the `setState` updaters pure.
+All four are expected to pass clean before any change is considered done.
+Tests cover burnout scoring, boundary decisions, task logic, attendance,
+authorization (`canSee`/`isManagerOf`), scheduling, and an automated WCAG 2.1
+AA contrast check that reads the live stylesheet.
+
+## Further reading
+
+- [PRD.md](PRD.md) — full product requirements, current state.
+- [AGENTS.md](AGENTS.md) — architecture, conventions, database/security
+  rules, and the actual development workflow (this is the source of truth
+  for any AI coding tool working in this repo, including Claude Code).
+- [CLAUDE.md](CLAUDE.md) — Claude Code-specific notes on top of AGENTS.md.
