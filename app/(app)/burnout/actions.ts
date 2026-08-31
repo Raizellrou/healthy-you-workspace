@@ -29,7 +29,9 @@ const CreateInterventionSchema = z.object({
  * (0019_interventions.sql), so this action doesn't re-check the caller's
  * role itself, matching app/(app)/teams/actions.ts#assignManager's
  * reasoning: if that policy ever regresses, this fails loudly instead of
- * silently no-opping.
+ * silently no-opping. (That file's docstring also notes the one place this
+ * rule doesn't apply: tasks/projects, whose RLS never covered these writes
+ * to begin with, so those actions self-check role instead.)
  *
  * For driver in {streak, pto} (lib/interventions.ts's `immediate: true`),
  * this also inserts a real pending pto_requests row on the spot — the one
@@ -66,7 +68,7 @@ export async function createIntervention(input: unknown): Promise<ActionResult> 
             end_date: day,
             kind: "mental_health",
             status: "pending",
-            note: `Suggested by a burnout intervention — ${spec.label.toLowerCase()}.`,
+            note: `Suggested by a burnout intervention: ${spec.label.toLowerCase()}.`,
           })
           .select("id")
           .single();
@@ -99,7 +101,7 @@ export async function createIntervention(input: unknown): Promise<ActionResult> 
         actorId,
         kind: "intervention_suggested",
         title: spec.immediate
-          ? `A day off was requested for you — ${spec.label.toLowerCase()}`
+          ? `A day off was requested for you: ${spec.label.toLowerCase()}`
           : `Your manager flagged: ${spec.label}`,
         body: spec.description,
         link: "/burnout",

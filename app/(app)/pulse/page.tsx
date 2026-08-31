@@ -1,6 +1,7 @@
 import { PageHead } from "@/components/ui/PageHead";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { MetricBar } from "@/components/insights/MetricBar";
 import {
@@ -39,7 +40,13 @@ export default async function PulsePage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <PageHead
         title="Weekly pulse"
-        description="One question a week. Answers are anonymous by construction — no policy anywhere lets a response be read back, and results stay hidden until at least three people have replied."
+        description="One question a week, answered anonymously."
+        actions={
+          <InfoTooltip label="About anonymity">
+            Anonymous by construction: no policy anywhere lets a response be read back to the person who gave
+            it, and results stay hidden until at least three people have replied.
+          </InfoTooltip>
+        }
       />
 
       <div className="space-y-5">
@@ -54,7 +61,7 @@ export default async function PulsePage() {
           {results.avgScore === null || !results.distribution ? (
             <EmptyState
               icon="lock"
-              message={`Held until 3 people answer — ${results.responseCount} so far. Publishing a result from one or two answers would identify them.`}
+              message={`Held until 3 people answer. ${results.responseCount} so far. Publishing a result from one or two answers would identify them.`}
             />
           ) : (
             <>

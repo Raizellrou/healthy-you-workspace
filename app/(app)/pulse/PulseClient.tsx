@@ -2,11 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
+import { PokeBadge } from "@/components/ui/PokeBadge";
+import { Icon } from "@/components/icons/Icon";
 import { submitPulse } from "./actions";
 import { useActionToast } from "@/lib/toast-context";
 import type { PulseQuestion } from "@/lib/supabase/pulse";
 
 const SCORES = [1, 2, 3, 4, 5];
+
+/** Purely decorative — a poke on the recorded checkmark, no data implication. */
+const RECORDED_REACTIONS = ["Thanks!", "Noted", "Appreciate it", "Got it"];
 
 export function PulseClient({
   question,
@@ -32,10 +37,20 @@ export function PulseClient({
 
   if (done) {
     return (
-      <Card>
-        <p className="text-sm font-medium text-ink">Answer recorded.</p>
-        <p className="mt-1 text-xs leading-relaxed text-ink-mute">
-          Your score isn&rsquo;t readable by anyone — not your manager, not HR, not the person who set the
+      <Card key="done" className="animate-toast-in">
+        <div className="flex items-center gap-2.5">
+          <PokeBadge reactions={RECORDED_REACTIONS} label="Tap the checkmark">
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-full"
+              style={{ background: "#87D38018", color: "#2A7A26" }}
+            >
+              <Icon name="check" size={16} />
+            </span>
+          </PokeBadge>
+          <p className="text-sm font-medium text-ink">Answer recorded.</p>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-ink-mute">
+          Your score isn&rsquo;t readable by anyone. Not your manager, not HR, not the person who set the
           question. Results appear below once at least three people have answered.
         </p>
       </Card>

@@ -16,6 +16,14 @@ interface AvailabilityRow {
   pto_return_date: string | null;
 }
 
+/** A "delayed" send whose held-until time has already passed. Pulled out
+ *  of the component body so the Date.now() read isn't flagged as an impure
+ *  call during render — same pattern as relativeTime()/startOfWeekISO() in
+ *  app/(app)/dashboard/page.tsx. */
+function hasPassed(iso: string): boolean {
+  return new Date(iso).getTime() <= Date.now();
+}
+
 export default async function BoundaryPage() {
   const employees = await getEmployees();
   const currentEmployeeId = await getCurrentEmployeeId();
@@ -69,7 +77,7 @@ export default async function BoundaryPage() {
   if (currentEmployeeId) {
     const { data } = await supabase
       .from("boundary_events")
-      .select("id, message_preview, action, sent_at, scheduled_delivery")
+      .select("id, recipient_id, message_preview, action, sent_at, scheduled_delivery")
       .eq("sender_id", currentEmployeeId)
       .order("sent_at", { ascending: false })
       .limit(10);
@@ -84,20 +92,24 @@ export default async function BoundaryPage() {
     initialActivity = (data ?? []).map((row) => {
       const status = row.action as BoundaryStatus;
       const scheduledDelivery = row.scheduled_delivery as string | null;
+      const resolved = status === "delayed" && scheduledDelivery !== null && hasPassed(scheduledDelivery);
       const message =
         status === "delayed" && scheduledDelivery
-          ? `Held until ${new Date(scheduledDelivery).toLocaleString(undefined, {
+          ? `${resolved ? "Delivered" : "Held until"} ${new Date(scheduledDelivery).toLocaleString(undefined, {
               weekday: "long",
               hour: "numeric",
               minute: "2-digit",
             })}`
           : FALLBACK_MESSAGE[status];
+      const recipientName = employees.find((e) => e.id === row.recipient_id)?.name ?? "Unknown";
       return {
         id: row.id as string,
+        recipientName,
         preview: row.message_preview as string,
         status,
         message,
         timestamp: new Date(row.sent_at as string).getTime(),
+        resolved,
       };
     });
   }

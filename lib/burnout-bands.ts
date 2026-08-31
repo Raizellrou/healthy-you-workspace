@@ -16,9 +16,9 @@ export const BAND_LABEL: Record<BurnoutBand, string> = {
  *  carry meaning by color alone — pair with BAND_LABEL/BAND_INK or the
  *  numeric value, the way BandBar and BandChip both already do. Single
  *  source for what was previously copy-pasted into
- *  components/insights/BandBar.tsx and components/burnout/WhatIfSimulator.tsx. */
+ *  components/insights/BandBar.tsx and other band-aware views. */
 export const BAND_COLOR: Record<BurnoutBand, string> = {
-  low: "#87D380",
+  low: "#6FBF65",
   medium: "#6F49A6",
   high: "#FFD700",
   critical: "#FF8C73",

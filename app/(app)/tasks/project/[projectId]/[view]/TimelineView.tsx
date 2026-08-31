@@ -125,7 +125,7 @@ export function TimelineView({
                     <Link
                       key={bar.taskId}
                       href={`/tasks/${bar.taskId}`}
-                      className="absolute truncate rounded-md bg-brand px-1.5 text-[10px] leading-6 text-white hover:bg-brand-dark"
+                      className="absolute truncate rounded-md bg-brand px-1.5 text-[10px] leading-6 text-brand-fg transition-colors hover:bg-brand-dark"
                       style={{
                         left: xFor(bar.start),
                         width: Math.max(DAY_PX - 4, widthFor(bar)),

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployees } from "@/lib/supabase/queries";
 import { getCurrentPerson } from "@/lib/supabase/people";
 import { todayInTz, addDays } from "@/lib/date";
+import { weightedMoodAverage } from "@/lib/mood";
 import { MoodClient, type TeamAggregate, type OrgTrendPoint } from "./MoodClient";
 
 export default async function MoodPage() {
@@ -59,18 +60,10 @@ export default async function MoodPage() {
 
   const allAggregates = aggregateEntries.map(([, agg]) => agg);
   const totalCheckinsToday = allAggregates.reduce((s, a) => s + a.checkinCount, 0);
-  const avgEligible = allAggregates.filter((a) => a.avgMood !== null);
-  const orgAvgToday =
-    avgEligible.length > 0
-      ? avgEligible.reduce((s, a) => s + a.avgMood! * a.checkinCount, 0) /
-        avgEligible.reduce((s, a) => s + a.checkinCount, 0)
-      : null;
-  const lastWeekEligible = allAggregates.filter((a) => a.avgMoodLastWeek !== null);
-  const orgAvgLastWeek =
-    lastWeekEligible.length > 0
-      ? lastWeekEligible.reduce((s, a) => s + a.avgMoodLastWeek! * a.checkinCountLastWeek, 0) /
-        lastWeekEligible.reduce((s, a) => s + a.checkinCountLastWeek, 0)
-      : null;
+  const orgAvgToday = weightedMoodAverage(allAggregates);
+  const orgAvgLastWeek = weightedMoodAverage(
+    allAggregates.map((a) => ({ avgMood: a.avgMoodLastWeek, checkinCount: a.checkinCountLastWeek }))
+  );
 
   const { data: trendRows } = await supabase.rpc("get_org_mood_trend", { days: 30 });
   const orgTrend: OrgTrendPoint[] = (trendRows ?? []).map((row: { day: string; avg_mood: number | null; checkin_count: number }) => ({

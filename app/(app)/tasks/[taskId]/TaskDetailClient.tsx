@@ -31,6 +31,7 @@ export function TaskDetailClient({
   blockerCandidates,
   currentEmployeeName,
   currentEmployeeAvatarColor,
+  canDelete,
 }: {
   detail: TaskDetail;
   extras: TaskRichExtras;
@@ -39,6 +40,7 @@ export function TaskDetailClient({
   blockerCandidates: Task[];
   currentEmployeeName?: string;
   currentEmployeeAvatarColor?: string;
+  canDelete: boolean;
 }) {
   const { task, project, subtasks, comments } = detail;
   const router = useRouter();
@@ -110,14 +112,14 @@ export function TaskDetailClient({
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
-      <Link href="/tasks" className="mb-4 inline-block text-sm text-ink-soft hover:text-ink">
+      <Link href="/tasks" className="mb-4 inline-block text-sm text-ink-soft transition-colors hover:text-ink">
         ← Back to My Tasks
       </Link>
 
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm text-ink-mute">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} aria-hidden="true" />
-          <Link href={`/tasks/project/${project.id}/board`} className="hover:text-ink">
+          <Link href={`/tasks/project/${project.id}/board`} className="transition-colors hover:text-ink">
             {project.name}
           </Link>
         </div>
@@ -125,15 +127,17 @@ export function TaskDetailClient({
           <Button type="button" variant="secondary" size="sm" onClick={handleDuplicate} disabled={isPending}>
             Duplicate
           </Button>
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            onClick={() => setConfirmDeleteOpen(true)}
-            disabled={isDeleting}
-          >
-            {isDeleting ? "Deleting…" : "Delete"}
-          </Button>
+          {canDelete ? (
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -153,7 +157,7 @@ export function TaskDetailClient({
             role="checkbox"
             aria-checked={done}
             aria-label={done ? "Mark not done" : "Mark done"}
-            title={isBlocked ? `Blocked by "${blocker!.title}" — that task isn't done yet.` : undefined}
+            title={isBlocked ? `Blocked by "${blocker!.title}". That task isn't done yet.` : undefined}
             onClick={handleToggleDone}
             disabled={isPending || isBlocked}
             className={`mt-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -177,10 +181,10 @@ export function TaskDetailClient({
         {isBlocked ? (
           <p className="mt-1.5 pl-8 text-xs text-risk-high">
             Blocked by{" "}
-            <Link href={`/tasks/${blocker!.id}`} className="underline hover:text-ink">
+            <Link href={`/tasks/${blocker!.id}`} className="underline transition-colors hover:text-ink">
               {blocker!.title}
-            </Link>{" "}
-            — can&apos;t be marked done until that task is.
+            </Link>
+            {". Can't be marked done until that task is."}
           </p>
         ) : null}
 

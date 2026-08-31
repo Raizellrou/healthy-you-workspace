@@ -39,7 +39,7 @@ const DRIVER_SPECS: Record<InterventionDriverKey, InterventionSpec> = {
   pto: {
     actionType: "schedule_pto",
     label: "Schedule a day off",
-    description: "It's been a while since their last time off — pre-fills a pending PTO request.",
+    description: "It's been a while since their last time off. Pre-fills a pending PTO request.",
     immediate: true,
   },
   meeting: {
@@ -69,7 +69,7 @@ const DRIVER_SPECS: Record<InterventionDriverKey, InterventionSpec> = {
   overdue: {
     actionType: "resolve_overdue",
     label: "Clear overdue tasks",
-    description: "Flags their overdue tasks for triage — reassign, reschedule, or drop.",
+    description: "Flags their overdue tasks for triage: reassign, reschedule, or drop.",
     immediate: false,
   },
 };

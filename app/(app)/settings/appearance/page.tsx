@@ -13,7 +13,7 @@ export default async function AppearancePage() {
     <div className="mx-auto max-w-2xl px-6 py-8">
       <PageHead
         title="Appearance & Accessibility"
-        description="How the workspace looks and moves for you — applies everywhere, not just here."
+        description="How the workspace looks and moves for you. Applies everywhere, not just here."
       />
       <AppearanceClient prefs={prefs} />
     </div>

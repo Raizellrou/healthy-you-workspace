@@ -17,7 +17,7 @@ import { getUiPreferences, DEFAULT_UI_PREFERENCES } from "@/lib/supabase/prefere
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
 import { getRespectCalendar } from "@/lib/supabase/nudge-prefs";
 import { getOpenFocusSession } from "@/lib/supabase/focus";
-import { computeBurnout } from "@/lib/burnout";
+import { hasCriticalBurnout } from "@/lib/supabase/burnout-status";
 import { buildSearchIndex } from "@/lib/search";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -30,18 +30,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getCurrentPerson(),
     getProjects(),
   ]);
-  const hasCritical = employees.some((e) => computeBurnout(e).band === "critical");
   const currentEmployee = employees.find((e) => e.id === currentEmployeeId) ?? null;
-  const [unreadInboxCount, uiPreferences, currentMeeting, respectCalendar, myTasks, openFocusSession] = currentEmployeeId
-    ? await Promise.all([
-        getUnreadCount(currentEmployeeId),
-        getUiPreferences(currentEmployeeId),
-        getCurrentMeeting(currentEmployeeId),
-        getRespectCalendar(currentEmployeeId),
-        getMyTasks(currentEmployeeId),
-        getOpenFocusSession(currentEmployeeId),
-      ])
-    : [0, DEFAULT_UI_PREFERENCES, null, true, [], null];
+  const [unreadInboxCount, uiPreferences, currentMeeting, respectCalendar, myTasks, openFocusSession, hasCritical] =
+    currentEmployeeId
+      ? await Promise.all([
+          getUnreadCount(currentEmployeeId),
+          getUiPreferences(currentEmployeeId),
+          getCurrentMeeting(currentEmployeeId),
+          getRespectCalendar(currentEmployeeId),
+          getMyTasks(currentEmployeeId),
+          getOpenFocusSession(currentEmployeeId),
+          hasCriticalBurnout(currentPerson),
+        ])
+      : [0, DEFAULT_UI_PREFERENCES, null, true, [], null, false];
 
   const searchIndexItems = buildSearchIndex({
     employees,
@@ -97,7 +98,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <ToastViewport />
         </ToastStack>
         <NudgePersistence />
-        <UiPreferencesApplier prefs={uiPreferences} />
+        <UiPreferencesApplier prefs={uiPreferences} focusMode={openFocusSession?.mode ?? null} />
         {currentEmployeeId ? <LiveInboxBadge employeeId={currentEmployeeId} /> : null}
         <CommandPalette index={searchIndexItems} openFocusSession={openFocusSession} />
       </NudgeProvider>

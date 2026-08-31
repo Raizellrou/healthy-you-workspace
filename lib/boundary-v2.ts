@@ -1,6 +1,6 @@
 import type { BoundaryResult } from "@/types/boundary";
 import type { WorkSchedule } from "@/lib/schedule";
-import { isWithinWorkingHours, nextWorkStart } from "@/lib/schedule";
+import { isWithinWorkingHours, isQuietHours, nextWorkStart } from "@/lib/schedule";
 import { fmtDate, type IsoDate } from "@/lib/date";
 
 /**
@@ -9,6 +9,12 @@ import { fmtDate, type IsoDate } from "@/lib/date";
  * against the recipient's actual schedule and timezone (lib/schedule.ts,
  * P6). lib/boundary.ts stays on disk untouched, per AGENTS.md; this
  * supersedes it without editing it.
+ *
+ * Checks both working hours and quiet hours, matching the policy
+ * lib/notify.ts#resolveDeliverAfter applies to every real notification —
+ * a customized quiet-hours window that falls inside working hours (an
+ * evening shift, say) now delays here too, instead of only being honored
+ * by the separate notification pipeline.
  */
 export function evaluateBoundaryV2(params: {
   senderId: string;
@@ -29,11 +35,14 @@ export function evaluateBoundaryV2(params: {
     return {
       status: "warned",
       message: params.recipientReturnDate
-        ? `Will warn you first — back ${fmtDate(params.recipientReturnDate)}`
-        : "Will warn you first — currently on PTO",
+        ? `Will warn you first (back ${fmtDate(params.recipientReturnDate)})`
+        : "Will warn you first (currently on PTO)",
     };
   }
-  if (isWithinWorkingHours(params.recipientSchedule, params.instant)) {
+  if (
+    isWithinWorkingHours(params.recipientSchedule, params.instant) &&
+    !isQuietHours(params.recipientSchedule, params.instant)
+  ) {
     return { status: "delivered", message: "Delivers immediately" };
   }
   const next = nextWorkStart(params.recipientSchedule, params.instant);

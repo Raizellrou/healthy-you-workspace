@@ -11,6 +11,8 @@ import {
   isWithin,
   isoWeekday,
   minutesSinceMidnightInTz,
+  relativeTime,
+  startOfWeekISO,
 } from "@/lib/date";
 
 describe("dateInTz", () => {
@@ -132,5 +134,39 @@ describe("formatters", () => {
     expect(fmtDuration(12 * 60_000)).toBe("12m");
     expect(fmtDuration((3 * 60 + 40) * 60_000)).toBe("3h 40m");
     expect(fmtDuration(-5000)).toBe("0m");
+  });
+});
+
+describe("startOfWeekISO", () => {
+  it("returns UTC midnight of the same Monday when now is already Monday", () => {
+    expect(startOfWeekISO(new Date("2026-08-17T15:30:00Z"))).toBe("2026-08-17T00:00:00.000Z");
+  });
+
+  it("returns the prior Monday when now is midweek", () => {
+    expect(startOfWeekISO(new Date("2026-08-20T09:00:00Z"))).toBe("2026-08-17T00:00:00.000Z");
+  });
+
+  it("treats Sunday as the end of the week, not the start", () => {
+    expect(startOfWeekISO(new Date("2026-08-23T09:00:00Z"))).toBe("2026-08-17T00:00:00.000Z");
+  });
+});
+
+describe("relativeTime", () => {
+  const now = new Date("2026-08-22T12:00:00Z");
+
+  it("renders minutes for anything under an hour", () => {
+    expect(relativeTime("2026-08-22T11:48:00Z", now)).toBe("12 min ago");
+  });
+
+  it("floors at 1 minute rather than showing 0", () => {
+    expect(relativeTime("2026-08-22T11:59:45Z", now)).toBe("1 min ago");
+  });
+
+  it("renders hours between 1 and 24 hours ago", () => {
+    expect(relativeTime("2026-08-22T09:00:00Z", now)).toBe("3 hr ago");
+  });
+
+  it("renders days for anything a day or more ago", () => {
+    expect(relativeTime("2026-08-19T12:00:00Z", now)).toBe("3 d ago");
   });
 });

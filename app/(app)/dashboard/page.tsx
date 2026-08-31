@@ -18,7 +18,6 @@ import { getForecastsForEmployees } from "@/lib/supabase/forecast";
 import { getMyOneOnOnes } from "@/lib/supabase/one-on-ones";
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
 import { hasCheckedInMoodToday, getNeedsYou } from "@/lib/supabase/needs-you";
-import { computeBurnout } from "@/lib/burnout";
 import { buildBurnoutV2 } from "@/lib/burnout-signals";
 import { visibleTo } from "@/lib/authz";
 import { todayInTz, fmtDate } from "@/lib/date";
@@ -96,57 +95,54 @@ export default async function DashboardPage() {
     .filter((m) => m.status === "scheduled" && today && m.scheduledFor >= today)
     .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor))[0];
 
-  // Burnout — computeBurnout is pure, so this needs zero extra queries beyond
-  // the employee stats getEmployees() already returns. The flagged list is
-  // then narrowed through the same visibleTo() model app/(app)/burnout/page.tsx
-  // enforces (self/team/org by role) — the dashboard was showing this
-  // org-wide to every viewer regardless of role before this phase, which
-  // disagreed with what /burnout itself is willing to show the same person.
-  const burnoutRows = employees.map((e) => ({ employee: e, scores: computeBurnout(e) }));
-  const allFlagged = burnoutRows.filter((r) => r.scores.band === "high" || r.scores.band === "critical");
+  // Burnout — same task-aware bandV2 pipeline as app/(app)/burnout/page.tsx:
+  // real attendance/task signals fed through buildBurnoutV2, scoped through
+  // the same visibleTo() model (self/team/org by role). The dashboard used
+  // to score via the frozen computeBurnout directly off daily_activity
+  // fixtures, which could disagree with /burnout's own band for the same
+  // person — this keeps the two screens on one source of truth.
   const [visiblePeople, teams] = me ? await Promise.all([getVisibleEmployees(), getTeams()]) : [[], []];
   const visibleIds = me ? new Set(visibleTo(me, visiblePeople, (p) => p, teams).map((p) => p.id)) : null;
-  const flagged = visibleIds ? allFlagged.filter((r) => visibleIds.has(r.employee.id)) : allFlagged;
-  const criticalCount = flagged.filter((r) => r.scores.band === "critical").length;
-  const highCount = flagged.filter((r) => r.scores.band === "high").length;
-  const topFlagged = [...flagged].sort((a, b) => b.scores.composite - a.scores.composite).slice(0, 3);
+  const visibleEmployees = visibleIds ? employees.filter((e) => visibleIds.has(e.id)) : employees;
+  const visibleEmployeeIds = visibleEmployees.map((e) => e.id);
+
+  const timezoneByEmployee = new Map(visiblePeople.map((p) => [p.id, p.timezone]));
+  const capacityByEmployee = new Map(visiblePeople.map((p) => [p.id, p.weeklyCapacityHours]));
+  const todayForSignals = todayInTz(me?.timezone);
+  const [attendanceSignals, taskSignals] = await Promise.all([
+    getAttendanceSignals(visibleEmployeeIds, timezoneByEmployee, todayForSignals),
+    getTaskBurnoutSignals(visibleEmployeeIds, todayForSignals),
+  ]);
+
+  const inputsExtrasByEmployee = new Map<string, { inputs: BurnoutInputs; extras: BurnoutV2Extras }>();
+  const burnoutRows = visibleEmployees.map((employee) => {
+    const weeklyCapacityHours = capacityByEmployee.get(employee.id) ?? 40;
+    const { inputs, extras, scores } = buildBurnoutV2(
+      employee,
+      attendanceSignals.get(employee.id),
+      taskSignals.get(employee.id),
+      weeklyCapacityHours
+    );
+    inputsExtrasByEmployee.set(employee.id, { inputs, extras });
+    return { employee, scores };
+  });
+
+  const flagged = burnoutRows.filter((r) => r.scores.bandV2 === "high" || r.scores.bandV2 === "critical");
+  const criticalCount = flagged.filter((r) => r.scores.bandV2 === "critical").length;
+  const highCount = flagged.filter((r) => r.scores.bandV2 === "high").length;
+  const topFlagged = [...flagged].sort((a, b) => b.scores.compositeV2 - a.scores.compositeV2).slice(0, 3);
   const topFlaggedWithHistory = await Promise.all(
     topFlagged.map(async (r) => ({ ...r, history: await getBurnoutHistory(r.employee.id) }))
   );
 
   // 7-day forecast, scoped to just these (at most 3) flagged people rather
-  // than the whole org — the same buildBurnoutV2 + getForecastsForEmployees
-  // pipeline app/(app)/burnout/page.tsx runs for every visible employee,
-  // kept small here since the dashboard is the first page every session
-  // loads.
+  // than the whole org — reuses the inputs/extras already computed above,
+  // no extra signal fetch needed.
   const topFlaggedIds = topFlagged.map((r) => r.employee.id);
-  let forecastByEmployee: Record<string, ForecastPoint[]> = {};
-  if (topFlaggedIds.length > 0) {
-    const timezoneByEmployee = new Map(visiblePeople.map((p) => [p.id, p.timezone]));
-    const capacityByEmployee = new Map(visiblePeople.map((p) => [p.id, p.weeklyCapacityHours]));
-    const todayForSignals = todayInTz(me?.timezone);
-    const [attendanceSignals, taskSignals] = await Promise.all([
-      getAttendanceSignals(topFlaggedIds, timezoneByEmployee, todayForSignals),
-      getTaskBurnoutSignals(topFlaggedIds, todayForSignals),
-    ]);
-    const inputsExtrasByEmployee = new Map<string, { inputs: BurnoutInputs; extras: BurnoutV2Extras }>();
-    for (const r of topFlagged) {
-      const weeklyCapacityHours = capacityByEmployee.get(r.employee.id) ?? 40;
-      const { inputs, extras } = buildBurnoutV2(
-        r.employee,
-        attendanceSignals.get(r.employee.id),
-        taskSignals.get(r.employee.id),
-        weeklyCapacityHours
-      );
-      inputsExtrasByEmployee.set(r.employee.id, { inputs, extras });
-    }
-    forecastByEmployee = await getForecastsForEmployees(
-      topFlaggedIds,
-      timezoneByEmployee,
-      capacityByEmployee,
-      inputsExtrasByEmployee
-    );
-  }
+  const forecastByEmployee: Record<string, ForecastPoint[]> =
+    topFlaggedIds.length > 0
+      ? await getForecastsForEmployees(topFlaggedIds, timezoneByEmployee, capacityByEmployee, inputsExtrasByEmployee)
+      : {};
 
   // Mood — org-wide numbers only exist through the anti-de-anonymization RPC;
   // direct row reads are scoped to your own check-ins by RLS.
@@ -335,7 +331,7 @@ export default async function DashboardPage() {
           <StatTile label="In today" value={workingToday} sub={`of ${headcount}`} color="var(--success)" />
           <StatTile
             label="Avg mood"
-            value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "—"}
+            value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "–"}
             sub={`${totalCheckinsToday} checked in today`}
             color="var(--pillar-mood)"
           />
@@ -370,13 +366,13 @@ export default async function DashboardPage() {
                         {employee.team} · {employee.role}
                       </div>
                     </div>
-                    <BandChip band={scores.band} />
+                    <BandChip band={scores.bandV2} />
                     <div className="flex flex-col items-end gap-0.5">
                       <Sparkline
                         values={history.map((h) => h.composite)}
                         width={72}
                         height={22}
-                        stroke={RISK_STROKE[scores.band]}
+                        stroke={RISK_STROKE[scores.bandV2]}
                       />
                       <span className="text-xs text-ink-mute">14d</span>
                     </div>

@@ -35,7 +35,7 @@ function AgendaList({ items }: { items: AgendaItem[] }) {
   if (items.length === 0) {
     return (
       <p className="text-xs text-ink-mute">
-        Nothing flagged right now — a good week to ask about what they want to be working on.
+        Nothing flagged right now. A good week to ask about what they want to be working on.
       </p>
     );
   }
@@ -112,7 +112,7 @@ function ReportCard({
           Already scheduled for {fmtDate(upcoming.scheduledFor)}.
         </p>
       ) : open ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="animate-toast-in mt-3 flex flex-wrap items-center gap-2">
           <Input
             type="date"
             value={date}
@@ -192,7 +192,7 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
           <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Shared notes — visible to both of you…"
+            placeholder="Shared notes. Visible to both of you…"
             rows={3}
             maxLength={5000}
           />
@@ -215,7 +215,7 @@ function MeetingCard({ meeting, canRun }: { meeting: OneOnOne; canRun: boolean }
           </div>
         </div>
       ) : meeting.sharedNotes ? (
-        <div className="mt-3">
+        <div className="animate-toast-in mt-3">
           <SectionLabel className="mb-1">Shared notes</SectionLabel>
           <p className="whitespace-pre-wrap rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs leading-relaxed text-ink-soft">
             {meeting.sharedNotes}
@@ -283,7 +283,7 @@ export function OneOnOnesClient({
 
       {canManage && tab === "agendas" ? (
         agendas.length === 0 ? (
-          <EmptyState icon="users" message="Nobody reports to you yet — HR assigns team managers on the Teams screen." />
+          <EmptyState icon="users" message="Nobody reports to you yet. HR assigns team managers on the Teams screen." />
         ) : (
           <div className="space-y-4">
             {agendas.map((agenda) => (

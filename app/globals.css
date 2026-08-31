@@ -1,27 +1,99 @@
 @import "tailwindcss";
 
+/* PALETTE — the "Petal bloom" reskin.
+ *
+ * Adopted app-wide (not landing-only) by explicit product decision: the
+ * landing page and the 27 in-app routes share one visual language. Every
+ * neutral below comes from the landing mockup.
+ *
+ * Three raw mockup neutrals (--paper / --paper-alt / --panel) are exposed
+ * as their own tokens so the landing page can use them literally, AND
+ * remapped onto the app's --bg / --surface / --surface-2 trio. The mockup
+ * only supplies two distinct LIGHT neutrals (#FFFFFF and #F7F5FB) while
+ * the app needs three (page, card, secondary-fill/hover), so --surface-2
+ * light is derived one step deeper. That is the single invented value.
+ *
+ * !! ACCESSIBILITY EXCEPTION — READ BEFORE "FIXING" --ink-mute !!
+ * --ink-mute is deliberately set to the mockup's #8B8398, which measures
+ * 3.62:1 on --surface and therefore does NOT meet WCAG AA (4.5:1) for
+ * body text. This is a knowing, product-owner-approved trade of contrast
+ * for design fidelity, made on 2026-08-28 — not an oversight, and not a
+ * regression to silently repair. An earlier revision of this file had
+ * raised this token to #67788d (4.52:1) precisely to clear AA; that change
+ * has been intentionally reverted. --p5 (#B65C7F, 4.35:1) carries the same
+ * exception. If the trade is ever revisited, darken both and delete this
+ * block rather than leaving the note stale.
+ */
 :root {
-  --brand: #6f49a6;
-  --brand-dark: #4e3378;
-  --brand-soft: #f1ebfa;
-  --brand-ink: #4a2e73;
+  /* Tells the browser which palette to render its OWN chrome in — the
+     <input type="time">/"date"> picker icon, default scrollbars,
+     checkboxes, `<select>` arrows — none of which are our markup, so
+     nothing above this file touches them. Unset, Chrome assumes light
+     unconditionally and draws a dark-on-dark time-picker icon on this
+     app's dark surfaces no matter how dark the input itself is. Kept in
+     the same 4-block shape (default / prefers-color-scheme / [data-theme])
+     as every other themed token below, so it flips in step with them. */
+  color-scheme: light;
+
+  --paper: #ffffff;
+  --paper-alt: #f7f5fb;
+  --panel: #ffffff;
+
+  --brand: #483fa6;
+  --brand-dark: #372f80;
+  --brand-soft: #eeebfa;
+  --brand-ink: #372f80;
+  /* Foreground for content painted on a `bg-brand` fill. Needed as its own
+     token — not a hardcoded `text-white` — because --brand itself flips
+     from dark (light mode) to light (dark mode) so it still reads as
+     "brand" against each theme's own surface; a fill that inverts
+     brightness needs its on-fill text to invert with it, or the pairing
+     goes from AA-passing white-on-indigo to ~3:1 white-on-lavender. */
+  --brand-fg: #ffffff;
 
   --risk-low: #87d380;
   --risk-medium: #ffd700;
   --risk-high: #ff8c73;
   --risk-critical: #d9463e;
 
-  --bg: #f6f9fc;
+  --bg: #f7f5fb;
   --surface: #ffffff;
-  --surface-2: #eef3f8;
-  --ink: #0f172a;
-  --ink-soft: #47566b;
-  /* #67788d on #ffffff = 4.52:1 (AA). The prior #93a1b4 measured 2.63:1 —
-     this token carries datelines, stat sub-labels, and timestamps app-wide,
-     so it must clear body-text contrast on its own. */
-  --ink-mute: #67788d;
-  --line: #e1e8f0;
-  --line-strong: #ccd7e3;
+  --surface-2: #efeaf7;
+  --ink: #211c2e;
+  --ink-soft: #5b5568;
+  /* 3.62:1 — below AA by design. See the ACCESSIBILITY EXCEPTION note above. */
+  --ink-mute: #8b8398;
+  --line: rgba(33, 28, 46, 0.12);
+  --line-soft: rgba(33, 28, 46, 0.07);
+  --line-strong: rgba(33, 28, 46, 0.24);
+
+  /* Brand spectrum — five stops across the logo's indigo-to-rose gradient.
+     The `-soft` variants are the vivid, decorative end (fills, dots, the
+     gradient button); the unsuffixed ones are the darker text/icon-safe
+     end. Distinct from --pillar-* below, which are per-route PRODUCT
+     colors used by the dashboard and mood charts — these five are the
+     marketing spectrum for the landing narrative. Both sets coexist. */
+  --p1: #483fa6;
+  --p2: #63469c;
+  --p3: #7f4e92;
+  --p4: #9b5589;
+  --p5: #b65c7f;
+  --p1-soft: #5a4fcf;
+  --p2-soft: #7c58c3;
+  --p3-soft: #9f61b7;
+  --p4-soft: #c26aab;
+  --p5-soft: #e4739f;
+
+  --green: #2f633f;
+  --stem: #7b9a72;
+  --gold: #d9a73e;
+
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 26px;
+  --shadow: 0 14px 34px -18px rgba(33, 28, 46, 0.32);
+  --shadow-card: 0 1px 2px rgba(33, 28, 46, 0.05);
+  --ease: cubic-bezier(0.22, 0.8, 0.28, 1);
 
   --success: #15803d;
   --success-bg: #e6f4ea;
@@ -34,108 +106,186 @@
      muted-palette and high-contrast ui_preferences (below) can reach them
      like every other color. Naming is by route, not by the retired
      Predict/Energize/Tune In/Anchor/Link/Adapt vocabulary.
-     Nudges/mood/boundary/kudos/focus are darkened from the pastel hexes
-     the dashboard used inline (#C7A2E5, #FFB5C5, #A8D592/#87D380, #87CEEB)
-     — those measured under 2:1 against --surface and were only ever used
-     as icon tints, never as text; these versions clear 4.5:1 so the same
-     token is safe to use for the metric text next to each icon too. */
-  --pillar-burnout: #6f49a6;
-  --pillar-nudges: #7c5aa8;
-  --pillar-mood: #c23d6b;
-  --pillar-boundary: #4d8a3f;
-  --pillar-kudos: #2f8a56;
-  --pillar-tasks: #4e3378;
-  --pillar-focus: #2b7a94;
+     Aliased onto the brand spectrum (--p1..--p5 above) rather than given
+     independent hex values, as of the 2026-08-28 reskin — a pillar's color
+     is now the same value whether it's rendered on the public landing page
+     (lib/landing.ts's PILLAR_ACCENT, same mapping) or the signed-in
+     product. Two pairs share a stop (7 pillars, 5 spectrum stops): mood
+     joins nudges under lib/pillars.ts's "Wellbeing" category, tasks joins
+     focus under "Productivity". This is one-directional aliasing, not a
+     rename — call sites keep using var(--pillar-mood) etc. unchanged; only
+     this file's own definition of that token moved. */
+  --pillar-burnout: var(--p1);
+  --pillar-nudges: var(--p2);
+  --pillar-mood: var(--p2);
+  --pillar-boundary: var(--p5);
+  --pillar-kudos: var(--p3);
+  --pillar-tasks: var(--p4);
+  --pillar-focus: var(--p4);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #c7a2e5;
-    --brand-dark: #ddbfef;
-    --brand-soft: rgba(199, 162, 229, 0.16);
-    --brand-ink: #e4d4f5;
+    color-scheme: dark;
 
-    --bg: #0a0f1a;
-    --surface: #111a29;
-    --surface-2: #17233780;
-    --ink: #eef3f9;
-    --ink-soft: #9fb0c4;
-    /* #74869e on #111a29 = 4.69:1 (AA). The prior #5c6c82 measured 3.26:1. */
-    --ink-mute: #74869e;
-    --line: #223046;
-    --line-strong: #2c3c56;
+    --paper: #17121f;
+    --paper-alt: #1c1526;
+    --panel: #221b31;
+
+    --brand: #8d82f0;
+    --brand-dark: #a79ef5;
+    --brand-soft: rgba(141, 130, 240, 0.16);
+    --brand-ink: #c5bef7;
+    --brand-fg: #17121f;
+
+    --bg: #17121f;
+    --surface: #221b31;
+    --surface-2: #1c1526;
+    --ink: #f3effb;
+    --ink-soft: #b7adc7;
+    --ink-mute: #8b7fa0;
+    --line: rgba(255, 255, 255, 0.13);
+    --line-soft: rgba(255, 255, 255, 0.06);
+    --line-strong: rgba(255, 255, 255, 0.24);
+
+    --p1: #8d82f0;
+    --p2: #aa86e3;
+    --p3: #c68ad6;
+    --p4: #e28dca;
+    --p5: #ff91bd;
+    --p1-soft: #8d82f0;
+    --p2-soft: #aa86e3;
+    --p3-soft: #c68ad6;
+    --p4-soft: #e28dca;
+    --p5-soft: #ff91bd;
+
+    --green: #7bd69b;
+    --stem: #7fa476;
+    --gold: #f0c25e;
+
+    --shadow: 0 20px 46px -18px rgba(0, 0, 0, 0.65);
 
     --success: #4ade80;
     --success-bg: rgba(74, 222, 128, 0.12);
     --warning: #f0b862;
     --warning-bg: rgba(240, 184, 98, 0.12);
 
-    --pillar-burnout: #b79bdb;
-    --pillar-nudges: #c7a2e5;
-    --pillar-mood: #e57ba3;
-    --pillar-boundary: #90c97e;
-    --pillar-kudos: #7fce9a;
-    --pillar-tasks: #a894cf;
-    --pillar-focus: #7ec8dd;
+    --pillar-burnout: var(--p1);
+    --pillar-nudges: var(--p2);
+    --pillar-mood: var(--p2);
+    --pillar-boundary: var(--p5);
+    --pillar-kudos: var(--p3);
+    --pillar-tasks: var(--p4);
+    --pillar-focus: var(--p4);
   }
 }
 
 :root[data-theme="dark"] {
-  --brand: #c7a2e5;
-  --brand-dark: #ddbfef;
-  --brand-soft: rgba(199, 162, 229, 0.16);
-  --brand-ink: #e4d4f5;
+  color-scheme: dark;
 
-  --bg: #0a0f1a;
-  --surface: #111a29;
-  --surface-2: #17233780;
-  --ink: #eef3f9;
-  --ink-soft: #9fb0c4;
-  --ink-mute: #74869e;
-  --line: #223046;
-  --line-strong: #2c3c56;
+  --paper: #17121f;
+  --paper-alt: #1c1526;
+  --panel: #221b31;
+
+  --brand: #8d82f0;
+  --brand-dark: #a79ef5;
+  --brand-soft: rgba(141, 130, 240, 0.16);
+  --brand-ink: #c5bef7;
+  --brand-fg: #17121f;
+
+  --bg: #17121f;
+  --surface: #221b31;
+  --surface-2: #1c1526;
+  --ink: #f3effb;
+  --ink-soft: #b7adc7;
+  --ink-mute: #8b7fa0;
+  --line: rgba(255, 255, 255, 0.13);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --line-strong: rgba(255, 255, 255, 0.24);
+
+  --p1: #8d82f0;
+  --p2: #aa86e3;
+  --p3: #c68ad6;
+  --p4: #e28dca;
+  --p5: #ff91bd;
+  --p1-soft: #8d82f0;
+  --p2-soft: #aa86e3;
+  --p3-soft: #c68ad6;
+  --p4-soft: #e28dca;
+  --p5-soft: #ff91bd;
+
+  --green: #7bd69b;
+  --stem: #7fa476;
+  --gold: #f0c25e;
+
+  --shadow: 0 20px 46px -18px rgba(0, 0, 0, 0.65);
 
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.12);
   --warning: #f0b862;
   --warning-bg: rgba(240, 184, 98, 0.12);
 
-  --pillar-burnout: #b79bdb;
-  --pillar-nudges: #c7a2e5;
-  --pillar-mood: #e57ba3;
-  --pillar-boundary: #90c97e;
-  --pillar-kudos: #7fce9a;
-  --pillar-tasks: #a894cf;
-  --pillar-focus: #7ec8dd;
+  --pillar-burnout: var(--p1);
+  --pillar-nudges: var(--p2);
+  --pillar-mood: var(--p2);
+  --pillar-boundary: var(--p5);
+  --pillar-kudos: var(--p3);
+  --pillar-tasks: var(--p4);
+  --pillar-focus: var(--p4);
 }
 
 :root[data-theme="light"] {
-  --brand: #6f49a6;
-  --brand-dark: #4e3378;
-  --brand-soft: #f1ebfa;
-  --brand-ink: #4a2e73;
+  color-scheme: light;
 
-  --bg: #f6f9fc;
+  --paper: #ffffff;
+  --paper-alt: #f7f5fb;
+  --panel: #ffffff;
+
+  --brand: #483fa6;
+  --brand-dark: #372f80;
+  --brand-soft: #eeebfa;
+  --brand-ink: #372f80;
+  --brand-fg: #ffffff;
+
+  --bg: #f7f5fb;
   --surface: #ffffff;
-  --surface-2: #eef3f8;
-  --ink: #0f172a;
-  --ink-soft: #47566b;
-  --ink-mute: #67788d;
-  --line: #e1e8f0;
-  --line-strong: #ccd7e3;
+  --surface-2: #efeaf7;
+  --ink: #211c2e;
+  --ink-soft: #5b5568;
+  --ink-mute: #8b8398;
+  --line: rgba(33, 28, 46, 0.12);
+  --line-soft: rgba(33, 28, 46, 0.07);
+  --line-strong: rgba(33, 28, 46, 0.24);
+
+  --p1: #483fa6;
+  --p2: #63469c;
+  --p3: #7f4e92;
+  --p4: #9b5589;
+  --p5: #b65c7f;
+  --p1-soft: #5a4fcf;
+  --p2-soft: #7c58c3;
+  --p3-soft: #9f61b7;
+  --p4-soft: #c26aab;
+  --p5-soft: #e4739f;
+
+  --green: #2f633f;
+  --stem: #7b9a72;
+  --gold: #d9a73e;
+
+  --shadow: 0 14px 34px -18px rgba(33, 28, 46, 0.32);
 
   --success: #15803d;
   --success-bg: #e6f4ea;
   --warning: #b45309;
   --warning-bg: #fbedd6;
 
-  --pillar-burnout: #6f49a6;
-  --pillar-nudges: #7c5aa8;
-  --pillar-mood: #c23d6b;
-  --pillar-boundary: #4d8a3f;
-  --pillar-kudos: #2f8a56;
-  --pillar-tasks: #4e3378;
-  --pillar-focus: #2b7a94;
+  --pillar-burnout: var(--p1);
+  --pillar-nudges: var(--p2);
+  --pillar-mood: var(--p2);
+  --pillar-boundary: var(--p5);
+  --pillar-kudos: var(--p3);
+  --pillar-tasks: var(--p4);
+  --pillar-focus: var(--p4);
 }
 
 @theme inline {
@@ -143,6 +293,7 @@
   --color-brand-dark: var(--brand-dark);
   --color-brand-soft: var(--brand-soft);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-fg: var(--brand-fg);
 
   --color-risk-low: var(--risk-low);
   --color-risk-medium: var(--risk-medium);
@@ -171,8 +322,29 @@
   --color-pillar-tasks: var(--pillar-tasks);
   --color-pillar-focus: var(--pillar-focus);
 
+  --color-paper: var(--paper);
+  --color-paper-alt: var(--paper-alt);
+  --color-panel: var(--panel);
+  --color-line-soft: var(--line-soft);
+
+  --color-p1: var(--p1);
+  --color-p2: var(--p2);
+  --color-p3: var(--p3);
+  --color-p4: var(--p4);
+  --color-p5: var(--p5);
+  --color-p1-soft: var(--p1-soft);
+  --color-p2-soft: var(--p2-soft);
+  --color-p3-soft: var(--p3-soft);
+  --color-p4-soft: var(--p4-soft);
+  --color-p5-soft: var(--p5-soft);
+
+  --color-green: var(--green);
+  --color-stem: var(--stem);
+  --color-gold: var(--gold);
+
   --font-sans: var(--font-inter);
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, "SF Mono", Consolas, monospace;
 }
 
 * {
@@ -338,53 +510,41 @@ html {
   }
 }
 
-@keyframes float-y {
+@keyframes axo-float {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translateY(0px);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-1.6px);
   }
 }
 
-@keyframes rise-fade {
+@keyframes axo-rise {
   0% {
     opacity: 0;
-    transform: translateY(6px) scale(0.9);
+    transform: translateY(2px);
   }
   30% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translateY(-22px) scale(1.05);
+    transform: translateY(-7px);
   }
 }
 
-@keyframes tear-fall {
+@keyframes axo-tear {
   0% {
     opacity: 0;
-    transform: translateY(-2px) scale(0.8);
+    transform: translateY(0px);
   }
-  30% {
+  25% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translateY(10px) scale(1);
-  }
-}
-
-@keyframes sparkle-pop {
-  0%,
-  100% {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.15);
+    transform: translateY(7px);
   }
 }
 
@@ -406,40 +566,104 @@ html {
   animation: toast-in 0.18s ease-out;
 }
 
-/* ---- axolotl ---- */
+/* ---- axolotl ----
+ * Ported from a design export (see components/mood/axolotlPixelArt.tsx's
+ * header comment). `.group:hover` reveals it via the existing `group` class
+ * MoodClient.tsx already puts on each mood-picker button; `.axo-active`
+ * reveals it independent of hover, for the picked/hero state. */
 
-.axolotl-body {
+.axo-art {
   opacity: 0.62;
   transform-origin: 50% 60%;
   transform-box: fill-box;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
-.group:hover .axolotl-body,
-.axolotl-active .axolotl-body {
+.group:hover .axo-art,
+.axo-active .axo-art {
   opacity: 1;
   transform: scale(1.06);
 }
 
-.axolotl-tear,
-.axolotl-bubble,
-.axolotl-heart,
-.axolotl-sparkle {
-  opacity: 0.85;
+.axo-amb {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.group:hover .axo-amb,
+.axo-active .axo-amb {
+  opacity: 1;
+}
+
+/* One-shot "poke" micro-interaction shared by every Wellbeing pillar's
+ * small playful trigger (components/ui/PokeBadge.tsx) — the picked/hero
+ * axolotl on Mood, plus a badge/icon on each of the other pillars.
+ * Unguarded by prefers-reduced-motion:no-preference, same as
+ * .animate-row-flash/.animate-toast-in above — a single ~0.5s bounce falls
+ * under the blanket reduced-motion killer further down this file rather
+ * than needing its own no-preference wrapper, which is reserved for the
+ * continuously-looping axo-float/axo-rise/axo-tear. */
+@keyframes poke-bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.9, 1.1);
+  }
+  60% {
+    transform: scale(1.08, 0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.poke-bump {
+  display: inline-block;
+  animation: poke-bump 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes reaction-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -10px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -16px) scale(0.95);
+  }
+}
+
+.reaction-pop {
+  animation: reaction-pop 1.4s ease-out;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .axolotl-tear {
-    animation: tear-fall 1.8s ease-in-out infinite;
+  .axo-float {
+    animation: axo-float 3.2s ease-in-out infinite;
   }
-  .axolotl-bubble {
-    animation: rise-fade 2.6s ease-in-out infinite;
+  .axo-rise-1 {
+    animation: axo-rise 2.6s ease-in-out infinite;
   }
-  .axolotl-heart {
-    animation: rise-fade 2.3s ease-in-out infinite;
+  .axo-rise-2 {
+    animation: axo-rise 2.6s ease-in-out 0.9s infinite;
   }
-  .axolotl-sparkle {
-    animation: sparkle-pop 1.6s ease-in-out infinite;
+  .axo-rise-3 {
+    animation: axo-rise 2.6s ease-in-out 1.7s infinite;
+  }
+  .axo-tear-1 {
+    animation: axo-tear 2.4s ease-in infinite;
+  }
+  .axo-tear-2 {
+    animation: axo-tear 2.4s ease-in 1.2s infinite;
   }
 }
 
@@ -450,5 +674,258 @@ html {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+/* Landing page (app/page.tsx + app/landing/*) ---------------------------
+ *
+ * Every effect here defaults to its FINISHED state (fully opaque, no
+ * transform) and only animates inside a `prefers-reduced-motion:
+ * no-preference` guard. A browser that skips the @supports block, or a
+ * user who prefers reduced motion, always sees static, fully-visible
+ * content. First paint never depends on JS or on animation support.
+ *
+ * These are plain CSS classes rather than Tailwind utilities only where
+ * the effect genuinely can't be expressed as one: scroll-driven
+ * animations, ::before accent bars, and nth-child stagger delays.
+ * Everything else on the landing page uses normal Tailwind utilities.
+ */
+
+@keyframes landing-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-reveal {
+  opacity: 1;
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .landing-reveal {
+      opacity: 0;
+      animation: landing-reveal linear both;
+      animation-timeline: view();
+      /* Both endpoints MUST name the same range phase. An earlier revision
+         used `entry 0% cover 32%`; mixing phases yields a degenerate range
+         the animation never advances through, so `both` fill pinned every
+         row at the 0%-keyframe — i.e. opacity 0 — and whole sections of
+         the page rendered blank while fully on screen. Keep this as a
+         single-phase `entry` range. */
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+/* Hero tulip illustration — ported from the landing mockup's own hero-art
+ * markup (app/landing/LandingHero.tsx renders the paths this styles).
+ * Three petals draw in as a stroke outline, hold, then undraw and redraw
+ * again — an ongoing loop, not a one-time entrance — with a soft gradient
+ * "wash" and the stem/leaf fading in and out in step. The whole rig sways
+ * continuously and independently of that cycle.
+ *
+ * Every rule here follows the same base-state contract as `.landing-reveal`
+ * above (see that comment): the finished, fully-drawn illustration is the
+ * DEFAULT state, applied unconditionally. Only inside `prefers-reduced-
+ * motion: no-preference` do the paths start from their pre-drawn state and
+ * animate — so a reduced-motion user, or a browser evaluating the base
+ * rules before the media query, never sees a half-drawn or blank tulip.
+ * (An earlier scroll-reveal animation on this same page shipped with a
+ * degenerate `animation-range` that pinned elements at their 0%-opacity
+ * keyframe while on screen — this structure is deliberately the opposite:
+ * finished state unconditional, animated state opt-in.)
+ *
+ * The three petals share one keyframe timeline but keep the entrance
+ * version's per-petal animation-delay (0.1s / 0.5s / 0.9s). Since all three
+ * run the same duration on `infinite`, that delay is a constant phase
+ * offset — it staggers every redraw, not just the first.
+ */
+
+.hero-tulip-draw {
+  stroke-dashoffset: 0;
+}
+
+.hero-tulip-wash {
+  opacity: 0.07;
+}
+
+.hero-tulip-stem,
+.hero-tulip-leaf {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* One 7s cycle: draw (0–14%), hold drawn (14–64%), undraw (64–78%), hold
+   hidden (78–100%, which meets 0% at the same value — no jump on repeat). */
+@keyframes hero-tulip-draw-loop {
+  0%,
+  100% {
+    stroke-dashoffset: 1;
+  }
+  14%,
+  64% {
+    stroke-dashoffset: 0;
+  }
+  78% {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes hero-tulip-wash-loop {
+  0%,
+  14%,
+  100% {
+    opacity: 0;
+  }
+  28%,
+  55% {
+    opacity: 0.07;
+  }
+  64% {
+    opacity: 0;
+  }
+}
+
+@keyframes hero-tulip-stem-loop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  10%,
+  68% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  80% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes landing-sway {
+  from {
+    transform: rotate(-1.1deg);
+  }
+  to {
+    transform: rotate(1.1deg);
+  }
+}
+
+/* Wider, quicker sway for the hero mark specifically — it's the page's
+   centerpiece and reads as near-static at the field tulips' amplitude.
+   Kept separate from `landing-sway` rather than widening that keyframe,
+   since the CTA tulip field also uses it and hasn't asked to change. */
+@keyframes landing-sway-hero {
+  from {
+    transform: rotate(-3deg);
+  }
+  to {
+    transform: rotate(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* pathLength=1 (set on each <path> in LandingHero.tsx) normalizes stroke
+     length to the 0..1 range this dashoffset animation assumes, regardless
+     of the path's actual geometric length. */
+  .hero-tulip-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: hero-tulip-draw-loop 7s var(--ease) infinite;
+  }
+  .hero-tulip-draw.p-left {
+    animation-delay: 0.1s;
+  }
+  .hero-tulip-draw.p-center {
+    animation-delay: 0.5s;
+  }
+  .hero-tulip-draw.p-right {
+    animation-delay: 0.9s;
+  }
+
+  .hero-tulip-wash {
+    opacity: 0;
+    animation: hero-tulip-wash-loop 7s var(--ease) infinite;
+  }
+
+  .hero-tulip-stem,
+  .hero-tulip-leaf {
+    opacity: 0;
+    animation: hero-tulip-stem-loop 7s var(--ease) infinite;
+  }
+
+  .landing-mark {
+    transform-box: fill-box;
+    transform-origin: 100px 190px;
+    animation: landing-sway-hero 5s ease-in-out infinite alternate;
+  }
+
+  /* Targets the INNER div (the sway animation's only transform source —
+     see the nested-elements comment in TulipField.tsx), while nth-child
+     counts position on the OUTER div, which is what's actually staggered
+     across the row. nth-child count matches TULIPS in TulipField.tsx (7)
+     — add a rule here if that array grows. */
+  .landing-field > * > * {
+    animation: landing-sway 6s ease-in-out infinite alternate;
+  }
+  .landing-field > *:nth-child(2) > * {
+    animation-delay: 0.3s;
+  }
+  .landing-field > *:nth-child(3) > * {
+    animation-delay: 0.6s;
+  }
+  .landing-field > *:nth-child(4) > * {
+    animation-delay: 0.9s;
+  }
+  .landing-field > *:nth-child(5) > * {
+    animation-delay: 1.2s;
+  }
+  .landing-field > *:nth-child(6) > * {
+    animation-delay: 1.5s;
+  }
+  .landing-field > *:nth-child(7) > * {
+    animation-delay: 1.8s;
+  }
+}
+
+/* Feature card: accent bar wipes across the top edge on hover. */
+.landing-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 3px;
+  width: 0;
+  background: var(--accent, var(--ink));
+  transition: width 0.4s var(--ease);
+}
+
+.landing-card:hover::before,
+.landing-card:focus-within::before {
+  width: 100%;
+}
+
+/* Pillar row: the glyph tilts when its row is hovered. */
+.landing-pillar:hover .landing-glyph {
+  transform: rotate(8deg) scale(1.06);
+}
+
+/* How-it-works: hairline separators between steps, dropped once stacked. */
+@media (min-width: 768px) {
+  .landing-step + .landing-step::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 1px;
+    height: calc(100% - 12px);
+    background: var(--line);
   }
 }

@@ -5,13 +5,44 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { PokeBadge } from "@/components/ui/PokeBadge";
 import { evaluateBoundaryV2, fmtInstant } from "@/lib/boundary-v2";
-import type { WorkSchedule } from "@/lib/schedule";
+import { isWithinWorkingHours, nextWorkStart, type WorkSchedule } from "@/lib/schedule";
 import { sendBoundaryMessage } from "./actions";
 import type { Employee } from "@/types/employee";
 import type { ActivityEntry, BoundaryStatus } from "@/types/boundary";
+import type { IsoWeekday } from "@/lib/date";
 
 const CHANNELS = ["Slack", "Email"] as const;
+
+/** Purely decorative — a poke on the recipient's avatar, no data implication. */
+const AVAILABILITY_REACTIONS = ["Their time matters", "Off hours respected", "Good boundary!", "Nicely timed"];
+
+const WEEK_DAYS: { iso: IsoWeekday; label: string }[] = [
+  { iso: 1, label: "Mon" },
+  { iso: 2, label: "Tue" },
+  { iso: 3, label: "Wed" },
+  { iso: 4, label: "Thu" },
+  { iso: 5, label: "Fri" },
+  { iso: 6, label: "Sat" },
+  { iso: 7, label: "Sun" },
+];
+
+function fmtMinutes(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  const period = h < 12 ? "am" : "pm";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+/** Mirrors defaultSendAt()'s formatting for an arbitrary Date, so a
+ *  computed "best time" Date can be dropped straight into the
+ *  datetime-local input's sender-local wall-clock value. */
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 const STATUS_TONE: Record<BoundaryStatus, "critical" | "warning" | "success" | "neutral"> = {
   blocked: "critical",
@@ -77,12 +108,13 @@ export function BoundaryClient({
   const [channel, setChannel] = useState<(typeof CHANNELS)[number]>("Slack");
   const [sendAt, setSendAt] = useState(defaultSendAt());
   const [message, setMessage] = useState(
-    "Hey — no rush, just following up on the Q3 handoff doc when you're back."
+    "Hey. No rush, just following up on the Q3 handoff doc when you're back."
   );
   const [activity, setActivity] = useState<ActivityEntry[]>(initialActivity);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   const recipient = employees.find((e) => e.id === recipientId) ?? employees[1];
   const recipientAvailability = availabilityByEmployee[recipientId];
@@ -125,6 +157,9 @@ export function BoundaryClient({
   const recipientNow = recipientAvailability
     ? fmtInstant(new Date(), recipientAvailability.schedule.timezone)
     : null;
+  const recipientCurrentlyWorking = recipientAvailability
+    ? isWithinWorkingHours(recipientAvailability.schedule, new Date())
+    : false;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
@@ -149,17 +184,21 @@ export function BoundaryClient({
               onChange={(e) => setRecipientId(e.target.value)}
               className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
             >
-              {employees.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name}
-                </option>
-              ))}
+              {employees
+                .filter((e) => e.id !== sender.id)
+                .map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
             </select>
           </div>
         </div>
 
         <div className="mt-4 flex items-center gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2.5">
-          <Avatar name={recipient.name} color={recipient.avatarColor} size={32} />
+          <PokeBadge reactions={AVAILABILITY_REACTIONS} label={`Tap ${recipient.name.split(" ")[0]}'s avatar`}>
+            <Avatar name={recipient.name} color={recipient.avatarColor} size={32} />
+          </PokeBadge>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium text-ink">{recipient.name}</div>
             <div className="truncate text-xs text-ink-mute">
@@ -172,14 +211,78 @@ export function BoundaryClient({
               On PTO{recipientAvailability.returnDate ? ` · back ${recipientAvailability.returnDate}` : ""}
             </Chip>
           ) : recipientAvailability ? (
-            <Chip tone="success">
-              Working hours {String(Math.floor(recipientAvailability.schedule.startMin / 60)).padStart(2, "0")}:
+            <Chip tone={recipientCurrentlyWorking ? "success" : "warning"}>
+              {recipientCurrentlyWorking ? "Working hours" : "Off hours"}{" "}
+              {String(Math.floor(recipientAvailability.schedule.startMin / 60)).padStart(2, "0")}:
               {String(recipientAvailability.schedule.startMin % 60).padStart(2, "0")}–
               {String(Math.floor(recipientAvailability.schedule.endMin / 60)).padStart(2, "0")}:
               {String(recipientAvailability.schedule.endMin % 60).padStart(2, "0")}
             </Chip>
           ) : null}
+          {recipientAvailability ? (
+            <button
+              type="button"
+              onClick={() => setScheduleOpen((o) => !o)}
+              aria-expanded={scheduleOpen}
+              className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-soft transition-colors hover:bg-surface hover:text-ink"
+            >
+              {scheduleOpen ? "Hide schedule" : "View schedule"}
+            </button>
+          ) : null}
         </div>
+
+        {scheduleOpen && recipientAvailability ? (
+          <div className="animate-toast-in mt-2 rounded-lg border border-line bg-surface-2 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-ink-mute">
+                {recipient.name.split(" ")[0]}&apos;s weekly schedule
+              </span>
+              <span className="text-[11px] text-ink-mute">{recipientAvailability.schedule.timezone}</span>
+            </div>
+            <div className="mt-2 flex gap-1.5">
+              {WEEK_DAYS.map((d) => {
+                const worked = recipientAvailability.schedule.workdays.includes(d.iso);
+                return (
+                  <span
+                    key={d.iso}
+                    className={`flex h-7 w-9 items-center justify-center rounded-md text-[11px] font-semibold ${
+                      worked ? "bg-brand text-brand-fg" : "bg-surface text-ink-mute"
+                    }`}
+                  >
+                    {d.label}
+                  </span>
+                );
+              })}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <div className="text-ink-mute">Working hours</div>
+                <div className="mt-0.5 font-medium text-ink">
+                  {fmtMinutes(recipientAvailability.schedule.startMin)} – {fmtMinutes(recipientAvailability.schedule.endMin)}
+                </div>
+              </div>
+              <div>
+                <div className="text-ink-mute">Quiet hours</div>
+                <div className="mt-0.5 font-medium text-ink">
+                  {fmtMinutes(recipientAvailability.schedule.quietStartMin)} –{" "}
+                  {fmtMinutes(recipientAvailability.schedule.quietEndMin)}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2.5">
+              <p className="text-xs text-ink-soft">
+                Best time to send: {fmtInstant(nextWorkStart(recipientAvailability.schedule, new Date()), recipientAvailability.schedule.timezone)}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSendAt(toDatetimeLocalValue(nextWorkStart(recipientAvailability.schedule, new Date())))}
+                className="shrink-0 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-brand-fg transition-colors hover:bg-brand-dark"
+              >
+                Use this time
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
@@ -237,7 +340,7 @@ export function BoundaryClient({
         </div>
 
         <div
-          className="mt-5 rounded-lg border p-3"
+          className="mt-5 rounded-lg border p-3 transition-colors duration-200"
           style={{ borderColor: `${STATUS_ACCENT[preview.status]}40`, background: `${STATUS_ACCENT[preview.status]}12` }}
         >
           <div className="flex items-center gap-2">
@@ -262,31 +365,41 @@ export function BoundaryClient({
             <p className="text-sm text-ink-mute">Nothing sent yet.</p>
           ) : (
             <ul className="space-y-2">
-              {activity.map((entry) => (
-                <li
-                  key={entry.id}
-                  className={`rounded-lg border p-2.5 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
-                  style={{ borderColor: "var(--line)", borderLeftColor: STATUS_ACCENT[entry.status], borderLeftWidth: 3 }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <Chip tone={STATUS_TONE[entry.status]}>{STATUS_LABEL[entry.status]}</Chip>
-                    <span className="text-[11px] text-ink-mute">
-                      {new Date(entry.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                  <p className="mt-1 truncate text-ink-soft">
-                    {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
-                  </p>
-                  <p className="mt-0.5 text-xs text-ink-mute">{entry.message}</p>
-                </li>
-              ))}
+              {activity.map((entry) => {
+                // `resolved` overrides the display only — entry.status stays
+                // "delayed" (see types/boundary.ts) so a message held past
+                // working hours doesn't read as still-pending forever once
+                // that time has come and gone.
+                const displayTone = entry.resolved ? "success" : STATUS_TONE[entry.status];
+                const displayLabel = entry.resolved ? "Delivered" : STATUS_LABEL[entry.status];
+                const displayAccent = entry.resolved ? STATUS_ACCENT.delivered : STATUS_ACCENT[entry.status];
+                return (
+                  <li
+                    key={entry.id}
+                    className={`rounded-lg border p-2.5 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
+                    style={{ borderColor: "var(--line)", borderLeftColor: displayAccent, borderLeftWidth: 3 }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <Chip tone={displayTone}>{displayLabel}</Chip>
+                      <span className="text-[11px] text-ink-mute">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs font-medium text-ink">To {entry.recipientName}</p>
+                    <p className="mt-1 truncate text-ink-soft">
+                      {entry.preview || <span className="italic text-ink-mute">(empty message)</span>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-ink-mute">{entry.message}</p>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>
 
         {offHoursByTeam.length > 0 ? (
           <Card>
-            <div className="mb-1 text-sm font-semibold text-ink">Off-hours send rate — HR</div>
+            <div className="mb-1 text-sm font-semibold text-ink">Off-hours send rate (HR)</div>
             <p className="mb-3 text-xs text-ink-mute">Share of messages sent outside the recipient&apos;s hours, last 30 days.</p>
             <ul className="space-y-2">
               {offHoursByTeam.map((row) => {

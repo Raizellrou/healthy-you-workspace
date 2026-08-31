@@ -1,32 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useTheme } from "@/lib/use-theme";
 
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    // One-time read of browser-only state on mount, deferred to an effect
-    // so the SSR pass and first client render agree before this can diverge.
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsDark(stored ? stored === "dark" : prefersDark);
-  }, []);
-
-  function toggle() {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.setAttribute("data-theme", next ? "dark" : "light");
-    localStorage.setItem("theme", next ? "dark" : "light");
-  }
+  const { isDark, toggle } = useTheme();
 
   return (
     <button
       type="button"
       onClick={toggle}
       aria-pressed={isDark}
-      className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:bg-surface-2"
+      className="flex w-full items-center gap-2 whitespace-nowrap rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:bg-surface-2"
     >
       {isDark ? (
         <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
@@ -38,7 +22,7 @@ export function ThemeToggle() {
           <path d="M17 11.5A7.5 7.5 0 018.5 3 7.5 7.5 0 1017 11.5z" strokeLinejoin="round" />
         </svg>
       )}
-      {isDark ? "Light mode" : "Dark mode"}
+      {isDark ? "Switch to light mode" : "Switch to dark mode"}
     </button>
   );
 }

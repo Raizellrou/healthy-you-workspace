@@ -54,7 +54,7 @@ export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
             account-level row that waits on Save. It used to live in every
             page's nav panel instead of here, where the rest of the
             appearance controls actually are. */}
-        <div className="w-44">
+        <div className="w-fit">
           <ThemeToggle />
         </div>
       </div>

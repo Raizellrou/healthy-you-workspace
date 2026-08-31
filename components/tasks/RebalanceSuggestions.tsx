@@ -61,8 +61,8 @@ export function RebalanceSuggestions({ moves }: { moves: RebalanceMove[] }) {
 
   if (visible.length === 0) {
     return applied.size > 0 ? (
-      <Card>
-        <p className="text-sm text-ink-soft">Rebalance applied — {applied.size} task{applied.size === 1 ? "" : "s"} moved.</p>
+      <Card key="applied" className="animate-toast-in">
+        <p className="text-sm text-ink-soft">Rebalance applied. {applied.size} task{applied.size === 1 ? "" : "s"} moved.</p>
       </Card>
     ) : null;
   }
@@ -90,7 +90,7 @@ export function RebalanceSuggestions({ moves }: { moves: RebalanceMove[] }) {
             className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs"
           >
             <span className="text-ink-soft">
-              Move <span className="font-medium text-ink">&ldquo;{move.taskTitle}&rdquo;</span> ({move.estimateHours}h) —{" "}
+              Move <span className="font-medium text-ink">&ldquo;{move.taskTitle}&rdquo;</span> ({move.estimateHours}h):{" "}
               <span className="font-medium text-ink">{move.fromName}</span> →{" "}
               <span className="font-medium text-ink">{move.toName}</span>
             </span>

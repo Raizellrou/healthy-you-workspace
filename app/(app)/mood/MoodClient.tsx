@@ -3,12 +3,17 @@
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { PokeBadge } from "@/components/ui/PokeBadge";
 import { Icon } from "@/components/icons/Icon";
 import { Axolotl } from "@/components/mood/Axolotl";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { MOODS, MOOD_TAGS } from "@/lib/constants";
 import { submitMoodCheckin, updateMoodDetails } from "./actions";
 import { useActionToast } from "@/lib/toast-context";
+
+/** Purely decorative — no data implication, just a small reward for
+ *  noticing the axolotl is there once you've already checked in. */
+const AXO_REACTIONS = ["Boop!", "Hi there!", "*wiggles*", "Squeak!", "That's my favorite spot", "Axolotl says hi"];
 
 export interface TeamAggregate {
   avgMood: number | null;
@@ -120,13 +125,15 @@ export function MoodClient({
               <Icon name="lock" size={14} className="mt-0.5 shrink-0" />
               <p>
                 Your check-in is completely private. Team results only ever show once 3 or
-                more people have responded — individual responses are never visible.
+                more people have responded. Individual responses are never visible.
               </p>
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center gap-4 text-center">
-            <Axolotl mood={pickedMood} active size={96} />
+          <div className="animate-toast-in flex flex-col items-center gap-4 text-center">
+            <PokeBadge reactions={AXO_REACTIONS} label={`Give the ${pickedMood.label.toLowerCase()} axolotl a boop`}>
+              <Axolotl mood={pickedMood} active size={96} />
+            </PokeBadge>
             <div>
               <div className="text-sm font-medium text-ink-mute">
                 You checked in as <span className="text-ink">{pickedMood.label}</span>
@@ -137,12 +144,12 @@ export function MoodClient({
                 </div>
               ) : null}
               <blockquote className="mt-2 text-lg font-medium text-ink">“{pickedMood.quote}”</blockquote>
-              <p className="mt-1 text-sm text-ink-mute">— {pickedMood.attribution}</p>
+              <p className="mt-1 text-sm text-ink-mute">({pickedMood.attribution})</p>
               {pickedMood.kicker ? (
                 <p className="mt-3 text-sm font-medium text-brand-ink">{pickedMood.kicker}</p>
               ) : null}
               <p className="mt-4 text-sm text-ink-mute">
-                That&apos;s today&apos;s check-in — see you back here tomorrow.
+                That&apos;s today&apos;s check-in. See you back here tomorrow.
               </p>
             </div>
 
@@ -179,7 +186,7 @@ export function MoodClient({
             ) : null}
 
             {detailsOpen ? (
-              <div className="w-full rounded-lg border border-line bg-surface-2 p-3 text-left">
+              <div className="animate-toast-in w-full rounded-lg border border-line bg-surface-2 p-3 text-left">
                 <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-mute">Energy level</div>
                 <div className="mb-3 flex gap-1.5">
                   {[1, 2, 3, 4, 5].map((n) => (
@@ -226,14 +233,18 @@ export function MoodClient({
                   className="w-full resize-none rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
                 />
                 <div className="mt-2 flex justify-end gap-2">
-                  <button type="button" onClick={() => setDetailsOpen(false)} className="text-xs text-ink-mute">
+                  <button
+                    type="button"
+                    onClick={() => setDetailsOpen(false)}
+                    className="text-xs text-ink-mute transition-colors hover:text-ink"
+                  >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveDetails}
                     disabled={detailsPending}
-                    className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                    className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-brand-fg disabled:opacity-60"
                   >
                     {detailsPending ? "Saving…" : "Save"}
                   </button>
@@ -249,7 +260,7 @@ export function MoodClient({
           <SectionLabel className="mb-1">Team mood today</SectionLabel>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold" style={{ color: "var(--pillar-mood)" }}>
-              {orgAvgToday !== null ? orgAvgToday.toFixed(1) : "—"}
+              {orgAvgToday !== null ? orgAvgToday.toFixed(1) : "–"}
             </span>
             <span className="text-sm text-ink-mute">/ 5</span>
             {orgDelta !== null && Math.abs(orgDelta) >= 0.05 ? (
@@ -268,20 +279,23 @@ export function MoodClient({
           {trendValues.some((v) => v > 0) ? (
             <Sparkline values={trendValues} stroke="var(--pillar-mood)" filled width={272} height={48} />
           ) : (
-            <p className="text-xs text-ink-mute">Not enough org-wide check-ins yet — each day needs 3+ to show.</p>
+            <p className="text-xs text-ink-mute">Not enough org-wide check-ins yet. Each day needs 3+ to show.</p>
           )}
           <p className="mt-1 text-xs text-ink-mute">Days with fewer than 3 check-ins are excluded, never shown as zero.</p>
         </Card>
 
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-ink">Team trends — today</h2>
+          <h2 className="mb-3 text-sm font-semibold text-ink">Team trends (today)</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {Object.entries(teamAggregates).map(([team, agg]) => {
               const repMood = agg.avgMood !== null ? MOODS[Math.round(agg.avgMood) - 1] : MOODS[2];
               const delta =
                 agg.avgMood !== null && agg.avgMoodLastWeek !== null ? agg.avgMood - agg.avgMoodLastWeek : null;
               return (
-                <Card key={team}>
+                <Card
+                  key={team}
+                  style={{ borderLeftColor: repMood.body, borderLeftWidth: 3 }}
+                >
                   <div className="flex items-center gap-3">
                     <Axolotl mood={repMood} size={36} />
                     <div>

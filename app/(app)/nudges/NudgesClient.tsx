@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { PageHead } from "@/components/ui/PageHead";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { Chip } from "@/components/ui/Chip";
+import { PokeBadge } from "@/components/ui/PokeBadge";
 import { Icon } from "@/components/icons/Icon";
 import { NudgeToastCard } from "@/components/nudges/NudgeToastCard";
 import { useNudges } from "@/lib/nudge-context";
@@ -32,16 +34,19 @@ const NUDGE_ACCENT: Record<NudgeType, string> = {
   posture: "#FFB5C5",
 };
 
+/** Purely decorative — a poke on today's tally, no data implication. */
+const TALLY_REACTIONS = ["Stay hydrated!", "Stretch break?", "Rest your eyes for a sec", "Nice pace today"];
+
 function permissionCopy(state: string): string {
   switch (state) {
     case "unsupported":
       return "Notifications aren't supported in this browser.";
     case "granted":
-      return "Notifications are enabled — you'll get an alert if a nudge fires while you're on another tab.";
+      return "Notifications are enabled. You'll get an alert if a nudge fires while you're on another tab.";
     case "denied":
       return "Notifications are blocked. Enable them in your browser settings to get alerts on other tabs.";
     default:
-      return "Notifications haven't been requested yet — click Start to ask.";
+      return "Notifications haven't been requested yet. Click Start to ask.";
   }
 }
 
@@ -68,6 +73,18 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
   const sentCount = log.filter((l) => l.result === "sent").length;
   const suppressedCount = log.filter((l) => l.result === "suppressed").length;
 
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const lastLogId = useRef<string | null>(null);
+  useEffect(() => {
+    const topId = log[0]?.id ?? null;
+    if (topId && topId !== lastLogId.current) {
+      lastLogId.current = topId;
+      setFlashId(topId);
+      const timer = window.setTimeout(() => setFlashId((cur) => (cur === topId ? null : cur)), 1400);
+      return () => window.clearTimeout(timer);
+    }
+  }, [log]);
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-8">
       <div className="mb-1 flex items-center gap-2">
@@ -78,7 +95,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
       </div>
       <PageHead
         title="Nudges"
-        description="Simulated wellness nudges — quiet-hours-aware, capped, and snoozable."
+        description="Simulated wellness nudges. Quiet-hours-aware, capped, and snoozable."
       />
 
       {noBreakMinutes !== null && noBreakMinutes >= 180 ? (
@@ -91,25 +108,34 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
             <span className="font-semibold text-ink">
               {Math.floor(noBreakMinutes / 60)}h {noBreakMinutes % 60}m
             </span>{" "}
-            clocked in with no break recorded today — real signal, from your actual open session.
+            clocked in with no break recorded today. Real signal, from your actual open session.
           </p>
         </div>
       ) : null}
 
       <div className="mb-6 flex flex-wrap gap-3">
         {[
-          { label: "Today", value: dailyCount, color: "#C7A2E5" },
-          { label: "Sent", value: sentCount, color: "#87D380" },
-          { label: "Suppressed", value: suppressedCount, color: "var(--ink-mute)" },
-          { label: "Daily cap", value: NUDGE_DAILY_CAP, color: "#6F49A6" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-lg border border-line bg-surface px-4 py-2 text-center">
-            <div className="text-xl font-bold" style={{ color: s.color }}>
-              {s.value}
+          { label: "Today", value: dailyCount, color: "#C7A2E5", poke: true },
+          { label: "Sent", value: sentCount, color: "#87D380", poke: false },
+          { label: "Suppressed", value: suppressedCount, color: "var(--ink-mute)", poke: false },
+          { label: "Daily cap", value: NUDGE_DAILY_CAP, color: "#6F49A6", poke: false },
+        ].map((s) => {
+          const tile = (
+            <div className="rounded-lg border border-line bg-surface px-4 py-2 text-center">
+              <div className="text-xl font-bold" style={{ color: s.color }}>
+                {s.value}
+              </div>
+              <div className="text-[10px] text-ink-mute">{s.label}</div>
             </div>
-            <div className="text-[10px] text-ink-mute">{s.label}</div>
-          </div>
-        ))}
+          );
+          return s.poke ? (
+            <PokeBadge key={s.label} reactions={TALLY_REACTIONS} label="Tap for a friendly nudge" shapeClassName="rounded-lg">
+              {tile}
+            </PokeBadge>
+          ) : (
+            <div key={s.label}>{tile}</div>
+          );
+        })}
       </div>
 
       <Card className="mb-6">
@@ -167,7 +193,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
         </div>
         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-2">
           <div
-            className="h-full rounded-full bg-brand transition-[width]"
+            className="h-full rounded-full bg-brand transition-[width] duration-300 ease-out"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -177,6 +203,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
       {activeToast ? (
         <div className="mb-6">
           <NudgeToastCard
+            key={activeToast.id}
             type={activeToast.type}
             onDone={() => resolveToast("done")}
             onSnooze={() => resolveToast("snooze")}
@@ -187,7 +214,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
       <Card>
         <div className="mb-3 text-sm font-semibold text-ink">Nudge log</div>
         {log.length === 0 ? (
-          <p className="text-sm text-ink-mute">Nothing yet — start a session to begin.</p>
+          <p className="text-sm text-ink-mute">Nothing yet. Start a session to begin.</p>
         ) : (
           <ul aria-live="polite" className="flex flex-col gap-2">
             {log.map((entry) => {
@@ -197,7 +224,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
               return (
                 <li
                   key={entry.id}
-                  className="flex items-start gap-3 rounded-lg border p-3 text-sm"
+                  className={`flex items-start gap-3 rounded-lg border p-3 text-sm ${flashId === entry.id ? "animate-row-flash" : ""}`}
                   style={{
                     borderColor: suppressed ? "var(--line)" : `${accent}40`,
                     borderLeftColor: suppressed ? "var(--line)" : accent,
@@ -220,7 +247,7 @@ export function NudgesClient({ noBreakMinutes }: { noBreakMinutes: number | null
                   </div>
                   <Chip tone={RESULT_TONE[entry.result]}>
                     {RESULT_LABEL[entry.result]}
-                    {entry.reason ? ` — ${entry.reason}` : ""}
+                    {entry.reason ? `: ${entry.reason}` : ""}
                   </Chip>
                 </li>
               );

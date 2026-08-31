@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSee, isHr, isManagerOf, scopeLabel, visibleTo } from "@/lib/authz";
+import { canManageProjects, canSee, isHr, isManagerOf, scopeLabel, visibleTo } from "@/lib/authz";
 import type { Person, Team } from "@/types/person";
 
 function person(overrides: Partial<Person> = {}): Person {
@@ -92,6 +92,17 @@ describe("scopeLabel", () => {
     expect(scopeLabel("employee")).toBe("Just you");
     expect(scopeLabel("manager")).toBe("Your team");
     expect(scopeLabel("hr")).toBe("Organization-wide");
+  });
+});
+
+describe("canManageProjects", () => {
+  it("is false for employee", () => {
+    expect(canManageProjects("employee")).toBe(false);
+  });
+
+  it("is true for manager and hr", () => {
+    expect(canManageProjects("manager")).toBe(true);
+    expect(canManageProjects("hr")).toBe(true);
   });
 });
 

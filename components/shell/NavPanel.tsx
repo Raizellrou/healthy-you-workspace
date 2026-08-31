@@ -10,6 +10,7 @@ import { NewProjectItem } from "@/components/tasks/NewProjectItem";
 import { sectionFor, sectionsFor, INBOX_ITEMS, SETTINGS_ITEMS, type RailItemDef } from "@/components/shell/navSections";
 import { useNudges } from "@/lib/nudge-context";
 import { subscribeToConnectionState, type ConnectionState } from "@/lib/realtime";
+import { canManageProjects } from "@/lib/authz";
 import type { AppRole } from "@/types/person";
 import type { Project } from "@/types/task";
 
@@ -102,7 +103,7 @@ export function NavPanel({
   return (
     <nav
       aria-label="Section"
-      className="hidden shrink-0 flex-col overflow-y-auto border-r border-line bg-surface px-3 py-4 md:flex md:w-[200px]"
+      className="hidden shrink-0 flex-col overflow-y-auto border-r border-line bg-surface px-3 py-4 md:flex md:w-[12.5rem]"
     >
       <div className="mb-3 flex items-center justify-between px-1">
         <SectionLabel>{heading}</SectionLabel>
@@ -176,7 +177,9 @@ export function NavPanel({
               </Link>
             );
           })}
-          <NewProjectItem projectCount={projects.length} defaultView={defaultTaskView} />
+          {canManageProjects(role) ? (
+            <NewProjectItem projectCount={projects.length} defaultView={defaultTaskView} />
+          ) : null}
         </div>
       ) : null}
 

@@ -1,4 +1,5 @@
 import { Avatar } from "@/components/ui/Avatar";
+import { fmtDateTime } from "@/lib/date";
 import type { TaskEvent } from "@/types/task";
 
 const KIND_LABEL: Record<TaskEvent["kind"], string> = {
@@ -33,12 +34,7 @@ export function TaskActivity({ events }: { events: TaskEvent[] }) {
               {e.is_off_hours ? <span className="ml-1.5 text-xs text-risk-critical">· off hours</span> : null}
             </p>
             <p className="text-xs text-ink-mute">
-              {new Date(e.created_at).toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {fmtDateTime(e.created_at)}
             </p>
           </div>
         </li>
