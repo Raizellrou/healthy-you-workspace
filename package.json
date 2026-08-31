@@ -17,6 +17,7 @@
     "seed:org": "tsx scripts/seed-org.ts",
     "verify:schema": "tsx scripts/verify-schema.ts",
     "verify:rls": "tsx scripts/verify-rls.ts",
+    "verify:roles": "tsx scripts/verify-roles.ts",
     "seed:calendar": "tsx scripts/seed-calendar.ts",
     "verify:settings": "tsx scripts/verify-employee-settings.ts"
   },

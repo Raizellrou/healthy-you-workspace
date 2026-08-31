@@ -1,20 +1,30 @@
 /**
- * One-time seed script: creates one real Supabase Auth + employees row per
- * app_role ('employee', 'manager', 'hr') — separate from the 24-person
- * seeded org (scripts/seed.ts), for exercising role-gated UI/RLS without
- * touching real people's accounts or the 4 teams' existing manager_id
- * assignments. Run with: npm run seed:roles
+ * Seeds one real Supabase Auth + employees row per app_role ('employee',
+ * 'manager', 'hr'), plus the team wiring those roles need to actually be
+ * exercisable — separate from the 24-person seeded org (scripts/seed.ts).
+ * Run with: npm run seed:roles
  *
- * Note on scope: these accounts get app_role set directly, so any check
- * keyed on app_role alone (e.g. 0030_project_rls.sql's manager/hr project
- * policies) sees them correctly. They are NOT set as any team's
- * teams.manager_id, so the team-scoped "manager sees their team" RLS
- * (0010_rls_v2.sql) won't show the QA Manager account extra team members
- * beyond the ordinary self-scope — deliberately, to avoid displacing the
- * real manager already assigned to Engineering.
+ * The three accounts live on their own "QA" team, managed by the QA Manager
+ * account. That team is the whole point of this script, not a detail:
+ * app_role alone is not enough to exercise the manager role. Everything
+ * team-scoped keys off `manages(target)` in 0010_rls_v2.sql, which is
+ * `teams.manager_id = me` — so an account with app_role 'manager' that
+ * manages no team sees exactly what an employee sees, and cannot approve
+ * anyone's PTO (app/(app)/attendance/actions.ts#decidePto calls that same
+ * RPC). An earlier revision of this script left these accounts on
+ * Engineering with no manager_id to avoid displacing that team's real
+ * manager, which meant the QA Manager account could never test the role it
+ * was created for.
  *
- * Requires SUPABASE_SERVICE_ROLE_KEY in .env.local. Safe to re-run:
- * accounts that already exist (matched by email) are skipped.
+ * A dedicated team solves both halves: the QA Manager gets real reports
+ * without touching the four operational teams' manager assignments, and
+ * three activity-less test accounts stop skewing Engineering's headcount
+ * and burnout/mood aggregates.
+ *
+ * Requires SUPABASE_SERVICE_ROLE_KEY in .env.local. Safe to re-run: every
+ * write is scoped to a specific row id belonging to one of the three
+ * accounts or to the QA team, and an account that already exists is
+ * re-wired rather than duplicated.
  */
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
@@ -48,6 +58,9 @@ const ACCOUNTS: RoleAccount[] = [
   { name: "QA HR", role: "QA Test Account", appRole: "hr", email: "qa-hr@petal.test" },
 ];
 
+const QA_TEAM_NAME = "QA";
+const MANAGER_EMAIL = "qa-manager@petal.test";
+
 /** Inserts default work_schedules/notification_prefs rows for `employeeId`
  *  if they don't already exist — column defaults only (see
  *  0014_notifications_and_schedules.sql), same as that migration's own
@@ -62,24 +75,41 @@ async function ensureScheduleAndPrefs(employeeId: string): Promise<void> {
     .upsert({ employee_id: employeeId }, { onConflict: "employee_id", ignoreDuplicates: true });
 }
 
-async function seed() {
-  const { data: team, error: teamError } = await supabase
+/** Finds the QA team, creating it if this is the first run. Never touches
+ *  the four operational teams — it is matched by its own unique name. */
+async function ensureQaTeam(): Promise<{ id: string; name: string; manager_id: string | null }> {
+  const { data: existing } = await supabase
     .from("teams")
-    .select("id, name")
-    .eq("name", "Engineering")
-    .single();
+    .select("id, name, manager_id")
+    .eq("name", QA_TEAM_NAME)
+    .maybeSingle();
+  if (existing) return existing;
 
-  if (teamError || !team) {
-    console.error("Could not find the Engineering team to attach test accounts to:", teamError?.message);
+  const { data: created, error } = await supabase
+    .from("teams")
+    .insert({ name: QA_TEAM_NAME })
+    .select("id, name, manager_id")
+    .single();
+  if (error || !created) {
+    console.error(`Could not create the ${QA_TEAM_NAME} team:`, error?.message);
     process.exit(1);
   }
+  console.log(`✓ Created the ${QA_TEAM_NAME} team`);
+  return created;
+}
+
+async function seed() {
+  const team = await ensureQaTeam();
 
   console.log(`Seeding ${ACCOUNTS.length} role test accounts (team: ${team.name})...\n`);
+
+  /** employees.id per email, for the manager assignment after the loop. */
+  const seeded = new Map<string, string>();
 
   for (const account of ACCOUNTS) {
     const { data: existing } = await supabase
       .from("employees")
-      .select("id, auth_user_id")
+      .select("id, auth_user_id, team_id")
       .eq("email", account.email)
       .maybeSingle();
 
@@ -90,6 +120,22 @@ async function seed() {
       // employee inserted afterward (getMySettings' .single() calls throw
       // otherwise — this is what "add them to a team" actually needed).
       await ensureScheduleAndPrefs(existing.id);
+      seeded.set(account.email, existing.id);
+
+      // Moves an account seeded by the earlier revision of this script off
+      // whatever team it landed on. Scoped to this one row by id; the
+      // employees_sync_team_name trigger (0009) rewrites the `team` text
+      // column to match.
+      if (existing.team_id !== team.id) {
+        const { error } = await supabase
+          .from("employees")
+          .update({ team_id: team.id })
+          .eq("id", existing.id);
+        if (error) console.error(`✗ ${account.name}: could not move to ${team.name}: ${error.message}`);
+        else console.log(`↻ ${account.name} (${account.email}): moved to ${team.name}`);
+        continue;
+      }
+
       console.log(`- ${account.name} (${account.email}): already exists, skipping`);
       continue;
     }
@@ -135,11 +181,32 @@ async function seed() {
     }
 
     await ensureScheduleAndPrefs(employee.id);
+    seeded.set(account.email, employee.id);
     console.log(`✓ ${account.name} — ${account.appRole} (${account.email})`);
+  }
+
+  // The manager assignment, which is what makes the 'manager' account
+  // testable at all. Scoped to the QA team's own id, so the four
+  // operational teams' manager_id values are never read or written here.
+  const qaManagerId = seeded.get(MANAGER_EMAIL);
+  if (!qaManagerId) {
+    console.error(`\n✗ ${MANAGER_EMAIL} is missing, so the ${team.name} team has no manager.`);
+  } else if (team.manager_id === qaManagerId) {
+    console.log(`\n- ${team.name} is already managed by ${MANAGER_EMAIL}`);
+  } else {
+    const { error } = await supabase.from("teams").update({ manager_id: qaManagerId }).eq("id", team.id);
+    if (error) console.error(`\n✗ Could not set ${team.name}'s manager: ${error.message}`);
+    else console.log(`\n✓ ${team.name} is now managed by ${MANAGER_EMAIL}`);
   }
 
   console.log(`\nDone. Password for all role test accounts: ${TEST_PASSWORD}`);
   console.log("Shared test password for local/internal exploration only — do not reuse it anywhere real.");
+  console.log(
+    `\nWhat each account should now see:\n` +
+      `  qa-employee  self only\n` +
+      `  qa-manager   the ${team.name} team (all three accounts), and can decide their PTO\n` +
+      `  qa-hr        the whole org, plus /teams and /insights`
+  );
 }
 
 seed();

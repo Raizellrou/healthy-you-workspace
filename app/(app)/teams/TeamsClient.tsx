@@ -49,8 +49,18 @@ export function TeamsClient({
   }
 
   const byTeam = new Map<string, Person[]>();
+  /** Anyone with no team_id. They used to be dropped from this page
+   *  silently, which made them unadministrable from the only screen meant
+   *  to administer people — the dedicated "Petal HR" account
+   *  (0031_hr_demo_account.sql) is deliberately on no team, so it was
+   *  invisible here despite being the account this page exists to manage.
+   *  They get no manager control, since there's no team to manage. */
+  const unassigned: Person[] = [];
   for (const e of employees) {
-    if (!e.teamId) continue;
+    if (!e.teamId) {
+      unassigned.push(e);
+      continue;
+    }
     const list = byTeam.get(e.teamId) ?? [];
     list.push(e);
     byTeam.set(e.teamId, list);
@@ -74,6 +84,40 @@ export function TeamsClient({
       setPendingHrId(null);
       if (result.ok) flash(employeeId);
     });
+  }
+
+  /** One person's row. Shared by the team cards and the "No team" card, so
+   *  the HR toggle reaches everyone the page lists. `managerId` is the id of
+   *  the manager of the team being rendered, or null when there isn't one. */
+  function renderMember(m: Person, managerId: string | null) {
+    return (
+      <li
+        key={m.id}
+        className={`flex items-center gap-2.5 rounded-lg ${
+          isPending && pendingHrId === m.id ? "pointer-events-none opacity-50" : ""
+        } ${flashId === m.id ? "animate-row-flash" : ""}`}
+      >
+        <Avatar name={m.name} color={m.avatarColor} size={28} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-ink">
+            {m.name}
+            {m.id === currentPersonId && <span className="ml-1.5 text-xs font-normal text-ink-mute">(you)</span>}
+          </div>
+          <div className="truncate text-xs text-ink-mute">{m.email}</div>
+        </div>
+        {m.id === managerId && <Chip tone="brand">Manager</Chip>}
+        {m.appRole === "hr" && <Chip tone="success">HR</Chip>}
+        <label className="flex items-center gap-1.5 text-xs text-ink-soft">
+          HR
+          <Switch
+            id={`hr-${m.id}`}
+            label={`Grant HR access to ${m.name}`}
+            checked={m.appRole === "hr"}
+            onChange={(next) => setHrConfirm({ employeeId: m.id, employeeName: m.name, grant: next })}
+          />
+        </label>
+      </li>
+    );
   }
 
   if (teams.length === 0) {
@@ -112,40 +156,25 @@ export function TeamsClient({
               </Field>
 
               <ul className="flex flex-col gap-2">
-                {members.map((m) => (
-                  <li
-                    key={m.id}
-                    className={`flex items-center gap-2.5 rounded-lg ${
-                      isPending && pendingHrId === m.id ? "pointer-events-none opacity-50" : ""
-                    } ${flashId === m.id ? "animate-row-flash" : ""}`}
-                  >
-                    <Avatar name={m.name} color={m.avatarColor} size={28} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-ink">
-                        {m.name}
-                        {m.id === currentPersonId && (
-                          <span className="ml-1.5 text-xs font-normal text-ink-mute">(you)</span>
-                        )}
-                      </div>
-                      <div className="truncate text-xs text-ink-mute">{m.email}</div>
-                    </div>
-                    {m.id === team.managerId && <Chip tone="brand">Manager</Chip>}
-                    {m.appRole === "hr" && <Chip tone="success">HR</Chip>}
-                    <label className="flex items-center gap-1.5 text-xs text-ink-soft">
-                      HR
-                      <Switch
-                        id={`hr-${m.id}`}
-                        label={`Grant HR access to ${m.name}`}
-                        checked={m.appRole === "hr"}
-                        onChange={(next) => setHrConfirm({ employeeId: m.id, employeeName: m.name, grant: next })}
-                      />
-                    </label>
-                  </li>
-                ))}
+                {members.map((m) => renderMember(m, team.managerId))}
               </ul>
             </Card>
           );
         })}
+
+        {unassigned.length > 0 ? (
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold text-ink">No team</h2>
+              <Chip tone="neutral">{unassigned.length} people</Chip>
+            </div>
+            <p className="mb-4 text-xs text-ink-mute">
+              Not on any team, so they have no manager and appear in no team-scoped view. HR access still applies
+              org-wide.
+            </p>
+            <ul className="flex flex-col gap-2">{unassigned.map((m) => renderMember(m, null))}</ul>
+          </Card>
+        ) : null}
       </div>
 
       <ConfirmModal

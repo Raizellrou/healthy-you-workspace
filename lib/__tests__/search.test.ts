@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { scoreMatch, searchIndex, buildSearchIndex, type SearchItem } from "@/lib/search";
 import type { Employee } from "@/types/employee";
 import type { Project, Task } from "@/types/task";
+import type { AppRole } from "@/types/person";
 
 describe("scoreMatch", () => {
   it("scores an exact match highest", () => {
@@ -104,5 +105,27 @@ describe("buildSearchIndex", () => {
     expect(index.find((i) => i.type === "person")?.label).toBe("Amara Adeyemi");
     expect(index.find((i) => i.type === "project")?.href).toBe("/tasks/project/p1/board");
     expect(index.find((i) => i.type === "task")?.href).toBe("/tasks/t1");
+  });
+
+  /** The palette is a second route to every page the nav lists, so it has
+   *  to honour the same role filter — otherwise ⌘K hands an employee a link
+   *  the sidebar deliberately hid. It reads sectionsFor(role), so this is
+   *  really a guard against that wiring being bypassed later. */
+  it("omits role-gated pages for a role that cannot reach them", () => {
+    const args = { employees: [], projects: [], myTasks: [], defaultTaskView: "board" };
+    const hrefsFor = (role: AppRole) =>
+      buildSearchIndex({ ...args, role })
+        .filter((i) => i.type === "page")
+        .map((i) => i.href);
+
+    expect(hrefsFor("employee")).not.toContain("/teams");
+    expect(hrefsFor("employee")).not.toContain("/insights");
+    expect(hrefsFor("employee")).not.toContain("/meetings");
+
+    expect(hrefsFor("manager")).toContain("/meetings");
+    expect(hrefsFor("manager")).not.toContain("/teams");
+
+    expect(hrefsFor("hr")).toContain("/teams");
+    expect(hrefsFor("hr")).toContain("/insights");
   });
 });
