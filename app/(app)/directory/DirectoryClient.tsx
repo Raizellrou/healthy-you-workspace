@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { BAND_FILL, BAND_ON_FILL, BAND_LABEL, BAND_ORDER } from "@/lib/burnout-bands";
+import { BAND_FILL, BAND_TEXT, BAND_LABEL, BAND_ORDER } from "@/lib/burnout-bands";
 import type { Employee } from "@/types/employee";
 import type { BurnoutBand } from "@/types/burnout";
 
@@ -217,15 +217,19 @@ export function DirectoryClient({
               {shelves.map(({ band, people }) => {
                 const open = !collapsedBands.has(band);
                 const fill = BAND_FILL[band];
-                const ink = BAND_ON_FILL[band];
+                const headerText = BAND_TEXT[band];
                 return (
-                  <div key={band} className="overflow-hidden rounded-2xl border border-line shadow-sm">
+                  <div
+                    key={band}
+                    className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm"
+                    style={{ borderLeftColor: fill, borderLeftWidth: 4 }}
+                  >
                     <button
                       type="button"
                       onClick={() => toggleBand(band)}
                       aria-expanded={open}
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                      style={{ background: fill, color: ink }}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2"
+                      style={{ color: headerText }}
                     >
                       <span className="text-sm font-bold">
                         {BAND_LABEL[band]} risk · {people.length} {people.length === 1 ? "person" : "people"}
@@ -247,32 +251,24 @@ export function DirectoryClient({
                     </button>
 
                     {open ? (
-                      <div className="animate-toast-in p-4" style={{ background: `${fill}14` }}>
+                      <div className="animate-toast-in border-t border-line p-4">
                         <p className="mb-3 text-xs text-ink-mute">{BAND_DESCRIPTION[band]}</p>
-                        <div className="grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                           {people.map((e) => {
                             const personOpen = openPersonId === e.id;
                             return (
                               <div key={e.id} className="relative">
-                                {/* Back tab peeking out above-left, like a folder
-                                    sitting behind the front one — depth cue
-                                    instead of a bare rectangle. */}
-                                <span
-                                  aria-hidden="true"
-                                  className="absolute -top-2 left-2 h-2.5 w-9 rounded-t-md"
-                                  style={{ background: fill, opacity: 0.85 }}
-                                />
                                 <button
                                   type="button"
                                   onClick={() => setOpenPersonId(personOpen ? null : e.id)}
                                   aria-expanded={personOpen}
-                                  className="relative flex h-16 w-full items-center gap-2 rounded-lg rounded-tl-sm px-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                                  style={{ background: fill, color: ink }}
+                                  className="relative flex h-16 w-full items-center gap-2 rounded-lg border border-line bg-surface px-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                                  style={{ borderLeftColor: fill, borderLeftWidth: 3 }}
                                 >
                                   <Avatar name={e.name} color={e.avatarColor} size={28} />
                                   <div className="min-w-0">
-                                    <div className="truncate text-xs font-semibold">{e.name}</div>
-                                    <div className="truncate text-[11px] opacity-80">{e.role}</div>
+                                    <div className="truncate text-xs font-semibold text-ink">{e.name}</div>
+                                    <div className="truncate text-[11px] text-ink-mute">{e.role}</div>
                                   </div>
                                 </button>
 

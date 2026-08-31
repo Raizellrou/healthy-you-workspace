@@ -87,16 +87,52 @@
      in both themes, asserted by lib/__tests__/contrast.test.ts, which parses
      this file. Chips previously used the saturated fill as *text* on a 15%
      tint of itself, measuring 1.19:1 in light mode (it passed in dark, which
-     is how it shipped). Never use --band-*-fill as a text colour. */
-  --band-low-fill: #87d380;
-  --band-low-tint: #edf8ec;
-  --band-low-ink: #1f6b2a;
-  --band-low-on-fill: #1d3b1a;
+     is how it shipped). Never use --band-*-fill as a text colour.
 
-  --band-medium-fill: #ffd700;
-  --band-medium-tint: #fff9d9;
-  --band-medium-ink: #6b4e00;
-  --band-medium-on-fill: #4a3c00;
+     Low and Medium (fill, tint, ink, and on-fill together — unlike
+     High/Critical, which stay theme-invariant) were reworked off a
+     traffic-light grass-green/canary-yellow that read as generic and
+     fought the indigo "Petal bloom" brand. Low is now a cooler,
+     blue-leaning emerald — the same family as --success — so it shares
+     the brand's undertone instead of clashing with it; Medium reuses the
+     app's own --warning amber rather than inventing a separate gold, so
+     "Medium risk" and "needs attention" read as one visual language. Dark
+     brightens both a step (emerald-500/amber-500) so they still pop
+     against near-black surfaces without the light theme's deeper values
+     going muddy.
+
+     Tints are for badges only. Nothing in the app paints a band colour
+     across a card, a row, or a section header any more: Directory's shelf
+     headers and person cards used to be solid fill, then tint, and both read
+     as status banners rather than as structure. They are now a plain
+     --surface card with the band carried by a border-left accent, matching
+     how a held message renders on /boundary. A band colour therefore appears
+     in exactly three roles — a border-left accent, a small swatch or bar
+     segment (BandBar), and a badge (Chip) — and nowhere else.
+
+     The two light tints are literally --success-bg and --warning-bg, so a
+     badge that means "healthy" or "needs attention" uses the same green and
+     amber the rest of the app already uses rather than a second, unrelated
+     green/yellow pair. Both inks sit one scale step darker than the semantic
+     token they belong to, for two different reasons that land in the same
+     place — the success green measures 4.42:1 on its own background, just
+     under AA, and the warning amber is itself --band-medium-fill, so using
+     it as text on its own tint is the exact 1.19:1 bug this whole block
+     exists to prevent.
+
+     Never write a token name followed by a colon in prose anywhere in this
+     file. The contrast test parses declarations out of it with a regex, so
+     that shape reads as a real declaration, swallows everything up to the
+     next semicolon, and silently drops the token that follows it. */
+  --band-low-fill: #047857;
+  --band-low-tint: #e6f4ea;
+  --band-low-ink: #166534;
+  --band-low-on-fill: #ffffff;
+
+  --band-medium-fill: #b45309;
+  --band-medium-tint: #fbedd6;
+  --band-medium-ink: #92400e;
+  --band-medium-on-fill: #ffffff;
 
   --band-high-fill: #ff8c73;
   --band-high-tint: #ffeeea;
@@ -189,18 +225,22 @@
     --line-soft: rgba(255, 255, 255, 0.06);
     --line-strong: rgba(255, 255, 255, 0.24);
 
-    /* Band severity, dark. Fills and on-fill inks are theme-invariant (a solid
-       fill carries its own ground); tints and inks invert. Full rationale in
-       the light block above. */
-    --band-low-fill: #87d380;
-    --band-low-tint: #1e3323;
-    --band-low-ink: #87d380;
-    --band-low-on-fill: #1d3b1a;
+    /* Band severity, dark. High/Critical fills and on-fill inks are
+       theme-invariant (a solid fill carries its own ground); tints and inks
+       invert. Low/Medium are a full theme-specific set (fill, tint, ink,
+       on-fill) — a step brighter than light's emerald/amber
+       (emerald-500/amber-500 vs. -700) so they read clearly against
+       near-black surfaces, with dark on-fill text since these fills are
+       light enough to need it. Full rationale in the light block above. */
+    --band-low-fill: #10b981;
+    --band-low-tint: #052e22;
+    --band-low-ink: #34d399;
+    --band-low-on-fill: #022c22;
 
-    --band-medium-fill: #ffd700;
-    --band-medium-tint: #3a3111;
-    --band-medium-ink: #ffd700;
-    --band-medium-on-fill: #4a3c00;
+    --band-medium-fill: #f59e0b;
+    --band-medium-tint: #2e2004;
+    --band-medium-ink: #fbbf24;
+    --band-medium-on-fill: #2b1a02;
 
     --band-high-fill: #ff8c73;
     --band-high-tint: #3d2119;
@@ -267,18 +307,22 @@
   --line-soft: rgba(255, 255, 255, 0.06);
   --line-strong: rgba(255, 255, 255, 0.24);
 
-  /* Band severity, dark. Fills and on-fill inks are theme-invariant (a solid
-     fill carries its own ground); tints and inks invert. Full rationale in
-     the light block above. */
-  --band-low-fill: #87d380;
-  --band-low-tint: #1e3323;
-  --band-low-ink: #87d380;
-  --band-low-on-fill: #1d3b1a;
+  /* Band severity, dark. High/Critical fills and on-fill inks are
+     theme-invariant (a solid fill carries its own ground); tints and inks
+     invert. Low/Medium are a full theme-specific set (fill, tint, ink,
+     on-fill) — a step brighter than light's emerald/amber
+     (emerald-500/amber-500 vs. -700) so they read clearly against
+     near-black surfaces, with dark on-fill text since these fills are
+     light enough to need it. Full rationale in the light block above. */
+  --band-low-fill: #10b981;
+  --band-low-tint: #052e22;
+  --band-low-ink: #34d399;
+  --band-low-on-fill: #022c22;
 
-  --band-medium-fill: #ffd700;
-  --band-medium-tint: #3a3111;
-  --band-medium-ink: #ffd700;
-  --band-medium-on-fill: #4a3c00;
+  --band-medium-fill: #f59e0b;
+  --band-medium-tint: #2e2004;
+  --band-medium-ink: #fbbf24;
+  --band-medium-on-fill: #2b1a02;
 
   --band-high-fill: #ff8c73;
   --band-high-tint: #3d2119;
@@ -363,15 +407,15 @@
      this file. Chips previously used the saturated fill as *text* on a 15%
      tint of itself, measuring 1.19:1 in light mode (it passed in dark, which
      is how it shipped). Never use --band-*-fill as a text colour. */
-  --band-low-fill: #87d380;
-  --band-low-tint: #edf8ec;
-  --band-low-ink: #1f6b2a;
-  --band-low-on-fill: #1d3b1a;
+  --band-low-fill: #047857;
+  --band-low-tint: #e6f4ea;
+  --band-low-ink: #166534;
+  --band-low-on-fill: #ffffff;
 
-  --band-medium-fill: #ffd700;
-  --band-medium-tint: #fff9d9;
-  --band-medium-ink: #6b4e00;
-  --band-medium-on-fill: #4a3c00;
+  --band-medium-fill: #b45309;
+  --band-medium-tint: #fbedd6;
+  --band-medium-ink: #92400e;
+  --band-medium-on-fill: #ffffff;
 
   --band-high-fill: #ff8c73;
   --band-high-tint: #ffeeea;
