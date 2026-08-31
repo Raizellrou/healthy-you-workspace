@@ -8,16 +8,18 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Icon } from "@/components/icons/Icon";
 import { BandChip } from "@/components/burnout/BandChip";
 import { Sparkline } from "@/components/burnout/Sparkline";
-import { ClockWidget } from "@/components/shell/ClockWidget";
+import { SessionBar } from "@/components/dashboard/SessionBar";
+import { LiveSessionRefresh } from "@/components/dashboard/LiveSessionRefresh";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentEmployeeId, getEmployees, getBurnoutHistory, getMyTasks } from "@/lib/supabase/queries";
 import { getCurrentPerson, getVisibleEmployees, getTeams } from "@/lib/supabase/people";
-import { getOpenSession, getAttendanceSignals } from "@/lib/supabase/attendance";
+import { getOpenSession, getAttendanceSignals, getMyRollups } from "@/lib/supabase/attendance";
+import { getMySettings } from "@/lib/supabase/notifications";
 import { getTaskBurnoutSignals } from "@/lib/supabase/tasks";
 import { getForecastsForEmployees } from "@/lib/supabase/forecast";
 import { getMyOneOnOnes } from "@/lib/supabase/one-on-ones";
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
-import { hasCheckedInMoodToday, getNeedsYou } from "@/lib/supabase/needs-you";
+import { hasCheckedInMoodToday, getNeedsYou, getFirstRunItems } from "@/lib/supabase/needs-you";
 import { buildBurnoutV2 } from "@/lib/burnout-signals";
 import { visibleTo } from "@/lib/authz";
 import { todayInTz, fmtDate } from "@/lib/date";
@@ -77,7 +79,7 @@ export default async function DashboardPage() {
   // --- Zone A/B/C: personal signals. Nothing here fires if `me` is null
   // (session mid-migration, no matching employee row) — same defensive
   // posture app/(app)/layout.tsx already takes for openSession et al.
-  const [openSession, myTasks, myOneOnOnes, currentMeeting, moodCheckedIn, needsYou] = me
+  const [openSession, myTasks, myOneOnOnes, currentMeeting, moodCheckedIn, needsYou, myRollups, mySettings] = me
     ? await Promise.all([
         getOpenSession(me.id),
         getMyTasks(me.id),
@@ -85,8 +87,16 @@ export default async function DashboardPage() {
         getCurrentMeeting(me.id),
         hasCheckedInMoodToday(me.id, me.timezone),
         getNeedsYou(me),
+        getMyRollups(me.id, 7),
+        getMySettings(me.id),
       ])
-    : [null, [], [], null, false, []];
+    : [null, [], [], null, false, [], [], null];
+
+  // First-run prompts lead: someone who has just been onboarded should see
+  // "set your working hours" above their unread count.
+  const needsYouItems = [...getFirstRunItems(mySettings?.schedule ?? null), ...needsYou];
+
+  const last7DaysHours = myRollups.reduce((sum, r) => sum + r.netHours, 0);
 
   const today = me ? todayInTz(me.timezone) : null;
   const dueToday = myTasks.filter((t) => t.due_date === today);
@@ -163,17 +173,17 @@ export default async function DashboardPage() {
       : null;
 
   // Kudos — readable org-wide by design (kudos are semi-public praise).
+  // The count and the recent rows don't depend on each other, so they go
+  // out together rather than as two back-to-back round trips.
   const weekStart = startOfWeekISO();
-  const { count: kudosWeekCount } = await supabase
-    .from("kudos")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", weekStart);
-
-  const { data: recentKudosRows } = await supabase
-    .from("kudos")
-    .select("id, from_employee_id, to_employee_id, created_at")
-    .order("created_at", { ascending: false })
-    .limit(5);
+  const [{ count: kudosWeekCount }, { data: recentKudosRows }] = await Promise.all([
+    supabase.from("kudos").select("id", { count: "exact", head: true }).gte("created_at", weekStart),
+    supabase
+      .from("kudos")
+      .select("id, from_employee_id, to_employee_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
   const employeeName = new Map(employees.map((e) => [e.id, e.name]));
   const recentKudos = (recentKudosRows ?? []).map((row) => ({
     id: row.id as string,
@@ -213,10 +223,16 @@ export default async function DashboardPage() {
         <Card>
           <SectionLabel className="mb-3">Your session</SectionLabel>
           {me ? (
-            <ClockWidget openSession={openSession} />
+            <SessionBar
+              openSession={openSession}
+              schedule={mySettings ? { startMin: mySettings.schedule.startMin, endMin: mySettings.schedule.endMin } : null}
+              timezone={me.timezone}
+              last7DaysHours={last7DaysHours}
+            />
           ) : (
             <p className="text-xs text-ink-mute">Sign in to clock in.</p>
           )}
+          {currentEmployeeId ? <LiveSessionRefresh employeeId={currentEmployeeId} /> : null}
         </Card>
 
         <Card>
@@ -251,7 +267,7 @@ export default async function DashboardPage() {
               <div className="flex items-center gap-2 text-xs text-ink-soft">
                 <Icon name="calendar" size={14} className="text-ink-mute" />
                 In &ldquo;{currentMeeting.title}&rdquo; until{" "}
-                {new Date(currentMeeting.endsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                {new Date(currentMeeting.endsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true })}
               </div>
             ) : null}
             {moodCheckedIn && dueToday.length === 0 && !nextOneOnOne && !currentMeeting ? (
@@ -262,11 +278,11 @@ export default async function DashboardPage() {
       </div>
 
       {/* Zone B — needs you. Absent entirely when empty, not a zero-state card. */}
-      {needsYou.length > 0 ? (
+      {needsYouItems.length > 0 ? (
         <div className="mt-6">
           <SectionLabel className="mb-3">Needs you</SectionLabel>
           <Card className="divide-y divide-line p-0">
-            {needsYou.map((item) => (
+            {needsYouItems.map((item) => (
               <Link
                 key={item.href + item.label}
                 href={item.href}
@@ -329,10 +345,17 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatTile label="Headcount" value={headcount} sub={`${teamCount} teams`} color="var(--brand)" />
           <StatTile label="In today" value={workingToday} sub={`of ${headcount}`} color="var(--success)" />
+          {/* A bare em-dash here is the 3-check-in anonymity floor doing its
+              job, but it reads exactly like a query that failed. /mood and
+              /insights both say why in this situation; this now matches them. */}
           <StatTile
             label="Avg mood"
-            value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "–"}
-            sub={`${totalCheckinsToday} checked in today`}
+            value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "Needs 3+"}
+            sub={
+              orgAvgMood !== null
+                ? `${totalCheckinsToday} checked in today`
+                : `${totalCheckinsToday} checked in today · hidden until 3 people have`
+            }
             color="var(--pillar-mood)"
           />
           <StatTile

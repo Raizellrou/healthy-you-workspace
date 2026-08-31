@@ -7,9 +7,11 @@ import { sectionFor } from "@/components/shell/navSections";
  *  disk rather than hardcoded, so this test fails the moment a new
  *  pillar/page is added without a nav home, instead of silently going
  *  stale like the hardcoded lists this refactor kept finding. Requires a
- *  page.tsx directly in the segment, so a pure container folder like
- *  settings/ (real pages only at settings/schedule, settings/appearance)
- *  isn't treated as a route of its own — Next.js wouldn't render it either. */
+ *  page.tsx directly in the segment, so a pure container folder with no
+ *  page.tsx of its own isn't treated as a route — Next.js wouldn't render
+ *  it either. settings/ does have one (M17's redirect to
+ *  settings/schedule), which is why sectionFor special-cases bare
+ *  "/settings" rather than this walk excluding it. */
 function routeSegments(): string[] {
   const appDir = join(__dirname, "..", "..", "app", "(app)");
   return readdirSync(appDir).filter(

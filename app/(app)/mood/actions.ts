@@ -40,7 +40,7 @@ export async function submitMoodCheckin(
     if (error.code === "23505") {
       return { ok: false, error: "You already checked in today." };
     }
-    return { ok: false, error: error.message };
+    return { ok: false, error: describeDbError(error) };
   }
 
   revalidatePath("/mood");
@@ -48,6 +48,7 @@ export async function submitMoodCheckin(
 }
 
 const UpdateMoodDetailsSchema = z.object({
+  moodValue: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(),
   energy: z.number().int().min(1).max(5).nullable(),
   note: z.string().trim().max(2000).nullable(),
   tags: z.array(z.string()).default([]),
@@ -56,7 +57,11 @@ const UpdateMoodDetailsSchema = z.object({
 /** Optional add-on to a check-in that already happened — kept as a
  *  separate, opt-in step rather than folded into submitMoodCheckin so the
  *  default flow (pick a mood, done) stays the single click the pillar's
- *  own "frictionless" promise describes. */
+ *  own "frictionless" promise describes.
+ *
+ *  `moodValue` doubles this as the same-day mood-correction path: an UPDATE
+ *  against today's existing row, scoped to this employee, rather than a
+ *  second INSERT that would trip the (employee_id, date) unique constraint. */
 export async function updateMoodDetails(input: unknown): Promise<ActionResult> {
   return withEmployee((employeeId) =>
     validated(UpdateMoodDetailsSchema, input, async (data) => {
@@ -66,7 +71,12 @@ export async function updateMoodDetails(input: unknown): Promise<ActionResult> {
 
       const { data: updated, error } = await supabase
         .from("mood_checkins")
-        .update({ energy: data.energy, note: data.note || null, tags: data.tags })
+        .update({
+          ...(data.moodValue !== undefined ? { mood_value: data.moodValue } : {}),
+          energy: data.energy,
+          note: data.note || null,
+          tags: data.tags,
+        })
         .eq("employee_id", employeeId)
         .eq("date", today)
         .select("id")

@@ -16,6 +16,9 @@ export default function LoginPage() {
         aria-hidden="true"
       />
       <div className="relative w-full max-w-sm">
+        <Link href="/" className="mb-4 inline-flex items-center text-sm text-ink-soft hover:text-ink">
+          ← Back to home
+        </Link>
         <Link href="/" className="mb-8 flex items-center justify-center gap-2.5" aria-label="Petal home">
           <Logo size={26} />
           <span className="text-[15px] font-bold tracking-[0.16em] text-ink">PETAL</span>

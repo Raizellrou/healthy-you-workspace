@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { AppRole, Person, Team } from "@/types/person";
 
@@ -59,8 +60,14 @@ const PERSON_COLUMNS =
  * gets resolved for gating nav/screens — everything downstream (RoleGate,
  * the Sidebar's role badge, the Teams screen) takes it as a prop rather
  * than re-querying.
+ *
+ * Wrapped in React's `cache()`: this is called 17+ times across a single
+ * render (layout, page, and transitively from getMyOneOnOnes), and each
+ * call is two network round trips to the hosted project — an auth.getUser()
+ * (~140ms, measured) plus the employees lookup. Memoising per request
+ * collapses them to one without changing a single call site.
  */
-export async function getCurrentPerson(): Promise<Person | null> {
+export const getCurrentPerson = cache(async function getCurrentPerson(): Promise<Person | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -75,7 +82,7 @@ export async function getCurrentPerson(): Promise<Person | null> {
 
   if (error || !data) return null;
   return toPerson(data, 0);
-}
+});
 
 /**
  * Every employee the signed-in session's RLS policy allows — self-only,
@@ -83,8 +90,11 @@ export async function getCurrentPerson(): Promise<Person | null> {
  * for avatar color assignment, matching the frozen `getEmployees()`'s
  * convention so the same person's color doesn't shift between the two
  * query paths.
+ *
+ * `cache()`d for the same reason as getCurrentPerson: six pages plus four
+ * lib modules call this, several of them within one render.
  */
-export async function getVisibleEmployees(): Promise<Person[]> {
+export const getVisibleEmployees = cache(async function getVisibleEmployees(): Promise<Person[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("employees")
@@ -96,7 +106,7 @@ export async function getVisibleEmployees(): Promise<Person[]> {
     throw new Error(`Failed to load employees: ${error.message}`);
   }
   return (data ?? []).map(toPerson);
-}
+});
 
 interface TeamRow {
   id: string;
@@ -105,7 +115,9 @@ interface TeamRow {
   employees: { name: string } | null;
 }
 
-export async function getTeams(): Promise<Team[]> {
+/** `cache()`d — the roster screens each pair this with getVisibleEmployees,
+ *  and the burnout/attendance pages resolve team scoping from it twice. */
+export const getTeams = cache(async function getTeams(): Promise<Team[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("teams")
@@ -122,7 +134,7 @@ export async function getTeams(): Promise<Team[]> {
     managerId: row.manager_id,
     managerName: row.employees?.name ?? null,
   }));
-}
+});
 
 export async function getTeamMembers(teamId: string): Promise<Person[]> {
   const supabase = await createClient();

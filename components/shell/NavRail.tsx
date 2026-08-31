@@ -94,7 +94,7 @@ export function NavRail({
           }`}
         >
           <Icon name="settings" size={18} />
-          Account
+          Settings
         </Link>
       </div>
     </nav>

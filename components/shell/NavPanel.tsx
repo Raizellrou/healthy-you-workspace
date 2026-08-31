@@ -11,6 +11,7 @@ import { sectionFor, sectionsFor, INBOX_ITEMS, SETTINGS_ITEMS, type RailItemDef 
 import { useNudges } from "@/lib/nudge-context";
 import { subscribeToConnectionState, type ConnectionState } from "@/lib/realtime";
 import { canManageProjects } from "@/lib/authz";
+import { OPEN_PALETTE_EVENT } from "@/components/ui/CommandPalette";
 import type { AppRole } from "@/types/person";
 import type { Project } from "@/types/task";
 
@@ -54,8 +55,18 @@ export function NavPanel({
   const role = appRole ?? "employee";
   const [collapsed, setCollapsed] = useState(false);
   const [connectionState, setConnectionStateLocal] = useState<ConnectionState>("disconnected");
+  const [shortcutHint, setShortcutHint] = useState("Ctrl K");
 
   useEffect(() => subscribeToConnectionState(setConnectionStateLocal), []);
+
+  useEffect(() => {
+    // navigator is browser-only, and the server has no way to know which
+    // key this viewer presses — so the hint starts as the more common of
+    // the two and corrects on mount, the same deferred read the collapse
+    // state below uses.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcutHint("⌘K");
+  }, []);
 
   useEffect(() => {
     // One-time read of browser-only state on mount — same deferred-effect
@@ -73,7 +84,7 @@ export function NavPanel({
 
   const activeKey = sectionFor(pathname);
   const section = activeKey === "inbox" || activeKey === "settings" ? null : sectionsFor(role).find((s) => s.key === activeKey);
-  const heading = activeKey === "inbox" ? "Inbox" : activeKey === "settings" ? "Account" : (section?.label ?? "Home");
+  const heading = activeKey === "inbox" ? "Inbox" : activeKey === "settings" ? "Settings" : (section?.label ?? "Home");
   const items: RailItemDef[] =
     activeKey === "inbox" ? INBOX_ITEMS : activeKey === "settings" ? SETTINGS_ITEMS : (section?.items ?? []);
 
@@ -118,6 +129,25 @@ export function NavPanel({
           </svg>
         </button>
       </div>
+
+      {/* Global search had no visible affordance on desktop at all: ⌘K worked,
+          MobileTabBar had a search button, and the rail had nothing — so the
+          larger viewport was the one where the feature was undiscoverable.
+          Styled as a field rather than an icon so it reads as search, and
+          carries the shortcut so it teaches the keyboard route too. The
+          palette stays the single owner of open/closed; this only fires its
+          event, exactly as the mobile button does. */}
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+        className="mb-3 flex min-h-[36px] w-full items-center gap-2 rounded-lg border border-line px-2.5 text-left text-sm text-ink-mute transition-colors hover:border-line-strong hover:text-ink-soft"
+      >
+        <Icon name="search" size={15} className="shrink-0" />
+        <span className="min-w-0 flex-1 truncate">Search</span>
+        <kbd className="shrink-0 rounded border border-line px-1 font-mono text-xs font-medium text-ink-mute">
+          {shortcutHint}
+        </kbd>
+      </button>
 
       <div className="flex flex-col gap-0.5">
         {items.map((item) => {

@@ -122,6 +122,7 @@ export async function getDueTodayCounts(employeeIds: string[], today: IsoDate): 
     .in("assignee_id", employeeIds)
     .eq("due_date", today)
     .eq("done", false)
+    .is("deleted_at", null)
     .returns<{ assignee_id: string }[]>();
   if (error) {
     throw new Error(`Failed to load due-today tasks: ${error.message}`);

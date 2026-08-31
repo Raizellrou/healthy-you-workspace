@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +8,8 @@ import { ConfirmModal } from "@/components/ui/Modal";
 import { PokeBadge } from "@/components/ui/PokeBadge";
 import { useActionToast } from "@/lib/toast-context";
 import { computeBurnout } from "@/lib/burnout";
-import { fmtMinutes } from "@/lib/date";
+import { fmtDuration } from "@/lib/date";
+import { fmtClock } from "@/lib/time";
 import type { FocusBlock } from "@/lib/focus-timeline";
 import { WORKSPACE_COPY, type WorkspaceState } from "@/lib/constants";
 import { startFocusSession, endFocusSession } from "./actions";
@@ -93,6 +94,7 @@ export function FocusClient({
   );
   const [isPending, startTransition] = useTransition();
   const [confirmEndOpen, setConfirmEndOpen] = useState(false);
+  const [confirmStartMode, setConfirmStartMode] = useState<FocusMode | null>(null);
   const run = useActionToast();
 
   const employee = employees.find((e) => e.id === employeeId) ?? employees[0];
@@ -101,6 +103,36 @@ export function FocusClient({
   const timeline = timelineByEmployee[employeeId] ?? [];
   const dueToday = dueTodayByEmployee[employeeId] ?? 0;
   const isSelf = employeeId === currentEmployeeId;
+  // `openSession` is always the signed-in viewer's own session (page.tsx
+  // fetches it by currentEmployeeId, not the selected `employeeId`), so this
+  // is "am I the one with a session running," independent of whose mode is
+  // being viewed in the selector above.
+  const isSessionActive = isSelf && Boolean(openSession);
+
+  // Ticking elapsed-time display, same mount/interval/hydration-safe shape
+  // as ClockWidget: computing from Date.now() during the initial render
+  // would disagree with the server-rendered markup.
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Warn before leaving the tab while a session is genuinely open — gated on
+  // isSessionActive (not "was a session open at mount") so the guard detaches
+  // the instant endFocusSession resolves in this tab, not only on next load.
+  useEffect(() => {
+    if (!isSessionActive) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isSessionActive]);
 
   function handleEmployeeChange(id: string) {
     setEmployeeId(id);
@@ -110,7 +142,14 @@ export function FocusClient({
   function handleStart(mode: WorkspaceState) {
     setManualState(mode);
     if (!isSelf) return;
-    setPendingMode(mode as FocusMode);
+    setConfirmStartMode(mode as FocusMode);
+  }
+
+  function confirmStart() {
+    const mode = confirmStartMode;
+    setConfirmStartMode(null);
+    if (!mode) return;
+    setPendingMode(mode);
     setLastSummary(null);
     startTransition(async () => {
       await run(() => startFocusSession({ mode, trigger: "manual" }), {
@@ -137,22 +176,36 @@ export function FocusClient({
   return (
     <div>
       <Card className="mb-5">
-        <label htmlFor="focus-employee" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
-          Employee
-        </label>
-        <select
-          id="focus-employee"
-          value={employeeId}
-          onChange={(e) => handleEmployeeChange(e.target.value)}
-          className="w-56 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-        >
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-              {e.id === currentEmployeeId ? " (you)" : ""}
-            </option>
-          ))}
-        </select>
+        <div className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">Employee</div>
+        {/* An employee with no reports sees exactly one option here, and a
+            dropdown that cannot change anything reads as a control that is
+            broken or still being built. Show the name instead; the picker
+            only appears when there is genuinely something to pick. */}
+        {employees.length <= 1 ? (
+          <p className="text-sm font-medium text-ink">
+            {employees[0]?.name ?? "You"}
+            {employees[0]?.id === currentEmployeeId ? " (you)" : ""}
+          </p>
+        ) : (
+          <>
+            <label htmlFor="focus-employee" className="sr-only">
+              Employee
+            </label>
+            <select
+              id="focus-employee"
+              value={employeeId}
+              onChange={(e) => handleEmployeeChange(e.target.value)}
+              className="w-56 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+            >
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                  {e.id === currentEmployeeId ? " (you)" : ""}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <p className="mt-1 text-xs text-ink-mute">
           Suggested: <span className="font-medium text-ink-soft">{WORKSPACE_COPY[suggested].label}</span>
           {manualState ? " (overridden below)" : ""} · {dueToday} task{dueToday === 1 ? "" : "s"} due today
@@ -200,7 +253,14 @@ export function FocusClient({
               </span>
             </PokeBadge>
             <div>
-              <div className="text-sm font-bold text-ink">{WORKSPACE_COPY[activeState].label} mode active</div>
+              <div className="text-sm font-bold text-ink">
+                {WORKSPACE_COPY[activeState].label} mode active
+                {isSessionActive && openSession ? (
+                  <span className="ml-2 font-mono text-xs font-normal text-ink-mute">
+                    {mounted ? fmtDuration(now - new Date(openSession.startedAt).getTime()) : "—"}
+                  </span>
+                ) : null}
+              </div>
               <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-mute">
                 {WORKSPACE_COPY[activeState].bullets.map((b) => (
                   <li key={b}>{b}</li>
@@ -227,8 +287,8 @@ export function FocusClient({
         ) : null}
       </Card>
 
-      <h2 className="mb-3 text-sm font-semibold text-ink">Today&apos;s timeline (real clocked time)</h2>
-      <Card>
+      <h2 className="mb-3 text-sm font-semibold text-ink">Today&apos;s timeline — real clocked time</h2>
+      <Card className={isPending ? "opacity-60 transition-opacity" : "transition-opacity"}>
         {timeline.length === 0 ? (
           <p className="text-sm text-ink-mute">No clock-in recorded yet today.</p>
         ) : (
@@ -237,7 +297,7 @@ export function FocusClient({
               {timeline.map((block, i) => (
                 <div
                   key={i}
-                  title={`${fmtMinutes(block.startMin)}–${fmtMinutes(block.endMin)} · ${BLOCK_LABEL[block.kind]}`}
+                  title={`${fmtClock(block.startMin)} – ${fmtClock(block.endMin)} · ${BLOCK_LABEL[block.kind]}`}
                   className="flex-1"
                   style={{ background: BLOCK_COLOR[block.kind], flexGrow: block.endMin - block.startMin }}
                 />
@@ -263,6 +323,22 @@ export function FocusClient({
         message={`End your focus session? ${dueToday} task${dueToday === 1 ? "" : "s"} due today and any held notifications will be released.`}
         confirmLabel="End session"
         pending={pendingMode === "ending"}
+      />
+
+      <ConfirmModal
+        open={confirmStartMode !== null}
+        onClose={() => setConfirmStartMode(null)}
+        onConfirm={confirmStart}
+        title="Start focus session"
+        message={
+          confirmStartMode
+            ? `Start a ${WORKSPACE_COPY[confirmStartMode].label} session? ${
+                openSession ? "Your current session will end first." : ""
+              }`
+            : ""
+        }
+        confirmLabel="Start session"
+        pending={isPending && pendingMode === confirmStartMode}
       />
     </div>
   );

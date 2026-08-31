@@ -5,6 +5,7 @@ import { getCurrentPerson } from "@/lib/supabase/people";
 import { DEFAULT_QUIET_START_MIN, DEFAULT_QUIET_END_MIN, type WorkSchedule } from "@/lib/schedule";
 import { DEFAULT_TIMEZONE } from "@/lib/date";
 import { BoundaryClient, type RecipientAvailability } from "./BoundaryClient";
+import { fmtInstant } from "@/lib/boundary-v2";
 import type { ActivityEntry, BoundaryStatus } from "@/types/boundary";
 
 interface AvailabilityRow {
@@ -73,42 +74,44 @@ export default async function BoundaryPage() {
   );
   const availabilityByEmployee = Object.fromEntries(availabilityEntries);
 
+  // Scoped to sender_id = currentEmployeeId (never a global feed — this is
+  // "your" activity, not the org's) and to action = "delayed": the panel
+  // exists to surface messages *you* sent that are still waiting on the
+  // recipient's working hours, not a general send log.
   let initialActivity: ActivityEntry[] = [];
   if (currentEmployeeId) {
     const { data } = await supabase
       .from("boundary_events")
       .select("id, recipient_id, message_preview, action, sent_at, scheduled_delivery")
       .eq("sender_id", currentEmployeeId)
+      .eq("action", "delayed")
       .order("sent_at", { ascending: false })
       .limit(10);
 
-    const FALLBACK_MESSAGE: Record<BoundaryStatus, string> = {
-      blocked: "Blocked",
-      warned: "Warned before sending",
-      delivered: "Delivered immediately",
-      delayed: "Held for working hours",
-    };
+    const employeeNameById = Object.fromEntries(employees.map((e) => [e.id, e.name]));
 
     initialActivity = (data ?? []).map((row) => {
       const status = row.action as BoundaryStatus;
+      const recipientId = row.recipient_id as string;
       const scheduledDelivery = row.scheduled_delivery as string | null;
-      const resolved = status === "delayed" && scheduledDelivery !== null && hasPassed(scheduledDelivery);
-      const message =
-        status === "delayed" && scheduledDelivery
-          ? `${resolved ? "Delivered" : "Held until"} ${new Date(scheduledDelivery).toLocaleString(undefined, {
-              weekday: "long",
-              hour: "numeric",
-              minute: "2-digit",
-            })}`
-          : FALLBACK_MESSAGE[status];
-      const recipientName = employees.find((e) => e.id === row.recipient_id)?.name ?? "Unknown";
+      // Held-until times render in the *recipient's* timezone via
+      // fmtInstant, not the viewer's own — this message is about when the
+      // recipient's quiet hours end, so a sender in a different timezone
+      // reading a bare toLocaleString() would see the wrong clock time.
+      const resolved = scheduledDelivery !== null && hasPassed(scheduledDelivery);
+      const recipientTimezone = availabilityByEmployee[recipientId]?.schedule.timezone ?? DEFAULT_TIMEZONE;
+      const message = scheduledDelivery
+        ? `${resolved ? "Delivered" : "Held until"} ${fmtInstant(new Date(scheduledDelivery), recipientTimezone)}`
+        : "Held for working hours";
       return {
         id: row.id as string,
-        recipientName,
         preview: row.message_preview as string,
         status,
         message,
         timestamp: new Date(row.sent_at as string).getTime(),
+        recipientId,
+        recipientName: employeeNameById[recipientId] ?? "Unknown",
+        scheduledDelivery,
         resolved,
       };
     });

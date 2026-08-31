@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
 import { Logo } from "@/components/shell/Logo";
 import { sectionFor, sectionsFor } from "@/components/shell/navSections";
 import { OPEN_PALETTE_EVENT } from "@/components/ui/CommandPalette";
+import { subscribeToConnectionState, type ConnectionState } from "@/lib/realtime";
 import type { AppRole } from "@/types/person";
 
 /**
@@ -30,15 +32,29 @@ export function MobileTabBar({
   const activeKey = sectionFor(pathname);
   const sections = sectionsFor(role);
   const onSettings = activeKey === "settings";
+  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+
+  useEffect(() => subscribeToConnectionState(setConnectionState), []);
 
   return (
     <>
+      {connectionState !== "connected" ? (
+        <div className="sticky top-0 z-20 flex items-center justify-center gap-1.5 bg-surface-2 px-3 py-1 text-[11px] text-ink-mute md:hidden">
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+              connectionState === "connecting" ? "bg-ink-mute" : "bg-risk-high"
+            }`}
+            aria-hidden="true"
+          />
+          {connectionState === "connecting" ? "Connecting…" : "Reconnecting…"}
+        </div>
+      ) : null}
       <div className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-surface px-3 md:hidden">
         <Link href="/dashboard" aria-label="Home" className="flex items-center">
           <Logo size={22} />
         </Link>
         <span className="text-sm font-bold tracking-wide text-ink">PETAL</span>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-2">
           <button
             type="button"
             aria-label="Search"
@@ -64,7 +80,7 @@ export function MobileTabBar({
           </Link>
           <Link
             href="/settings/schedule"
-            aria-label="Account"
+            aria-label="Settings"
             className={`flex h-11 w-11 items-center justify-center rounded-lg ${
               onSettings ? "bg-surface-2 text-ink" : "text-ink-soft"
             }`}

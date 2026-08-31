@@ -24,7 +24,8 @@ export function Skeleton({
 }) {
   return (
     <div
-      aria-hidden="true"
+      role="status"
+      aria-label="Loading"
       className={`animate-pulse bg-surface-2 ${ROUNDED_CLASSES[rounded]} ${className}`}
     />
   );

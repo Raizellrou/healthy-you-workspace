@@ -104,6 +104,12 @@ export interface WorkScheduleSettings {
   endMin: number;
   quietStartMin: number;
   quietEndMin: number;
+  /** False until the person saves their hours for the first time. Every
+   *  employee now gets a row with 09:00-18:00 Mon-Fri defaults whether they
+   *  asked for them or not (0034), so the row existing no longer means the
+   *  settings were chosen — the dashboard uses this to offer a one-time
+   *  prompt rather than leaving new people on silent defaults. */
+  configured: boolean;
 }
 
 export interface NotificationPrefsSettings {
@@ -111,18 +117,62 @@ export interface NotificationPrefsSettings {
   mutedKinds: string[];
 }
 
+/** Mirrors the column defaults in 0014_notifications_and_schedules.sql. Used
+ *  when an employee has no row yet — see getMySettings below. */
+export const DEFAULT_WORK_SCHEDULE: WorkScheduleSettings = {
+  workdays: [1, 2, 3, 4, 5],
+  startMin: 540,
+  endMin: 1080,
+  quietStartMin: 1200,
+  quietEndMin: 480,
+  configured: false,
+};
+
+/** Mirrors the column defaults in 0014_notifications_and_schedules.sql. */
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefsSettings = {
+  batchingMode: "immediate",
+  mutedKinds: [],
+};
+
+/**
+ * 0014 backfilled work_schedules/notification_prefs for every employee that
+ * existed when it ran, and its comment claimed the app would therefore never
+ * see a missing row. That held for exactly as long as nobody was onboarded:
+ * nothing provisioned rows for employees created afterwards, so `.single()`
+ * threw and took out /dashboard and /settings/schedule entirely for them.
+ *
+ * 0034 adds the trigger that keeps the data correct going forward. This falls
+ * back to the same defaults regardless, so a missing row degrades to sensible
+ * settings instead of an error boundary — the pattern getUiPreferences() in
+ * ./preferences.ts already uses. A genuine query error still throws; only
+ * "no row" is absorbed.
+ */
 export async function getMySettings(
   employeeId: string
 ): Promise<{ schedule: WorkScheduleSettings; prefs: NotificationPrefsSettings }> {
   const supabase = await createClient();
-  const [scheduleRes, prefsRes] = await Promise.all([
+  const scheduleColumns = "workdays, start_min, end_min, quiet_start_min, quiet_end_min";
+  const [scheduleFirst, prefsRes] = await Promise.all([
     supabase
       .from("work_schedules")
-      .select("workdays, start_min, end_min, quiet_start_min, quiet_end_min")
+      .select(`${scheduleColumns}, configured_at`)
       .eq("employee_id", employeeId)
-      .single(),
-    supabase.from("notification_prefs").select("batching_mode, muted_kinds").eq("employee_id", employeeId).single(),
+      .maybeSingle(),
+    supabase.from("notification_prefs").select("batching_mode, muted_kinds").eq("employee_id", employeeId).maybeSingle(),
   ]);
+
+  // configured_at arrives with 0034, and in this project schema is applied by
+  // hand in the SQL editor rather than by the deploy — so the code can be
+  // live before the column exists. Postgres 42703 is undefined_column; on
+  // that specific error, fall back to the pre-0034 column set rather than
+  // failing the whole dashboard, which is exactly the failure mode this
+  // function was just fixed for. Delete this branch once 0034 is applied
+  // everywhere.
+  const columnMissing = scheduleFirst.error?.code === "42703";
+  const scheduleRes = columnMissing
+    ? await supabase.from("work_schedules").select(scheduleColumns).eq("employee_id", employeeId).maybeSingle()
+    : scheduleFirst;
+
   if (scheduleRes.error) {
     throw new Error(`Failed to load work schedule: ${scheduleRes.error.message}`);
   }
@@ -130,17 +180,27 @@ export async function getMySettings(
     throw new Error(`Failed to load notification prefs: ${prefsRes.error.message}`);
   }
 
+  const schedule = scheduleRes.data;
+  const prefs = prefsRes.data;
+
   return {
-    schedule: {
-      workdays: scheduleRes.data.workdays,
-      startMin: scheduleRes.data.start_min,
-      endMin: scheduleRes.data.end_min,
-      quietStartMin: scheduleRes.data.quiet_start_min,
-      quietEndMin: scheduleRes.data.quiet_end_min,
-    },
-    prefs: {
-      batchingMode: prefsRes.data.batching_mode,
-      mutedKinds: prefsRes.data.muted_kinds,
-    },
+    schedule: schedule
+      ? {
+          workdays: schedule.workdays,
+          startMin: schedule.start_min,
+          endMin: schedule.end_min,
+          quietStartMin: schedule.quiet_start_min,
+          quietEndMin: schedule.quiet_end_min,
+          // Absent column (pre-0034) reads as configured: better to skip
+          // the prompt than to show every existing employee a setup task.
+          configured: "configured_at" in schedule ? schedule.configured_at !== null : true,
+        }
+      : DEFAULT_WORK_SCHEDULE,
+    prefs: prefs
+      ? {
+          batchingMode: prefs.batching_mode,
+          mutedKinds: prefs.muted_kinds,
+        }
+      : DEFAULT_NOTIFICATION_PREFS,
   };
 }
