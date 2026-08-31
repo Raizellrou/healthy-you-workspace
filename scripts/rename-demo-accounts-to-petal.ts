@@ -2,8 +2,7 @@
  * One-time migration: renames every existing demo account's Supabase Auth
  * identity from the old AxionHR naming to Petal — email domain
  * @axionhr.test -> @petal.test, and password axionhr-demo-2026 ->
- * petal-demo-2026 (matching the new DEMO_PASSWORD in app/login/demoAccounts.ts
- * and the seed scripts).
+ * petal-demo-2026 (matching DEMO_PASSWORD in the seed scripts).
  *
  * Scope: every write below targets a specific row by id, read from the real
  * `employees` table moments before — no unscoped UPDATE. Only rows whose

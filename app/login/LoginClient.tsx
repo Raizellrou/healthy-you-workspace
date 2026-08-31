@@ -6,12 +6,10 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { gradientButtonClassName } from "@/components/ui/Button";
 import { Icon } from "@/components/icons/Icon";
 import { createClient } from "@/lib/supabase/client";
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "./demoAccounts";
 
 export function LoginClient() {
   const router = useRouter();
@@ -43,20 +41,12 @@ export function LoginClient() {
     router.refresh();
   }
 
-  function quickPick(accountEmail: string) {
-    setEmail(accountEmail);
-    setPassword(DEMO_PASSWORD);
-    setError(null);
-  }
-
   return (
     <Card className="p-8 shadow-xl">
       <div className="text-center">
         <Eyebrow centered>A demo HR wellbeing platform</Eyebrow>
         <h1 className="mt-3.5 font-display text-2xl font-medium tracking-tight text-ink">Sign in to Petal</h1>
-        <p className="mt-2 text-sm text-ink-soft">
-          Demo project. Pick a seeded account below or enter credentials manually.
-        </p>
+        <p className="mt-2 text-sm text-ink-soft">Demo project. Sign in with your seeded account.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
@@ -108,27 +98,6 @@ export function LoginClient() {
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
-
-      <div className="mt-7 border-t border-line pt-6">
-        <Field
-          label="Quick pick a demo account"
-          hint="Fills in the shared demo password. Not a real security boundary, exploration only."
-        >
-          {(p) => (
-            <Select
-              {...p}
-              defaultValue=""
-              onChange={(e) => {
-                if (e.target.value) quickPick(e.target.value);
-              }}
-              options={[
-                { value: "", label: "Choose a person…", disabled: true },
-                ...DEMO_ACCOUNTS.map((a) => ({ value: a.email, label: a.name })),
-              ]}
-            />
-          )}
-        </Field>
-      </div>
     </Card>
   );
 }
