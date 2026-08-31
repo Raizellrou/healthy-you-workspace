@@ -137,7 +137,6 @@ export async function sendBoundaryMessage(
     ok: true,
     entry: {
       id: data.id as string,
-      recipientName: recipient.name,
       preview,
       status: result.status,
       message: resultMessage,
