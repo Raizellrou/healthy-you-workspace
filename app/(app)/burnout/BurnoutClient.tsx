@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { PokeBadge } from "@/components/ui/PokeBadge";
 import { BandChip } from "@/components/burnout/BandChip";
@@ -10,7 +12,7 @@ import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { ForecastCard } from "@/components/burnout/ForecastCard";
 import { InterventionPanel } from "@/components/burnout/InterventionPanel";
-import { BAND_COLOR, BAND_LABEL, BAND_ORDER as BANDS } from "@/lib/burnout-bands";
+import { BAND_TEXT, BAND_FILL, BAND_LABEL, BAND_ORDER as BANDS } from "@/lib/burnout-bands";
 import type { BurnoutHistoryPoint } from "@/lib/supabase/queries";
 import type { ForecastPoint } from "@/lib/forecast";
 import type { BurnoutRow } from "./page";
@@ -75,8 +77,26 @@ export function BurnoutClient({
 
   const teams = useMemo(() => Array.from(new Set(rows.map((r) => r.employee.team))).sort(), [rows]);
 
-  const [teamFilter, setTeamFilter] = useState<string | "All">("All");
-  const [activeBand, setActiveBand] = useState<BurnoutBand | null>(null);
+  // Team and band filters live in the URL so a view can be linked and
+  // survives a reload — "here are the three people I mean" is the message an
+  // HR user actually wants to send a manager. Sort and selection stay local:
+  // they are a reading posture, not the subject of the link.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const teamFilter = searchParams.get("team") ?? "All";
+  const bandParam = searchParams.get("band");
+  const activeBand: BurnoutBand | null =
+    bandParam === "low" || bandParam === "medium" || bandParam === "high" || bandParam === "critical" ? bandParam : null;
+
+  function writeParam(key: string, value: string | null) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (value === null) next.delete(key);
+    else next.set(key, value);
+    router.replace(next.toString() ? `${pathname}?${next}` : pathname, { scroll: false });
+  }
+  const setTeamFilter = (team: string) => writeParam("team", team === "All" ? null : team);
+  const setActiveBand = (band: BurnoutBand | null) => writeParam("band", band);
   const [sortKey, setSortKey] = useState<SortKey>("composite");
   const [sortDir, setSortDir] = useState<SortDirection>("desc");
 
@@ -96,6 +116,10 @@ export function BurnoutClient({
   const [selectedId, setSelectedId] = useState<string | null>(
     () => visibleRows[0]?.employee.id ?? null
   );
+
+  if (rows.length === 0) {
+    return <EmptyState icon="users" message="No one visible in your scope yet." />;
+  }
 
   const selected = visibleRows.find((r) => r.employee.id === selectedId) ?? visibleRows[0];
 
@@ -132,7 +156,7 @@ export function BurnoutClient({
             key={band}
             type="button"
             aria-pressed={activeBand === band}
-            onClick={() => setActiveBand((cur) => (cur === band ? null : band))}
+            onClick={() => setActiveBand(activeBand === band ? null : band)}
             className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
               activeBand === band
                 ? "border-brand bg-brand-soft text-brand-ink"
@@ -197,13 +221,13 @@ export function BurnoutClient({
                     isSelected ? "bg-brand-soft" : "hover:bg-surface-2"
                   }`}
                 >
-                  <td className="py-3 pr-4 pl-[13px]" style={{ borderLeft: `3px solid ${BAND_COLOR[row.scores.bandV2]}` }}>
+                  <td className="py-3 pr-4 pl-[13px]" style={{ borderLeft: `3px solid ${BAND_FILL[row.scores.bandV2]}` }}>
                     <div className="flex items-center gap-3">
                       <Avatar name={row.employee.name} color={row.employee.avatarColor} size={28} />
                       <span className="font-medium text-ink">{row.employee.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-mono font-semibold" style={{ color: BAND_COLOR[row.scores.bandV2] }}>
+                  <td className="px-4 py-3 font-mono font-semibold" style={{ color: BAND_TEXT[row.scores.bandV2] }}>
                     {Math.round(row.scores.compositeV2)}
                     <span className="ml-1.5 font-sans text-xs font-normal text-ink-mute">
                       base {Math.round(row.scores.composite)}
@@ -242,7 +266,7 @@ export function BurnoutClient({
               shapeClassName="rounded-lg"
             >
               <div className="rounded-lg bg-surface-2 px-4 py-3 text-center">
-                <div className="text-2xl font-bold" style={{ color: BAND_COLOR[selected.scores.bandV2] }}>
+                <div className="text-2xl font-bold" style={{ color: BAND_TEXT[selected.scores.bandV2] }}>
                   {Math.round(selected.scores.compositeV2)}
                 </div>
                 <div className="text-xs text-ink-mute">Task-aware score</div>
@@ -259,7 +283,7 @@ export function BurnoutClient({
             <SectionLabel className="mb-2">14-day trend (base composite)</SectionLabel>
             <Sparkline
               values={(historyByEmployee[selected.employee.id] ?? []).map((p) => p.composite)}
-              stroke={BAND_COLOR[selected.scores.bandV2]}
+              stroke={BAND_TEXT[selected.scores.bandV2]}
               filled
               width={272}
               height={56}

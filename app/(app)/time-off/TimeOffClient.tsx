@@ -38,11 +38,35 @@ export function TimeOffClient({
   pendingForOthers: PtoRequest[];
 }) {
   const router = useRouter();
+  const [mineRows, setMineRows] = useState(mine);
+  const [othersRows, setOthersRows] = useState(pendingForOthers);
+  // router.refresh() re-renders this component with fresh server props
+  // without remounting it, so local optimistic state needs to resync once
+  // the real data lands — same render-time-resync shape FocusClient uses
+  // for its session-identity prop.
+  const mineSignature = mine.map((r) => `${r.id}:${r.status}`).join(",");
+  const [prevMineSignature, setPrevMineSignature] = useState(mineSignature);
+  if (mineSignature !== prevMineSignature) {
+    setPrevMineSignature(mineSignature);
+    setMineRows(mine);
+  }
+  const othersSignature = pendingForOthers.map((r) => r.id).join(",");
+  const [prevOthersSignature, setPrevOthersSignature] = useState(othersSignature);
+  if (othersSignature !== prevOthersSignature) {
+    setPrevOthersSignature(othersSignature);
+    setOthersRows(pendingForOthers);
+  }
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [kind, setKind] = useState<PtoRequest["kind"]>("vacation");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Validation used to run only on submit, and reported a single message at
+  // the top of the form rather than at the field that was wrong. The dates
+  // also carried no `required`, so a screen reader announced them as
+  // optional. `touched` keeps the messages from firing at someone who has
+  // not typed anything yet.
+  const [touched, setTouched] = useState<{ start: boolean; end: boolean }>({ start: false, end: false });
   const [isPending, startTransition] = useTransition();
   const [pendingRowId, setPendingRowId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<PtoRequest | null>(null);
@@ -51,9 +75,27 @@ export function TimeOffClient({
   const [flashId, setFlashId] = useState<string | null>(null);
   const run = useActionToast();
 
+  const startError = touched.start && !startDate ? "Pick a start date." : undefined;
+  const endError = !touched.end
+    ? undefined
+    : !endDate
+      ? "Pick an end date."
+      : startDate && endDate < startDate
+        ? "The end date can't be before the start date."
+        : undefined;
+
   function handleSubmit() {
+    // Still guards on submit as well: the inline messages above only appear
+    // once a field has been touched, so someone can reach this with both
+    // fields untouched and empty.
     if (!startDate || !endDate) {
+      setTouched({ start: true, end: true });
       setError("Pick a start and end date.");
+      return;
+    }
+    if (endDate < startDate) {
+      setTouched({ start: true, end: true });
+      setError("The end date can't be before the start date.");
       return;
     }
     setError(null);
@@ -65,6 +107,7 @@ export function TimeOffClient({
       setStartDate("");
       setEndDate("");
       setNote("");
+      setTouched({ start: false, end: false });
       setComposerOpen(false);
       router.refresh();
     });
@@ -83,6 +126,7 @@ export function TimeOffClient({
       const result = await run(() => cancelPto(id), { success: "Time off request cancelled." });
       setPendingRowId(null);
       if (result.ok) {
+        setMineRows((rows) => rows.map((r) => (r.id === id ? { ...r, status: "cancelled" } : r)));
         setFlashId(id);
         window.setTimeout(() => setFlashId((cur) => (cur === id ? null : cur)), 1400);
       }
@@ -94,10 +138,13 @@ export function TimeOffClient({
     setDenyTarget(null);
     setPendingRowId(id);
     startTransition(async () => {
-      await run(() => decidePto({ requestId: id, status }), {
+      const result = await run(() => decidePto({ requestId: id, status }), {
         success: status === "approved" ? "Request approved." : "Request denied.",
       });
       setPendingRowId(null);
+      if (result.ok) {
+        setOthersRows((rows) => rows.filter((r) => r.id !== id));
+      }
       router.refresh();
     });
   }
@@ -110,11 +157,11 @@ export function TimeOffClient({
         </Button>
       </div>
 
-      {pendingForOthers.length > 0 && (
+      {othersRows.length > 0 && (
         <Card>
           <div className="mb-3 text-sm font-semibold text-ink">Pending approvals</div>
           <ul className="space-y-2">
-            {pendingForOthers.map((r) => (
+            {othersRows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 rounded-lg border border-line px-3 py-2.5">
                 <Avatar name={r.employeeName} color={r.avatarColor} size={32} />
                 <div className="min-w-0 flex-1">
@@ -150,11 +197,11 @@ export function TimeOffClient({
 
       <Card>
         <div className="mb-3 text-sm font-semibold text-ink">My requests</div>
-        {mine.length === 0 ? (
+        {mineRows.length === 0 ? (
           <p className="text-xs text-ink-mute">No requests yet.</p>
         ) : (
           <ul className="space-y-2">
-            {mine.map((r) => (
+            {mineRows.map((r) => (
               <li
                 key={r.id}
                 className={`flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 ${flashId === r.id ? "animate-row-flash" : ""}`}
@@ -205,14 +252,29 @@ export function TimeOffClient({
             </div>
           )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Start date">
+            <Field label="Start date" required error={startError}>
               {(p) => (
-                <Input {...p} type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={isPending} />
+                <Input
+                  {...p}
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  onBlur={() => setTouched((t) => ({ ...t, start: true }))}
+                  disabled={isPending}
+                />
               )}
             </Field>
-            <Field label="End date">
+            <Field label="End date" required error={endError}>
               {(p) => (
-                <Input {...p} type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={isPending} />
+                <Input
+                  {...p}
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  onBlur={() => setTouched((t) => ({ ...t, end: true }))}
+                  disabled={isPending}
+                />
               )}
             </Field>
           </div>

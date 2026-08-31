@@ -11,6 +11,7 @@ export type IconName =
   | "stretch"
   | "droplet"
   | "eye"
+  | "eye-off"
   | "posture"
   | "check"
   | "lock"

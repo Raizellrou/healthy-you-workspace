@@ -58,11 +58,28 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${fraunces.variable} ${ibmPlexMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-bg text-ink">
+      {/* suppressHydrationWarning here too: Console Ninja (VS Code extension,
+          see the dev-server startup log) injects a __processed_<uuid>__
+          marker attribute onto body before hydration, which otherwise trips
+          a hydration-mismatch warning unrelated to any real SSR/CSR drift. */}
+      <body className="min-h-full bg-bg text-ink" suppressHydrationWarning>
+        {/* `beforeInteractive` Scripts need a stable position for Next's
+            hydration/hoisting — inserting a sibling ahead of it here
+            triggered "Encountered a script tag while rendering React
+            component" in dev. The skip link only needs to be the first
+            *focusable* element, not literally body's first DOM node —
+            Script and IconSprite render nothing focusable — so it moves
+            after both instead. */}
         <Script id="theme-init" strategy="beforeInteractive">
           {THEME_INIT_SCRIPT}
         </Script>
         <IconSprite />
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-ink focus:shadow-lg"
+        >
+          Skip to content
+        </a>
         {children}
       </body>
     </html>

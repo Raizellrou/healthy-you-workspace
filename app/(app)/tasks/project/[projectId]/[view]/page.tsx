@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { ProjectMenu } from "@/components/tasks/ProjectMenu";
 import { ViewSwitcher, VIEW_KEYS } from "@/components/tasks/ViewSwitcher";
 import { FilterBar } from "@/components/tasks/FilterBar";
@@ -78,6 +79,10 @@ export default async function ProjectViewPage({
 
   return (
     <div className="px-6 py-6">
+      <Link href="/tasks" className="mb-4 inline-flex items-center text-sm text-ink-soft hover:text-ink">
+        ← Back to My Tasks
+      </Link>
+
       {/* One header row: identity, the four lenses, and project actions.
           The old stack was a title+description block, a separate view-tab
           row, and a permanently-visible red Delete button — ~166px of

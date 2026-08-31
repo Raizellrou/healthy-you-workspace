@@ -11,6 +11,7 @@ export interface Toast {
   title: string;
   variant: ToastVariant;
   duration: number;
+  action?: { label: string; onClick: () => void };
 }
 
 export const MAX_VISIBLE_TOASTS = 3;

@@ -1,5 +1,5 @@
 import { getUpcomingMeetingHours } from "@/lib/supabase/meetings";
-import { getUpcomingDueTaskCounts } from "@/lib/supabase/tasks";
+import { getUpcomingDueTaskCountsForEmployees } from "@/lib/supabase/tasks";
 import { getVisiblePtoRequests } from "@/lib/supabase/attendance";
 import { forecastNext7Days, type ForecastPoint } from "@/lib/forecast";
 import { todayInTz, addDays, isWithin } from "@/lib/date";
@@ -35,19 +35,30 @@ export async function getForecastsForEmployees(
     approvedPtoByEmployee.set(req.employeeId, list);
   }
 
+  // Each person's "today" is their own local date, so resolve them all up
+  // front — the batched due-task read needs the whole set to size its
+  // window, and the per-employee loop below reuses the same values.
+  const todayByEmployee = new Map(
+    employeeIds.map((id) => [id, todayInTz(timezoneByEmployee.get(id) ?? "Asia/Manila")])
+  );
+  // One `.in()` read for the whole roster instead of one per employee.
+  // getUpcomingMeetingHours stays per-employee: it wraps the
+  // get_busy_intervals RPC, which would need a new batched RPC in Postgres
+  // to fold the same way — measured at ~301ms for 25, so it's a smaller
+  // win that isn't worth a migration on its own.
+  const dueTasksByEmployee = await getUpcomingDueTaskCountsForEmployees(employeeIds, todayByEmployee);
+
   const entries = await Promise.all(
     employeeIds.map(async (employeeId): Promise<[string, ForecastPoint[]] | null> => {
       const inputsExtras = inputsExtrasByEmployee.get(employeeId);
       if (!inputsExtras) return null;
 
       const timezone = timezoneByEmployee.get(employeeId) ?? "Asia/Manila";
-      const employeeToday = todayInTz(timezone);
+      const employeeToday = todayByEmployee.get(employeeId)!;
       const weeklyCapacityHours = capacityByEmployee.get(employeeId) ?? 40;
 
-      const [meetingHours, dueTasks] = await Promise.all([
-        getUpcomingMeetingHours(employeeId, timezone),
-        getUpcomingDueTaskCounts(employeeId, employeeToday),
-      ]);
+      const meetingHours = await getUpcomingMeetingHours(employeeId, timezone);
+      const dueTasks = dueTasksByEmployee.get(employeeId) ?? Array.from({ length: 7 }, () => 0);
 
       const ranges = approvedPtoByEmployee.get(employeeId) ?? [];
       const ptoScheduled = Array.from({ length: 7 }, (_, i) => {

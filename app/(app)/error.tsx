@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
@@ -12,6 +11,11 @@ import { Card } from "@/components/ui/Card";
  * schema or policy detail, and a row-level-security denial reads as a database
  * error rather than anything the person can act on. The digest is enough to
  * correlate with server logs.
+ *
+ * The secondary action is a hard reload, not "Back to dashboard". This
+ * boundary fires *on* /dashboard often enough (it was the whole symptom of the
+ * missing-work_schedules bug) that routing there offered the broken page as
+ * the way out of itself — two buttons, neither of which could ever work.
  */
 export default function AppError({
   error,
@@ -20,8 +24,6 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const router = useRouter();
-
   useEffect(() => {
     console.error("Route error:", error);
   }, [error]);
@@ -41,8 +43,8 @@ export default function AppError({
         )}
         <div className="mt-5 flex justify-center gap-2">
           <Button onClick={reset}>Try again</Button>
-          <Button variant="secondary" onClick={() => router.push("/dashboard")}>
-            Back to dashboard
+          <Button variant="secondary" onClick={() => window.location.reload()}>
+            Reload
           </Button>
         </div>
       </Card>

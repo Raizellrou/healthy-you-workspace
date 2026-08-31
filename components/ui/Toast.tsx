@@ -21,6 +21,18 @@ export function Toast({ toast, onDismiss }: { toast: ToastData; onDismiss: () =>
         <Icon name={meta.icon} size={16} />
       </span>
       <p className="min-w-0 flex-1 text-sm font-medium text-ink">{toast.title}</p>
+      {toast.action ? (
+        <button
+          type="button"
+          onClick={() => {
+            toast.action?.onClick();
+            onDismiss();
+          }}
+          className="shrink-0 text-sm font-semibold text-brand-ink hover:underline"
+        >
+          {toast.action.label}
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={onDismiss}

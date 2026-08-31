@@ -34,15 +34,24 @@ export function canManageProjects(role: AppRole): boolean {
   return role !== "employee";
 }
 
+/** The id + team pair the visibility rules actually depend on. Lets callers
+ *  that hold something narrower than a full Person — Employee, say, which
+ *  carries a team name but no teamId — reuse this logic instead of
+ *  reimplementing it. */
+export interface VisibilityTarget {
+  id: string;
+  teamId: string | null;
+}
+
 /** Mirrors `manages(target)`: true when `viewer` manages `target`'s team. */
-export function isManagerOf(viewer: Person, target: Person, teams: Team[]): boolean {
+export function isManagerOf(viewer: Person, target: VisibilityTarget, teams: Team[]): boolean {
   if (!target.teamId) return false;
   const team = teams.find((t) => t.id === target.teamId);
   return team?.managerId === viewer.id;
 }
 
 /** Mirrors `can_see_employee(target)`. */
-export function canSee(viewer: Person, target: Person, teams: Team[]): boolean {
+export function canSee(viewer: Person, target: VisibilityTarget, teams: Team[]): boolean {
   return viewer.id === target.id || isHr(viewer.appRole) || isManagerOf(viewer, target, teams);
 }
 

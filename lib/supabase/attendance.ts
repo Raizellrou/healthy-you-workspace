@@ -40,6 +40,12 @@ export interface OpenSession {
    *  back to clock-in when nothing has been taken yet. */
   lastBreakEnd: string | null;
   breakCount: number;
+  /** Total milliseconds across this session's already-*completed* breaks
+   *  (excludes a currently open one — a live "breaks today" display adds
+   *  that itself from `openBreak.breakStart`, the same way ClockWidget
+   *  derives its own elapsed reading from `clockIn` rather than a
+   *  server-computed snapshot that would go stale between ticks). */
+  completedBreakMs: number;
 }
 
 /** The signed-in person's currently open session (if any) and, if they're
@@ -68,6 +74,10 @@ export async function getOpenSession(employeeId: string): Promise<OpenSession | 
   const openBreak = rows.find((b) => b.break_end === null) ?? null;
   const completed = rows.filter((b) => b.break_end !== null);
   const lastBreakEnd = completed.length > 0 ? completed[completed.length - 1].break_end : null;
+  const completedBreakMs = completed.reduce(
+    (sum, b) => sum + (new Date(b.break_end as string).getTime() - new Date(b.break_start).getTime()),
+    0
+  );
 
   return {
     id: session.id,
@@ -77,6 +87,7 @@ export async function getOpenSession(employeeId: string): Promise<OpenSession | 
     openBreak: openBreak ? { id: openBreak.id, breakStart: openBreak.break_start, kind: openBreak.kind } : null,
     lastBreakEnd,
     breakCount: completed.length,
+    completedBreakMs,
   };
 }
 

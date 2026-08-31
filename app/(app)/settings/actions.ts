@@ -33,6 +33,11 @@ export async function updateSchedule(input: unknown): Promise<ActionResult> {
           end_min: data.endMin,
           quiet_start_min: data.quietStartMin,
           quiet_end_min: data.quietEndMin,
+          // Marks the schedule as deliberately chosen, which retires the
+          // first-run prompt on the dashboard. Set on every save, not just
+          // the first — an idempotent timestamp is simpler than a read
+          // followed by a conditional write.
+          configured_at: new Date().toISOString(),
         })
         .eq("employee_id", employeeId);
       if (error) {

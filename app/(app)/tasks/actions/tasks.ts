@@ -193,16 +193,48 @@ export async function deleteTask(taskId: string, projectId: string): Promise<Act
 
   const supabase = await createClient();
 
-  // Recorded before the delete: task_events.task_id is ON DELETE SET NULL
-  // (0011), not CASCADE, specifically so this row — and every earlier event
-  // for this task — survives the task's own deletion instead of vanishing
-  // with it.
   const { data: task } = await supabase.from("tasks").select("title").eq("id", taskId).maybeSingle();
   await recordEvent(supabase, taskId, "deleted", { to: task?.title ?? undefined });
 
-  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  // Soft delete (0031): the row stays and every read path filters
+  // `deleted_at is null`, so a delete can be undone via restoreTask below
+  // instead of being unrecoverable the instant this resolves.
+  const { error } = await supabase
+    .from("tasks")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", taskId);
   if (error) {
     return fail(describeDbError(error));
+  }
+
+  revalidatePath("/tasks");
+  revalidateProjectViews(projectId);
+  revalidatePath("/tasks/workload");
+  return ok();
+}
+
+/** Undoes a recent deleteTask — the row was only marked deleted_at, never
+ *  actually removed. `.not("deleted_at", "is", null)` guards against
+ *  restoring a task that was never deleted in the first place. */
+export async function restoreTask(taskId: string, projectId: string): Promise<ActionResult> {
+  const person = await getCurrentPerson();
+  if (!person || !canManageProjects(person.appRole)) {
+    return fail("Only managers and HR can do that.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ deleted_at: null })
+    .eq("id", taskId)
+    .not("deleted_at", "is", null)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    return fail(describeDbError(error));
+  }
+  if (!data) {
+    return fail("This task can no longer be restored.");
   }
 
   revalidatePath("/tasks");
