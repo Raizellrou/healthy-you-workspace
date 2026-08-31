@@ -28,11 +28,18 @@ function PersonGroup({
   color,
   people,
   meta,
+  layout = "list",
 }: {
   label: string;
   color: string;
   people: Person[];
   meta?: (p: Person) => string;
+  /** "list" (default) is a full-width row per person — reads well with a
+   *  `meta` value (elapsed time, etc.) aligned to the right. "grid" is a
+   *  compact multi-column tile layout with no meta column, for groups that
+   *  can run into the dozens (e.g. "Off today") where one row per person
+   *  turns into a long scroll for no extra information. */
+  layout?: "list" | "grid";
 }) {
   return (
     <Card className="overflow-hidden p-0">
@@ -48,6 +55,21 @@ function PersonGroup({
       </div>
       {people.length === 0 ? (
         <p className="px-4 py-4 text-xs text-ink-mute">Nobody here right now.</p>
+      ) : layout === "grid" ? (
+        <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {people.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-2.5 py-2"
+            >
+              <Avatar name={p.name} color={p.avatarColor} size={26} />
+              <div className="min-w-0">
+                <div className="truncate text-xs font-semibold text-ink">{p.name}</div>
+                <div className="truncate text-[11px] text-ink-mute">{p.team}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div>
           {people.map((p, i) => (
@@ -148,7 +170,7 @@ export default async function AttendancePage() {
           </div>
 
           <div className="mt-4">
-            <PersonGroup label="Off today" color={ATTENDANCE_COLOR.off} people={off} />
+            <PersonGroup label="Off today" color={ATTENDANCE_COLOR.off} people={off} layout="grid" />
           </div>
         </>
       )}

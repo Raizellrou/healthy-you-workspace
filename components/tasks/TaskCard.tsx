@@ -21,7 +21,7 @@ export function TaskCard({ task }: { task: Task }) {
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
       {...attributes}
       {...listeners}
-      className="cursor-grab space-y-2 rounded-lg border border-line bg-surface p-3 active:cursor-grabbing"
+      className="cursor-grab space-y-2 rounded-lg border border-line bg-surface p-3 transition-shadow hover:shadow-md active:cursor-grabbing"
     >
       <Link
         href={`/tasks/${task.id}`}

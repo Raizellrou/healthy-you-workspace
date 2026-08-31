@@ -25,6 +25,16 @@
  * block rather than leaving the note stale.
  */
 :root {
+  /* Tells the browser which palette to render its OWN chrome in — the
+     <input type="time">/"date"> picker icon, default scrollbars,
+     checkboxes, `<select>` arrows — none of which are our markup, so
+     nothing above this file touches them. Unset, Chrome assumes light
+     unconditionally and draws a dark-on-dark time-picker icon on this
+     app's dark surfaces no matter how dark the input itself is. Kept in
+     the same 4-block shape (default / prefers-color-scheme / [data-theme])
+     as every other themed token below, so it flips in step with them. */
+  color-scheme: light;
+
   --paper: #ffffff;
   --paper-alt: #f7f5fb;
   --panel: #ffffff;
@@ -33,6 +43,13 @@
   --brand-dark: #372f80;
   --brand-soft: #eeebfa;
   --brand-ink: #372f80;
+  /* Foreground for content painted on a `bg-brand` fill. Needed as its own
+     token — not a hardcoded `text-white` — because --brand itself flips
+     from dark (light mode) to light (dark mode) so it still reads as
+     "brand" against each theme's own surface; a fill that inverts
+     brightness needs its on-fill text to invert with it, or the pairing
+     goes from AA-passing white-on-indigo to ~3:1 white-on-lavender. */
+  --brand-fg: #ffffff;
 
   --risk-low: #87d380;
   --risk-medium: #ffd700;
@@ -150,6 +167,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
     --paper: #17121f;
     --paper-alt: #1c1526;
     --panel: #221b31;
@@ -158,6 +177,7 @@
     --brand-dark: #a79ef5;
     --brand-soft: rgba(141, 130, 240, 0.16);
     --brand-ink: #c5bef7;
+    --brand-fg: #17121f;
 
     --bg: #17121f;
     --surface: #221b31;
@@ -225,6 +245,8 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
+
   --paper: #17121f;
   --paper-alt: #1c1526;
   --panel: #221b31;
@@ -233,6 +255,7 @@
   --brand-dark: #a79ef5;
   --brand-soft: rgba(141, 130, 240, 0.16);
   --brand-ink: #c5bef7;
+  --brand-fg: #17121f;
 
   --bg: #17121f;
   --surface: #221b31;
@@ -299,6 +322,8 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
+
   --paper: #ffffff;
   --paper-alt: #f7f5fb;
   --panel: #ffffff;
@@ -307,6 +332,7 @@
   --brand-dark: #372f80;
   --brand-soft: #eeebfa;
   --brand-ink: #372f80;
+  --brand-fg: #ffffff;
 
   --bg: #f7f5fb;
   --surface: #ffffff;
@@ -393,6 +419,7 @@
   --color-brand-dark: var(--brand-dark);
   --color-brand-soft: var(--brand-soft);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-fg: var(--brand-fg);
 
   --color-risk-low: var(--risk-low);
   --color-risk-medium: var(--risk-medium);
@@ -684,53 +711,41 @@ html {
   }
 }
 
-@keyframes float-y {
+@keyframes axo-float {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translateY(0px);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-1.6px);
   }
 }
 
-@keyframes rise-fade {
+@keyframes axo-rise {
   0% {
     opacity: 0;
-    transform: translateY(6px) scale(0.9);
+    transform: translateY(2px);
   }
   30% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translateY(-22px) scale(1.05);
+    transform: translateY(-7px);
   }
 }
 
-@keyframes tear-fall {
+@keyframes axo-tear {
   0% {
     opacity: 0;
-    transform: translateY(-2px) scale(0.8);
+    transform: translateY(0px);
   }
-  30% {
+  25% {
     opacity: 1;
   }
   100% {
     opacity: 0;
-    transform: translateY(10px) scale(1);
-  }
-}
-
-@keyframes sparkle-pop {
-  0%,
-  100% {
-    opacity: 0;
-    transform: scale(0.6);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.15);
+    transform: translateY(7px);
   }
 }
 
@@ -752,40 +767,104 @@ html {
   animation: toast-in 0.18s ease-out;
 }
 
-/* ---- axolotl ---- */
+/* ---- axolotl ----
+ * Ported from a design export (see components/mood/axolotlPixelArt.tsx's
+ * header comment). `.group:hover` reveals it via the existing `group` class
+ * MoodClient.tsx already puts on each mood-picker button; `.axo-active`
+ * reveals it independent of hover, for the picked/hero state. */
 
-.axolotl-body {
+.axo-art {
   opacity: 0.62;
   transform-origin: 50% 60%;
   transform-box: fill-box;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
-.group:hover .axolotl-body,
-.axolotl-active .axolotl-body {
+.group:hover .axo-art,
+.axo-active .axo-art {
   opacity: 1;
   transform: scale(1.06);
 }
 
-.axolotl-tear,
-.axolotl-bubble,
-.axolotl-heart,
-.axolotl-sparkle {
-  opacity: 0.85;
+.axo-amb {
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.group:hover .axo-amb,
+.axo-active .axo-amb {
+  opacity: 1;
+}
+
+/* One-shot "poke" micro-interaction shared by every Wellbeing pillar's
+ * small playful trigger (components/ui/PokeBadge.tsx) — the picked/hero
+ * axolotl on Mood, plus a badge/icon on each of the other pillars.
+ * Unguarded by prefers-reduced-motion:no-preference, same as
+ * .animate-row-flash/.animate-toast-in above — a single ~0.5s bounce falls
+ * under the blanket reduced-motion killer further down this file rather
+ * than needing its own no-preference wrapper, which is reserved for the
+ * continuously-looping axo-float/axo-rise/axo-tear. */
+@keyframes poke-bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.9, 1.1);
+  }
+  60% {
+    transform: scale(1.08, 0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.poke-bump {
+  display: inline-block;
+  animation: poke-bump 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes reaction-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -10px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -16px) scale(0.95);
+  }
+}
+
+.reaction-pop {
+  animation: reaction-pop 1.4s ease-out;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .axolotl-tear {
-    animation: tear-fall 1.8s ease-in-out infinite;
+  .axo-float {
+    animation: axo-float 3.2s ease-in-out infinite;
   }
-  .axolotl-bubble {
-    animation: rise-fade 2.6s ease-in-out infinite;
+  .axo-rise-1 {
+    animation: axo-rise 2.6s ease-in-out infinite;
   }
-  .axolotl-heart {
-    animation: rise-fade 2.3s ease-in-out infinite;
+  .axo-rise-2 {
+    animation: axo-rise 2.6s ease-in-out 0.9s infinite;
   }
-  .axolotl-sparkle {
-    animation: sparkle-pop 1.6s ease-in-out infinite;
+  .axo-rise-3 {
+    animation: axo-rise 2.6s ease-in-out 1.7s infinite;
+  }
+  .axo-tear-1 {
+    animation: axo-tear 2.4s ease-in infinite;
+  }
+  .axo-tear-2 {
+    animation: axo-tear 2.4s ease-in 1.2s infinite;
   }
 }
 

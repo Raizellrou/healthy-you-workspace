@@ -151,7 +151,7 @@ export function ScheduleClient({
                 onClick={() => toggleDay(d.value)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                   workdays.has(d.value)
-                    ? "bg-brand text-white"
+                    ? "bg-brand text-brand-fg"
                     : "border border-line text-ink-mute hover:bg-surface-2"
                 }`}
               >

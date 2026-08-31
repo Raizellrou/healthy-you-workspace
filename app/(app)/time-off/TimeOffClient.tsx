@@ -72,6 +72,7 @@ export function TimeOffClient({
   const [cancelTarget, setCancelTarget] = useState<PtoRequest | null>(null);
   const [denyTarget, setDenyTarget] = useState<PtoRequest | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [flashId, setFlashId] = useState<string | null>(null);
   const run = useActionToast();
 
   const startError = touched.start && !startDate ? "Pick a start date." : undefined;
@@ -126,6 +127,8 @@ export function TimeOffClient({
       setPendingRowId(null);
       if (result.ok) {
         setMineRows((rows) => rows.map((r) => (r.id === id ? { ...r, status: "cancelled" } : r)));
+        setFlashId(id);
+        window.setTimeout(() => setFlashId((cur) => (cur === id ? null : cur)), 1400);
       }
       router.refresh();
     });
@@ -199,7 +202,10 @@ export function TimeOffClient({
         ) : (
           <ul className="space-y-2">
             {mineRows.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 rounded-lg border border-line px-3 py-2.5">
+              <li
+                key={r.id}
+                className={`flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 ${flashId === r.id ? "animate-row-flash" : ""}`}
+              >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-ink">
                     {KIND_LABEL[r.kind]} · {fmtDate(r.startDate)} – {fmtDate(r.endDate)}

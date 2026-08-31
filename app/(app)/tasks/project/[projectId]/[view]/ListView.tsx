@@ -25,7 +25,7 @@ export function ListView({ tasks }: { tasks: Task[] }) {
           <li key={task.id}>
             <Link
               href={`/tasks/${task.id}`}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none"
             >
               <span
                 className={`h-1.5 w-1.5 shrink-0 rounded-full ${task.done ? "bg-success" : "bg-line"}`}

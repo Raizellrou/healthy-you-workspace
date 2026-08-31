@@ -247,7 +247,7 @@ export function DirectoryClient({
                     </button>
 
                     {open ? (
-                      <div className="p-4" style={{ background: `${fill}14` }}>
+                      <div className="animate-toast-in p-4" style={{ background: `${fill}14` }}>
                         <p className="mb-3 text-xs text-ink-mute">{BAND_DESCRIPTION[band]}</p>
                         <div className="grid grid-cols-2 gap-x-2.5 gap-y-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                           {people.map((e) => {
@@ -279,7 +279,7 @@ export function DirectoryClient({
                                 {personOpen ? (
                                   <div
                                     role="tooltip"
-                                    className="absolute left-0 top-full z-20 mt-2 w-52 rounded-lg border border-line bg-surface p-3 text-xs shadow-lg"
+                                    className="animate-toast-in absolute left-0 top-full z-20 mt-2 w-52 rounded-lg border border-line bg-surface p-3 text-xs shadow-lg"
                                   >
                                     <div className="font-semibold text-ink">{e.name}</div>
                                     <div className="mt-0.5 text-ink-soft">{e.role}</div>

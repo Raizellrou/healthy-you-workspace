@@ -15,11 +15,6 @@ import type { BurnoutInputs } from "@/lib/burnout";
 export interface BurnoutRow {
   employee: Employee;
   scores: BurnoutV2Scores;
-  /** The exact inputs/extras that produced `scores` — carried down to the
-   *  client so the P8 what-if simulator (components/burnout/WhatIfSimulator.tsx)
-   *  can re-run computeBurnoutV2 against a perturbed copy without a round trip. */
-  inputs: BurnoutInputs;
-  extras: BurnoutV2Extras;
   /** The intervention engine's authorization, precomputed server-side the
    *  same way `visibleTo` scoping already is — the client never re-derives
    *  a permission decision, it just renders what it's told. */
@@ -71,7 +66,7 @@ export default async function BurnoutPage() {
     const isSelf = currentPerson?.id === employee.id;
     const latestIntervention = interventionsByEmployee.get(employee.id)?.[0] ?? null;
 
-    return { employee, scores, inputs, extras, canManage, isSelf, latestIntervention };
+    return { employee, scores, canManage, isSelf, latestIntervention };
   });
 
   const forecastByEmployee = await getForecastsForEmployees(
@@ -95,7 +90,7 @@ export default async function BurnoutPage() {
       </div>
       <PageHead
         title="Burnout Risk Analytics"
-        description="Task-aware composite: work streak, meeting load, off-hours activity, and time since PTO. Plus real committed task load, overdue tasks, and recovery time."
+        description="Task-aware composite burnout score for every person in scope. Select anyone in the table for their full factor breakdown."
         actions={
           <div className="flex gap-2">
             {[

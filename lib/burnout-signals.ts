@@ -132,8 +132,9 @@ export interface BurnoutTaskSource {
  * gaining a signal the other doesn't, and nobody noticing because both
  * still render a plausible number.
  *
- * Returns the inputs and extras alongside the scores because the what-if
- * simulator (lib/whatif.ts) perturbs them and re-scores client-side.
+ * Returns the inputs and extras alongside the scores because the 7-day
+ * forecast pipeline (lib/supabase/forecast.ts#getForecastsForEmployees)
+ * re-scores against them for each person's upcoming meetings/tasks/PTO.
  */
 export function buildBurnoutV2(
   employee: BurnoutEmployeeSource,

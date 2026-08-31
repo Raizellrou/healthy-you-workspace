@@ -93,7 +93,7 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
             run("clockIn", clockIn);
           }}
           disabled={isPending}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-brand-fg transition-colors hover:bg-brand-dark disabled:opacity-60"
         >
           {isPending && pendingAction === "clockIn" ? PENDING_LABEL.clockIn : "Clock in"}
         </button>
@@ -129,7 +129,7 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
           />
           {onBreak ? "On break" : "Clocked in"}
         </span>
-        <span className="font-mono text-ink-mute">{mounted ? fmtDuration(elapsedMs) : "—"}</span>
+        <span className="font-mono text-ink-mute">{mounted ? fmtDuration(elapsedMs) : "–"}</span>
       </div>
       <div className="flex gap-1.5">
         {onBreak ? (
@@ -137,7 +137,7 @@ export function ClockWidget({ openSession }: { openSession: OpenSession | null }
             type="button"
             onClick={() => run("resume", endBreak)}
             disabled={isPending}
-            className="flex-1 rounded-lg bg-brand px-2 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-60"
+            className="flex-1 rounded-lg bg-brand px-2 py-1.5 text-xs font-medium text-brand-fg transition-colors hover:bg-brand-dark disabled:opacity-60"
           >
             {isPending && pendingAction === "resume" ? PENDING_LABEL.resume : "Resume"}
           </button>

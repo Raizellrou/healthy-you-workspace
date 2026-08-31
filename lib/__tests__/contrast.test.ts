@@ -109,8 +109,8 @@ describe("band palette meets WCAG AA in every theme", () => {
         });
 
         it(`${band}: ink is legible on the page surface too`, () => {
-          // BurnoutClient and WhatIfSimulator draw the score in --band-*-ink
-          // directly on --surface, not on a tint.
+          // BurnoutClient draws the score in --band-*-ink directly on
+          // --surface, not on a tint.
           const ratio = contrastRatio(resolve(`--band-${band}-ink`), resolve("--surface"));
           expect(ratio, `--band-${band}-ink on --surface`).toBeGreaterThanOrEqual(AA_NORMAL);
         });

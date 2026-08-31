@@ -35,8 +35,8 @@ export function evaluateBoundaryV2(params: {
     return {
       status: "warned",
       message: params.recipientReturnDate
-        ? `Will warn you first — back ${fmtDate(params.recipientReturnDate)}`
-        : "Will warn you first — currently on PTO",
+        ? `Will warn you first (back ${fmtDate(params.recipientReturnDate)})`
+        : "Will warn you first (currently on PTO)",
     };
   }
   if (

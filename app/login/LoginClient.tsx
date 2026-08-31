@@ -55,7 +55,7 @@ export function LoginClient() {
         <Eyebrow centered>A demo HR wellbeing platform</Eyebrow>
         <h1 className="mt-3.5 font-display text-2xl font-medium tracking-tight text-ink">Sign in to Petal</h1>
         <p className="mt-2 text-sm text-ink-soft">
-          Demo project — pick a seeded account below or enter credentials manually.
+          Demo project. Pick a seeded account below or enter credentials manually.
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export function LoginClient() {
       <div className="mt-7 border-t border-line pt-6">
         <Field
           label="Quick pick a demo account"
-          hint="Fills in the shared demo password — not a real security boundary, exploration only."
+          hint="Fills in the shared demo password. Not a real security boundary, exploration only."
         >
           {(p) => (
             <Select

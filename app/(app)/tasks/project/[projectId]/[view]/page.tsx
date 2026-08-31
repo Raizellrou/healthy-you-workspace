@@ -9,6 +9,7 @@ import { getVisibleEmployees, getCurrentPerson } from "@/lib/supabase/people";
 import { canManageProjects } from "@/lib/authz";
 import { filterTasks, type TaskFilters } from "@/lib/tasks";
 import { addDays, todayInTz } from "@/lib/date";
+import { isUuid } from "@/lib/uuid";
 import { BoardClient } from "./BoardClient";
 import { ListView } from "./ListView";
 import { CalendarView } from "./CalendarView";
@@ -33,7 +34,7 @@ export default async function ProjectViewPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { projectId, view } = await params;
-  if (!VIEW_KEYS.includes(view)) notFound();
+  if (!VIEW_KEYS.includes(view) || !isUuid(projectId)) notFound();
 
   const sp = await searchParams;
   const asString = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);

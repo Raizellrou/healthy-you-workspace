@@ -64,19 +64,19 @@ export function CalendarView({
         <div className="flex gap-1">
           <Link
             href={monthHref(prev.year, prev.month)}
-            className="rounded-lg border border-line px-2 py-1 text-xs text-ink-soft hover:bg-surface-2"
+            className="rounded-lg border border-line px-2 py-1 text-xs text-ink-soft transition-colors hover:bg-surface-2"
           >
             ‹ Prev
           </Link>
           <Link
             href={`/tasks/project/${projectId}/${view}${search}`}
-            className="rounded-lg border border-line px-2 py-1 text-xs text-ink-soft hover:bg-surface-2"
+            className="rounded-lg border border-line px-2 py-1 text-xs text-ink-soft transition-colors hover:bg-surface-2"
           >
             Today
           </Link>
           <Link
             href={monthHref(next.year, next.month)}
-            className="rounded-lg border border-line px-2 py-1 text-xs text-ink-soft hover:bg-surface-2"
+            className="rounded-lg border border-line px-2 py-1 text-xs text-ink-soft transition-colors hover:bg-surface-2"
           >
             Next ›
           </Link>
@@ -107,7 +107,7 @@ export function CalendarView({
                   <Link
                     key={t.id}
                     href={`/tasks/${t.id}`}
-                    className="block truncate rounded bg-surface px-1 py-0.5 text-[10px] text-ink-soft hover:text-ink"
+                    className="block truncate rounded bg-surface px-1 py-0.5 text-[10px] text-ink-soft transition-colors hover:text-ink"
                   >
                     {t.title}
                   </Link>

@@ -19,7 +19,7 @@ export function Badge({
   if (count <= 0) return null;
 
   const TONE_CLASSES = {
-    brand: "bg-brand text-white",
+    brand: "bg-brand text-brand-fg",
     critical: "bg-risk-critical text-white",
     neutral: "bg-surface-2 text-ink-soft",
   } as const;

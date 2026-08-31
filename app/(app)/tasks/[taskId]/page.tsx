@@ -3,6 +3,7 @@ import { getCurrentEmployeeId, getEmployees, getTaskDetail } from "@/lib/supabas
 import { getTaskRichExtras, getLabels, getTasksForProjectRich } from "@/lib/supabase/tasks";
 import { getCurrentPerson } from "@/lib/supabase/people";
 import { canManageProjects } from "@/lib/authz";
+import { isUuid } from "@/lib/uuid";
 import { TaskDetailClient } from "./TaskDetailClient";
 
 export default async function TaskDetailPage({
@@ -11,6 +12,8 @@ export default async function TaskDetailPage({
   params: Promise<{ taskId: string }>;
 }) {
   const { taskId } = await params;
+  if (!isUuid(taskId)) notFound();
+
   const [detail, extras, allLabels, employees, currentEmployeeId, currentPerson] = await Promise.all([
     getTaskDetail(taskId),
     getTaskRichExtras(taskId),

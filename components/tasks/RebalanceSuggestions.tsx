@@ -61,7 +61,7 @@ export function RebalanceSuggestions({ moves }: { moves: RebalanceMove[] }) {
 
   if (visible.length === 0) {
     return applied.size > 0 ? (
-      <Card>
+      <Card key="applied" className="animate-toast-in">
         <p className="text-sm text-ink-soft">Rebalance applied. {applied.size} task{applied.size === 1 ? "" : "s"} moved.</p>
       </Card>
     ) : null;

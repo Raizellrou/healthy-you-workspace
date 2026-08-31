@@ -33,7 +33,7 @@ export async function toggleDone(
   if (nextDone && current.blocked_by) {
     const { data: blocker } = await supabase.from("tasks").select("title, done").eq("id", current.blocked_by).single();
     if (blocker && !blocker.done) {
-      return fail(`Blocked by "${blocker.title}" — that task isn't done yet.`);
+      return fail(`Blocked by "${blocker.title}", which isn't done yet.`);
     }
   }
 
@@ -403,7 +403,7 @@ export async function setBlockedBy(
       return fail("A blocker must be in the same project.");
     }
     if (blocker.blocked_by === taskId) {
-      return fail("That would create a cycle — it's already blocked by this task.");
+      return fail("That would create a cycle: it's already blocked by this task.");
     }
   }
 
@@ -494,7 +494,7 @@ export async function applyRebalanceMoves(input: unknown): Promise<ActionResult>
         applied++;
       }
 
-      if (applied === 0) return fail("Those suggestions are no longer current — refresh and try again.");
+      if (applied === 0) return fail("Those suggestions are no longer current. Refresh and try again.");
 
       revalidatePath("/tasks");
       revalidatePath("/tasks/workload");

@@ -6,13 +6,13 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { PokeBadge } from "@/components/ui/PokeBadge";
 import { BandChip } from "@/components/burnout/BandChip";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { ForecastCard } from "@/components/burnout/ForecastCard";
-import { WhatIfSimulator } from "@/components/burnout/WhatIfSimulator";
 import { InterventionPanel } from "@/components/burnout/InterventionPanel";
-import { BAND_TEXT, BAND_LABEL, BAND_ORDER as BANDS } from "@/lib/burnout-bands";
+import { BAND_TEXT, BAND_FILL, BAND_LABEL, BAND_ORDER as BANDS } from "@/lib/burnout-bands";
 import type { BurnoutHistoryPoint } from "@/lib/supabase/queries";
 import type { ForecastPoint } from "@/lib/forecast";
 import type { BurnoutRow } from "./page";
@@ -21,6 +21,15 @@ import type { BurnoutBand, SortDirection, SortKey } from "@/types/burnout";
 /** Numeric rank for sorting the table by band, distinct from BANDS'
  *  display order (both happen to be low→critical here). */
 const BAND_RANK: Record<BurnoutBand, number> = { low: 0, medium: 1, high: 2, critical: 3 };
+
+/** Purely decorative reaction pool for the score badge's poke — no data
+ *  implication, just a tonal note that matches how worried the band is. */
+const BAND_REACTIONS: Record<BurnoutBand, string[]> = {
+  low: ["Nice and steady", "Cruising along", "Keep it up"],
+  medium: ["Worth a breather", "Pace check", "Mind the load"],
+  high: ["Time to recharge", "Ease up a little", "A break would help"],
+  critical: ["Please rest soon", "Time to unplug", "Worth checking in"],
+};
 
 const COLUMNS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Employee" },
@@ -135,7 +144,7 @@ export function BurnoutClient({
             className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
               teamFilter === t
                 ? "border-brand bg-brand-soft text-brand-ink"
-                : "border-line text-ink-mute hover:bg-surface-2"
+                : "border-line bg-surface text-ink-soft hover:bg-surface-2"
             }`}
           >
             {t}
@@ -180,7 +189,7 @@ export function BurnoutClient({
                           toggleSort(col.key);
                         }
                       }}
-                      className="inline-flex cursor-pointer items-center gap-1 select-none"
+                      className={`-mx-4 -my-3 inline-flex cursor-pointer items-center gap-1 rounded px-4 py-3 select-none transition-colors hover:bg-surface hover:text-ink ${active ? "text-ink" : ""}`}
                     >
                       {col.label}
                       <span aria-hidden="true" className="text-xs text-ink-mute">
@@ -212,7 +221,7 @@ export function BurnoutClient({
                     isSelected ? "bg-brand-soft" : "hover:bg-surface-2"
                   }`}
                 >
-                  <td className="px-4 py-3">
+                  <td className="py-3 pr-4 pl-[13px]" style={{ borderLeft: `3px solid ${BAND_FILL[row.scores.bandV2]}` }}>
                     <div className="flex items-center gap-3">
                       <Avatar name={row.employee.name} color={row.employee.avatarColor} size={28} />
                       <span className="font-medium text-ink">{row.employee.name}</span>
@@ -239,7 +248,7 @@ export function BurnoutClient({
       </div>
 
       {selected ? (
-        <Card>
+        <Card key={selected.employee.id} className="animate-toast-in">
           <div className="flex items-center gap-3">
             <Avatar name={selected.employee.name} color={selected.employee.avatarColor} size={44} />
             <div className="min-w-0">
@@ -251,15 +260,21 @@ export function BurnoutClient({
           </div>
 
           <div className="mt-4 flex items-center gap-2.5">
-            <div className="rounded-lg bg-surface-2 px-4 py-3 text-center">
-              <div className="text-2xl font-bold" style={{ color: BAND_TEXT[selected.scores.bandV2] }}>
-                {Math.round(selected.scores.compositeV2)}
+            <PokeBadge
+              reactions={BAND_REACTIONS[selected.scores.bandV2]}
+              label={`Tap for a quick note on ${selected.employee.name}'s score`}
+              shapeClassName="rounded-lg"
+            >
+              <div className="rounded-lg bg-surface-2 px-4 py-3 text-center">
+                <div className="text-2xl font-bold" style={{ color: BAND_TEXT[selected.scores.bandV2] }}>
+                  {Math.round(selected.scores.compositeV2)}
+                </div>
+                <div className="text-xs text-ink-mute">Task-aware score</div>
               </div>
-              <div className="text-xs text-ink-mute">Task-aware score</div>
-            </div>
-            <div className="text-center text-xs text-ink-mute">
-              base {Math.round(selected.scores.composite)}
-              <div aria-hidden="true">→</div>
+            </PokeBadge>
+            <div className="flex items-center gap-1 text-xs text-ink-mute">
+              <span>base {Math.round(selected.scores.composite)}</span>
+              <span aria-hidden="true">→</span>
             </div>
             <BandChip band={selected.scores.bandV2} />
           </div>
@@ -296,10 +311,6 @@ export function BurnoutClient({
               <ScoreBar label="Overdue tasks" value={selected.scores.overdue} />
               <ScoreBar label="Recovery" value={selected.scores.recovery} />
             </div>
-          </div>
-
-          <div className="mt-5 border-t border-line pt-5">
-            <WhatIfSimulator key={selected.employee.id} inputs={selected.inputs} extras={selected.extras} />
           </div>
 
           <InterventionPanel
