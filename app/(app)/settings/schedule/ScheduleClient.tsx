@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
 import { fmtMinutes } from "@/lib/date";
+// fmtMinutes stays 24-hour here on purpose, unlike every plain-text time
+// display elsewhere in the app: these four feed <input type="time">, whose
+// value attribute the HTML spec requires in 24-hour HH:MM regardless of
+// locale. The browser's own picker UI already renders it in the visitor's
+// preferred 12- or 24-hour format on its own — nothing to change here.
 import { toMinutes } from "@/lib/time";
 import { updateSchedule, updateNotificationPrefs } from "@/app/(app)/settings/actions";
 import { useActionToast } from "@/lib/toast-context";

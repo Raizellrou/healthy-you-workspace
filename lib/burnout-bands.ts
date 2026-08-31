@@ -9,27 +9,67 @@ export const BAND_LABEL: Record<BurnoutBand, string> = {
   critical: "Critical",
 };
 
-/** A validated status palette, deliberately distinct from the --risk-*
- *  design tokens in app/globals.css: those are low-opacity tints for
- *  badges/progress fills, this is solid-fill text-on-color, and three of
- *  the four steps measure under 3:1 against --surface on their own. Never
- *  carry meaning by color alone — pair with BAND_LABEL/BAND_INK or the
- *  numeric value, the way BandBar and BandChip both already do. Single
- *  source for what was previously copy-pasted into
- *  components/insights/BandBar.tsx and components/burnout/WhatIfSimulator.tsx. */
-export const BAND_COLOR: Record<BurnoutBand, string> = {
-  low: "#87D380",
-  medium: "#6F49A6",
-  high: "#FFD700",
-  critical: "#FF8C73",
+/**
+ * The band palette, as CSS custom properties rather than literal hexes.
+ *
+ * Previously this file held its own four hexes and app/globals.css held four
+ * more under --risk-*, and the two disagreed: gold was Medium on /burnout and
+ * /directory but High here on /insights, salmon was High on one screen and
+ * Critical on the other. Because the same hex values were reused one severity
+ * step apart, an HR user scanning Insights for the worst team and then opening
+ * Burnout Risk saw one colour mean two different things.
+ *
+ * There is now one definition, in app/globals.css, which is also the only
+ * place that can vary a colour by theme, by high-contrast, or by muted
+ * palette. These exports are `var()` references so every consumer picks up
+ * all three automatically. Passing them to an inline `style` works exactly
+ * as a hex would.
+ *
+ * Two roles, and they are not interchangeable:
+ *   BAND_FILL / BAND_ON_FILL — a solid segment with text on top (BandBar).
+ *   Chip's tint/ink pair      — a subtle badge (BandChip), via Tailwind
+ *                               classes generated from the same tokens.
+ *
+ * Never render BAND_FILL as a text colour. That is precisely the bug this
+ * replaced: a saturated fill used as text on a 15% tint of itself measured
+ * 1.19:1 in light mode. Contrast for every pair is asserted in
+ * lib/__tests__/contrast.test.ts.
+ *
+ * Colour still never carries meaning alone — BandBar prints the count inside
+ * each segment and repeats it in the legend, and BandChip always shows
+ * BAND_LABEL.
+ */
+export const BAND_FILL: Record<BurnoutBand, string> = {
+  low: "var(--band-low-fill)",
+  medium: "var(--band-medium-fill)",
+  high: "var(--band-high-fill)",
+  critical: "var(--band-critical-fill)",
 };
 
-/** Ink that stays legible on each BAND_COLOR fill — the yellow and green
- *  steps are far too light for white text, the purple far too dark for
- *  black. */
-export const BAND_INK: Record<BurnoutBand, string> = {
-  low: "#1d3b1a",
-  medium: "#ffffff",
-  high: "#4a3c00",
-  critical: "#5c1f12",
+/** Text drawn on top of the matching BAND_FILL. */
+export const BAND_ON_FILL: Record<BurnoutBand, string> = {
+  low: "var(--band-low-on-fill)",
+  medium: "var(--band-medium-on-fill)",
+  high: "var(--band-high-on-fill)",
+  critical: "var(--band-critical-on-fill)",
+};
+
+/**
+ * Text (or a thin graphic stroke) drawn on a normal page background —
+ * --surface, --surface-2, or a band tint. Always this, never BAND_FILL.
+ *
+ * The fills are chosen to be legible *under* dark text, which makes several
+ * of them nearly invisible *as* text: the medium gold measures about 1.4:1
+ * on white. Three places were doing exactly that — the score number in the
+ * burnout table, the projected score in the what-if simulator, and the
+ * sparkline stroke — so a High or Critical row rendered its own score in a
+ * colour that could barely be seen. These tokens are the darkened (light
+ * theme) or brightened (dark theme) variant of each band, clearing AA as
+ * text and 3:1 as a graphic in both.
+ */
+export const BAND_TEXT: Record<BurnoutBand, string> = {
+  low: "var(--band-low-ink)",
+  medium: "var(--band-medium-ink)",
+  high: "var(--band-high-ink)",
+  critical: "var(--band-critical-ink)",
 };

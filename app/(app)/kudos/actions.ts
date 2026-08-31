@@ -7,7 +7,8 @@ import { getCurrentEmployeeId } from "@/lib/supabase/queries";
 import { getCurrentPerson } from "@/lib/supabase/people";
 import { findCoffeeSlot } from "@/lib/supabase/meetings";
 import { enqueue } from "@/lib/notify";
-import { fmtDate, fmtMinutes } from "@/lib/date";
+import { fmtDate } from "@/lib/date";
+import { fmtClock } from "@/lib/time";
 import { ok, fail, validated, withEmployee, describeDbError, type ActionResult } from "@/lib/action-result";
 
 export interface SubmitKudosResult {
@@ -148,7 +149,7 @@ export async function proposeCoffee(inviteeId: string): Promise<ActionResult> {
       recipientId: inviteeId,
       actorId: me.id,
       kind: "coffee_proposed",
-      title: `${me.name} suggested a coffee on ${fmtDate(slot.date)} at ${fmtMinutes(slot.startMin)}`,
+      title: `${me.name} suggested a coffee on ${fmtDate(slot.date)} at ${fmtClock(slot.startMin)}`,
       body: "Picked because it's the first 30 minutes you're both free.",
       link: "/kudos",
       entityType: "coffee_chat",

@@ -10,14 +10,13 @@ import type { FocusMode } from "@/lib/supabase/focus";
  * components/shell/ThemeToggle.tsx already uses for data-theme, just
  * server-sourced instead of localStorage. Renders nothing.
  *
- * Every preference except hide_avatars is wired to real CSS here
- * (app/globals.css): reduced_motion, high_contrast, muted_palette and
- * font_scale as before, plus density (retunes --card-pad, which
- * components/ui/Card.tsx reads) and single_column (collapses content grids
- * inside <main>). hide_avatars remains persisted-but-unapplied — it needs
- * per-component decisions about what replaces an avatar rather than a
- * single cascade rule, so it is left honestly unwired rather than
- * half-done.
+ * Every preference is wired to real CSS here (app/globals.css):
+ * reduced_motion, high_contrast, muted_palette and font_scale as before,
+ * plus density (retunes --card-pad, which components/ui/Card.tsx reads),
+ * single_column (collapses content grids inside <main>), and hide_avatars
+ * (hides every [data-avatar] element — safe as a single cascade rule since
+ * every call site already shows the person's name as adjacent visible
+ * text, per components/ui/Avatar.tsx).
  *
  * `focusMode` is a second, independent input layered on top of the same
  * attributes rather than a preference of its own — a session-scoped
@@ -40,6 +39,7 @@ export function UiPreferencesApplier({ prefs, focusMode }: { prefs: UiPreference
     root.setAttribute("data-muted-palette", String(prefs.mutedPalette || forceCalm));
     root.setAttribute("data-density", prefs.density);
     root.setAttribute("data-single-column", String(prefs.singleColumn || forceSingleColumn));
+    root.setAttribute("data-hide-avatars", String(prefs.hideAvatars));
     root.style.setProperty("--font-scale", String(prefs.fontScale));
   }, [
     prefs.reducedMotion,
@@ -47,6 +47,7 @@ export function UiPreferencesApplier({ prefs, focusMode }: { prefs: UiPreference
     prefs.mutedPalette,
     prefs.density,
     prefs.singleColumn,
+    prefs.hideAvatars,
     prefs.fontScale,
     forceSingleColumn,
     forceCalm,

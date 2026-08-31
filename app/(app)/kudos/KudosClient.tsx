@@ -284,10 +284,12 @@ export function KudosClient({
           <div className="mt-2 font-mono text-2xl font-semibold text-ink">
             {progress} / {KUDOS_PROGRESS_CAP}
           </div>
+          {/* "0 / 8" on its own never said eight of what. */}
+          <div className="mt-1 text-xs text-ink-soft">colleagues thanked this week</div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2">
             <div
               className="h-full rounded-full"
-              style={{ width: `${(progress / KUDOS_PROGRESS_CAP) * 100}%`, background: "#87D380" }}
+              style={{ width: `${(progress / KUDOS_PROGRESS_CAP) * 100}%`, background: "var(--band-low-fill)" }}
             />
           </div>
         </Card>

@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { Sparkline } from "@/components/burnout/Sparkline";
 import { BandChip } from "@/components/burnout/BandChip";
-import { BAND_COLOR } from "@/lib/burnout-bands";
+import { BAND_TEXT } from "@/lib/burnout-bands";
 import type { ForecastPoint } from "@/lib/forecast";
 
 /**
@@ -30,7 +30,7 @@ export function ForecastCard({ forecast }: { forecast: ForecastPoint[] }) {
           values={values}
           width={140}
           height={40}
-          stroke={BAND_COLOR[last.bandV2]}
+          stroke={BAND_TEXT[last.bandV2]}
           ariaLabel="7-day burnout forecast"
         />
       </div>

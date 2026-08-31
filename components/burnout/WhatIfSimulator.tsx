@@ -5,7 +5,7 @@ import { computeBurnoutV2, dominantDriverV2, type BurnoutV2Extras } from "@/lib/
 import { applyWhatIf, EMPTY_ADJUSTMENTS, type WhatIfAdjustments } from "@/lib/whatif";
 import { ScoreBar } from "@/components/burnout/ScoreBar";
 import { BandChip } from "@/components/burnout/BandChip";
-import { BAND_COLOR } from "@/lib/burnout-bands";
+import { BAND_TEXT } from "@/lib/burnout-bands";
 import type { BurnoutInputs } from "@/lib/burnout";
 
 interface SliderSpec {
@@ -100,7 +100,7 @@ export function WhatIfSimulator({
               →
             </span>
             <div className="text-center">
-              <div className="font-mono text-lg font-bold" style={{ color: BAND_COLOR[projected.bandV2] }}>
+              <div className="font-mono text-lg font-bold" style={{ color: BAND_TEXT[projected.bandV2] }}>
                 {Math.round(projected.compositeV2)}
               </div>
               <div className="text-xs text-ink-mute">Projected</div>

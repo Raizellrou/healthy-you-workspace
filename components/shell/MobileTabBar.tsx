@@ -80,7 +80,7 @@ export function MobileTabBar({
           </Link>
           <Link
             href="/settings/schedule"
-            aria-label="Account"
+            aria-label="Settings"
             className={`flex h-11 w-11 items-center justify-center rounded-lg ${
               onSettings ? "bg-surface-2 text-ink" : "text-ink-soft"
             }`}

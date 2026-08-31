@@ -1,5 +1,5 @@
 import type { BurnoutBand } from "@/types/burnout";
-import { BAND_COLOR, BAND_INK, BAND_LABEL, BAND_ORDER } from "@/lib/burnout-bands";
+import { BAND_FILL, BAND_ON_FILL, BAND_LABEL, BAND_ORDER } from "@/lib/burnout-bands";
 
 /**
  * Band composition for one team as a single proportional bar.
@@ -29,8 +29,8 @@ export function BandBar({ counts, total }: { counts: Record<BurnoutBand, number>
               style={{
                 flexGrow: counts[b],
                 flexBasis: 0,
-                background: BAND_COLOR[b],
-                color: BAND_INK[b],
+                background: BAND_FILL[b],
+                color: BAND_ON_FILL[b],
               }}
               title={`${counts[b]} ${BAND_LABEL[b]}`}
             >
@@ -50,7 +50,7 @@ export function BandLegend({ totals }: { totals: Record<BurnoutBand, number> }) 
     <div className="flex flex-wrap gap-x-4 gap-y-1.5">
       {BAND_ORDER.map((b) => (
         <div key={b} className="flex items-center gap-1.5 text-xs text-ink-mute">
-          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BAND_COLOR[b] }} aria-hidden="true" />
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BAND_FILL[b] }} aria-hidden="true" />
           {BAND_LABEL[b]}
           <span className="font-mono text-ink-soft">{totals[b]}</span>
         </div>

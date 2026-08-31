@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildCapacityWorkload,
   capacityLoad,
@@ -61,11 +61,17 @@ describe("capacityLoad", () => {
 });
 
 describe("overdueCount", () => {
-  const REAL_DATE_NOW = Date.now;
-  const FIXED_NOW = new Date("2026-08-22T12:00:00Z").getTime();
+  const FIXED_NOW = new Date("2026-08-22T12:00:00Z");
 
+  // isOverdue() reads the clock via `new Date()`, which the Date constructor
+  // resolves without consulting Date.now — so the previous `Date.now = () =>
+  // FIXED_NOW` stub never actually applied. The test passed only while the
+  // real date was still before 2026-08-25 and started failing on the 26th,
+  // asserting nothing in between. vi.setSystemTime patches the constructor
+  // too, which is what this always meant to do.
   it("counts only open tasks with a due_date in the past", () => {
-    Date.now = () => FIXED_NOW;
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
     try {
       const tasks = [
         { done: false, due_date: "2026-08-20" }, // overdue
@@ -75,7 +81,7 @@ describe("overdueCount", () => {
       ];
       expect(overdueCount(tasks)).toBe(1);
     } finally {
-      Date.now = REAL_DATE_NOW;
+      vi.useRealTimers();
     }
   });
 });

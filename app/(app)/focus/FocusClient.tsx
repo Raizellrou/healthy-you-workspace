@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmModal } from "@/components/ui/Modal";
 import { useActionToast } from "@/lib/toast-context";
 import { computeBurnout } from "@/lib/burnout";
-import { fmtMinutes, fmtDuration } from "@/lib/date";
+import { fmtDuration } from "@/lib/date";
+import { fmtClock } from "@/lib/time";
 import type { FocusBlock } from "@/lib/focus-timeline";
 import { WORKSPACE_COPY, type WorkspaceState } from "@/lib/constants";
 import { startFocusSession, endFocusSession } from "./actions";
@@ -167,22 +168,36 @@ export function FocusClient({
   return (
     <div>
       <Card className="mb-5">
-        <label htmlFor="focus-employee" className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">
-          Employee
-        </label>
-        <select
-          id="focus-employee"
-          value={employeeId}
-          onChange={(e) => handleEmployeeChange(e.target.value)}
-          className="w-56 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
-        >
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-              {e.id === currentEmployeeId ? " (you)" : ""}
-            </option>
-          ))}
-        </select>
+        <div className="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-mute">Employee</div>
+        {/* An employee with no reports sees exactly one option here, and a
+            dropdown that cannot change anything reads as a control that is
+            broken or still being built. Show the name instead; the picker
+            only appears when there is genuinely something to pick. */}
+        {employees.length <= 1 ? (
+          <p className="text-sm font-medium text-ink">
+            {employees[0]?.name ?? "You"}
+            {employees[0]?.id === currentEmployeeId ? " (you)" : ""}
+          </p>
+        ) : (
+          <>
+            <label htmlFor="focus-employee" className="sr-only">
+              Employee
+            </label>
+            <select
+              id="focus-employee"
+              value={employeeId}
+              onChange={(e) => handleEmployeeChange(e.target.value)}
+              className="w-56 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink"
+            >
+              {employees.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                  {e.id === currentEmployeeId ? " (you)" : ""}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
         <p className="mt-1 text-xs text-ink-mute">
           Suggested: <span className="font-medium text-ink-soft">{WORKSPACE_COPY[suggested].label}</span>
           {manualState ? " (overridden below)" : ""} · {dueToday} task{dueToday === 1 ? "" : "s"} due today
@@ -268,7 +283,7 @@ export function FocusClient({
               {timeline.map((block, i) => (
                 <div
                   key={i}
-                  title={`${fmtMinutes(block.startMin)}–${fmtMinutes(block.endMin)} · ${BLOCK_LABEL[block.kind]}`}
+                  title={`${fmtClock(block.startMin)} – ${fmtClock(block.endMin)} · ${BLOCK_LABEL[block.kind]}`}
                   className="flex-1"
                   style={{ background: BLOCK_COLOR[block.kind], flexGrow: block.endMin - block.startMin }}
                 />

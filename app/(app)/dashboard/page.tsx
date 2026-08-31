@@ -19,7 +19,7 @@ import { getTaskBurnoutSignals } from "@/lib/supabase/tasks";
 import { getForecastsForEmployees } from "@/lib/supabase/forecast";
 import { getMyOneOnOnes } from "@/lib/supabase/one-on-ones";
 import { getCurrentMeeting } from "@/lib/supabase/meetings";
-import { hasCheckedInMoodToday, getNeedsYou } from "@/lib/supabase/needs-you";
+import { hasCheckedInMoodToday, getNeedsYou, getFirstRunItems } from "@/lib/supabase/needs-you";
 import { computeBurnout } from "@/lib/burnout";
 import { buildBurnoutV2 } from "@/lib/burnout-signals";
 import { visibleTo } from "@/lib/authz";
@@ -92,6 +92,10 @@ export default async function DashboardPage() {
         getMySettings(me.id),
       ])
     : [null, [], [], null, false, [], [], null];
+
+  // First-run prompts lead: someone who has just been onboarded should see
+  // "set your working hours" above their unread count.
+  const needsYouItems = [...getFirstRunItems(mySettings?.schedule ?? null), ...needsYou];
 
   const last7DaysHours = myRollups.reduce((sum, r) => sum + r.netHours, 0);
 
@@ -267,7 +271,7 @@ export default async function DashboardPage() {
               <div className="flex items-center gap-2 text-xs text-ink-soft">
                 <Icon name="calendar" size={14} className="text-ink-mute" />
                 In &ldquo;{currentMeeting.title}&rdquo; until{" "}
-                {new Date(currentMeeting.endsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                {new Date(currentMeeting.endsAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true })}
               </div>
             ) : null}
             {moodCheckedIn && dueToday.length === 0 && !nextOneOnOne && !currentMeeting ? (
@@ -278,11 +282,11 @@ export default async function DashboardPage() {
       </div>
 
       {/* Zone B — needs you. Absent entirely when empty, not a zero-state card. */}
-      {needsYou.length > 0 ? (
+      {needsYouItems.length > 0 ? (
         <div className="mt-6">
           <SectionLabel className="mb-3">Needs you</SectionLabel>
           <Card className="divide-y divide-line p-0">
-            {needsYou.map((item) => (
+            {needsYouItems.map((item) => (
               <Link
                 key={item.href + item.label}
                 href={item.href}
@@ -345,10 +349,17 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatTile label="Headcount" value={headcount} sub={`${teamCount} teams`} color="var(--brand)" />
           <StatTile label="In today" value={workingToday} sub={`of ${headcount}`} color="var(--success)" />
+          {/* A bare em-dash here is the 3-check-in anonymity floor doing its
+              job, but it reads exactly like a query that failed. /mood and
+              /insights both say why in this situation; this now matches them. */}
           <StatTile
             label="Avg mood"
-            value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "—"}
-            sub={`${totalCheckinsToday} checked in today`}
+            value={orgAvgMood !== null ? `${orgAvgMood.toFixed(1)} / 5` : "Needs 3+"}
+            sub={
+              orgAvgMood !== null
+                ? `${totalCheckinsToday} checked in today`
+                : `${totalCheckinsToday} checked in today · hidden until 3 people have`
+            }
             color="var(--pillar-mood)"
           />
           <StatTile

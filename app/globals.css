@@ -37,7 +37,9 @@
   --risk-low: #87d380;
   --risk-medium: #ffd700;
   --risk-high: #ff8c73;
-  --risk-critical: #d9463e;
+  /* Darkened from #d9463e: this is also the unread-badge fill under white
+     text, where the old value measured 4.29:1. Matches --band-critical-fill. */
+  --risk-critical: #d13c34;
 
   --bg: #f7f5fb;
   --surface: #ffffff;
@@ -49,6 +51,45 @@
   --line: rgba(33, 28, 46, 0.12);
   --line-soft: rgba(33, 28, 46, 0.07);
   --line-strong: rgba(33, 28, 46, 0.24);
+
+  /* --- Band severity ------------------------------------------------------
+     One hue per band, one meaning per hue: green -> gold -> salmon -> red,
+     ascending. This replaces a split where --risk-* and BAND_COLOR (in
+     lib/burnout-bands.ts) each defined four bands and disagreed on three of
+     them: gold meant Medium on /burnout and /directory but High on
+     /insights, and salmon meant High on one and Critical on the other. The
+     same hexes were reused one severity step apart, so an HR user moving
+     between the two screens read one colour as two different severities.
+
+     Four roles per band, because a band is drawn two ways:
+       fill     solid background (BandBar segments)
+       on-fill  text drawn on top of that fill
+       tint     subtle background (Chip / BandChip badges)
+       ink      text drawn on top of that tint
+     Every ink/on-fill pair clears WCAG AA 4.5:1 against its own background
+     in both themes, asserted by lib/__tests__/contrast.test.ts, which parses
+     this file. Chips previously used the saturated fill as *text* on a 15%
+     tint of itself, measuring 1.19:1 in light mode (it passed in dark, which
+     is how it shipped). Never use --band-*-fill as a text colour. */
+  --band-low-fill: #87d380;
+  --band-low-tint: #edf8ec;
+  --band-low-ink: #1f6b2a;
+  --band-low-on-fill: #1d3b1a;
+
+  --band-medium-fill: #ffd700;
+  --band-medium-tint: #fff9d9;
+  --band-medium-ink: #6b4e00;
+  --band-medium-on-fill: #4a3c00;
+
+  --band-high-fill: #ff8c73;
+  --band-high-tint: #ffeeea;
+  --band-high-ink: #9c3418;
+  --band-high-on-fill: #5c1f12;
+
+  --band-critical-fill: #d13c34;
+  --band-critical-tint: #f9e3e2;
+  --band-critical-ink: #a32219;
+  --band-critical-on-fill: #ffffff;
 
   /* Brand spectrum — five stops across the logo's indigo-to-rose gradient.
      The `-soft` variants are the vivid, decorative end (fills, dots, the
@@ -128,6 +169,29 @@
     --line-soft: rgba(255, 255, 255, 0.06);
     --line-strong: rgba(255, 255, 255, 0.24);
 
+    /* Band severity, dark. Fills and on-fill inks are theme-invariant (a solid
+       fill carries its own ground); tints and inks invert. Full rationale in
+       the light block above. */
+    --band-low-fill: #87d380;
+    --band-low-tint: #1e3323;
+    --band-low-ink: #87d380;
+    --band-low-on-fill: #1d3b1a;
+
+    --band-medium-fill: #ffd700;
+    --band-medium-tint: #3a3111;
+    --band-medium-ink: #ffd700;
+    --band-medium-on-fill: #4a3c00;
+
+    --band-high-fill: #ff8c73;
+    --band-high-tint: #3d2119;
+    --band-high-ink: #ff9e88;
+    --band-high-on-fill: #5c1f12;
+
+    --band-critical-fill: #d13c34;
+    --band-critical-tint: #3d1a1a;
+    --band-critical-ink: #ff8a80;
+    --band-critical-on-fill: #ffffff;
+
     --p1: #8d82f0;
     --p2: #aa86e3;
     --p3: #c68ad6;
@@ -180,6 +244,29 @@
   --line-soft: rgba(255, 255, 255, 0.06);
   --line-strong: rgba(255, 255, 255, 0.24);
 
+  /* Band severity, dark. Fills and on-fill inks are theme-invariant (a solid
+     fill carries its own ground); tints and inks invert. Full rationale in
+     the light block above. */
+  --band-low-fill: #87d380;
+  --band-low-tint: #1e3323;
+  --band-low-ink: #87d380;
+  --band-low-on-fill: #1d3b1a;
+
+  --band-medium-fill: #ffd700;
+  --band-medium-tint: #3a3111;
+  --band-medium-ink: #ffd700;
+  --band-medium-on-fill: #4a3c00;
+
+  --band-high-fill: #ff8c73;
+  --band-high-tint: #3d2119;
+  --band-high-ink: #ff9e88;
+  --band-high-on-fill: #5c1f12;
+
+  --band-critical-fill: #d13c34;
+  --band-critical-tint: #3d1a1a;
+  --band-critical-ink: #ff8a80;
+  --band-critical-on-fill: #ffffff;
+
   --p1: #8d82f0;
   --p2: #aa86e3;
   --p3: #c68ad6;
@@ -231,6 +318,45 @@
   --line-soft: rgba(33, 28, 46, 0.07);
   --line-strong: rgba(33, 28, 46, 0.24);
 
+  /* --- Band severity ------------------------------------------------------
+     One hue per band, one meaning per hue: green -> gold -> salmon -> red,
+     ascending. This replaces a split where --risk-* and BAND_COLOR (in
+     lib/burnout-bands.ts) each defined four bands and disagreed on three of
+     them: gold meant Medium on /burnout and /directory but High on
+     /insights, and salmon meant High on one and Critical on the other. The
+     same hexes were reused one severity step apart, so an HR user moving
+     between the two screens read one colour as two different severities.
+
+     Four roles per band, because a band is drawn two ways:
+       fill     solid background (BandBar segments)
+       on-fill  text drawn on top of that fill
+       tint     subtle background (Chip / BandChip badges)
+       ink      text drawn on top of that tint
+     Every ink/on-fill pair clears WCAG AA 4.5:1 against its own background
+     in both themes, asserted by lib/__tests__/contrast.test.ts, which parses
+     this file. Chips previously used the saturated fill as *text* on a 15%
+     tint of itself, measuring 1.19:1 in light mode (it passed in dark, which
+     is how it shipped). Never use --band-*-fill as a text colour. */
+  --band-low-fill: #87d380;
+  --band-low-tint: #edf8ec;
+  --band-low-ink: #1f6b2a;
+  --band-low-on-fill: #1d3b1a;
+
+  --band-medium-fill: #ffd700;
+  --band-medium-tint: #fff9d9;
+  --band-medium-ink: #6b4e00;
+  --band-medium-on-fill: #4a3c00;
+
+  --band-high-fill: #ff8c73;
+  --band-high-tint: #ffeeea;
+  --band-high-ink: #9c3418;
+  --band-high-on-fill: #5c1f12;
+
+  --band-critical-fill: #d13c34;
+  --band-critical-tint: #f9e3e2;
+  --band-critical-ink: #a32219;
+  --band-critical-on-fill: #ffffff;
+
   --p1: #483fa6;
   --p2: #63469c;
   --p3: #7f4e92;
@@ -272,6 +398,15 @@
   --color-risk-medium: var(--risk-medium);
   --color-risk-high: var(--risk-high);
   --color-risk-critical: var(--risk-critical);
+
+  --color-band-low-tint: var(--band-low-tint);
+  --color-band-low-ink: var(--band-low-ink);
+  --color-band-medium-tint: var(--band-medium-tint);
+  --color-band-medium-ink: var(--band-medium-ink);
+  --color-band-high-tint: var(--band-high-tint);
+  --color-band-high-ink: var(--band-high-ink);
+  --color-band-critical-tint: var(--band-critical-tint);
+  --color-band-critical-ink: var(--band-critical-ink);
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -353,9 +488,44 @@ html {
   transition-duration: 0.001ms !important;
 }
 
+/* High contrast.
+
+   Until now this remapped only --ink-mute and --line, which meant the
+   setting did nothing for the lowest-contrast things on screen: band chips
+   measured 1.80:1 both before and after enabling it. Someone who has told
+   the product they need more contrast is exactly the person who cannot read
+   a 1.19:1 "Medium". The band inks below are pushed to roughly AAA (7:1) on
+   their tints.
+
+   Scoped per theme the same way the palette itself is: bare :root carries
+   light, the guarded media query carries system-dark, and the [data-theme]
+   variant wins over both. A single un-themed block would apply light inks
+   to a dark ground. --ink-mute keeps its documented exception in the default
+   theme (see the note at the top of this file) and is raised only here. */
 :root[data-high-contrast="true"] {
   --ink-mute: var(--ink-soft);
   --line: var(--line-strong);
+
+  --band-low-ink: #14501f;
+  --band-medium-ink: #4d3800;
+  --band-high-ink: #7a2711;
+  --band-critical-ink: #7d1912;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-high-contrast="true"]:not([data-theme="light"]) {
+    --band-low-ink: #a9e5a3;
+    --band-medium-ink: #ffe454;
+    --band-high-ink: #ffb9a8;
+    --band-critical-ink: #ffada6;
+  }
+}
+
+:root[data-theme="dark"][data-high-contrast="true"] {
+  --band-low-ink: #a9e5a3;
+  --band-medium-ink: #ffe454;
+  --band-high-ink: #ffb9a8;
+  --band-critical-ink: #ffada6;
 }
 
 :root[data-muted-palette="true"] {
@@ -367,6 +537,28 @@ html {
   --risk-medium: #b8ab7a;
   --risk-high: #b98f7c;
   --risk-critical: #a8635c;
+
+  /* Band set kept in step with --risk-* above: desaturated fills, and inks
+     darkened enough to still clear AA on the muted tints. */
+  --band-low-fill: #8fa88c;
+  --band-low-tint: #eef1ed;
+  --band-low-ink: #3c5439;
+  --band-low-on-fill: #1b2a19;
+
+  --band-medium-fill: #b8ab7a;
+  --band-medium-tint: #f4f1e8;
+  --band-medium-ink: #5a5030;
+  --band-medium-on-fill: #2b2512;
+
+  --band-high-fill: #b98f7c;
+  --band-high-tint: #f3ece9;
+  --band-high-ink: #6a4436;
+  --band-high-on-fill: #2e1c14;
+
+  --band-critical-fill: #a8635c;
+  --band-critical-tint: #f0e6e5;
+  --band-critical-ink: #6b302b;
+  --band-critical-on-fill: #ffffff;
 
   --pillar-burnout: #8a8fa3;
   --pillar-nudges: #9a95ab;
@@ -415,6 +607,15 @@ html {
    the actual content while making nothing easier to read. */
 :root[data-single-column="true"] main .grid:not([data-keep-columns]) {
   grid-template-columns: 1fr !important;
+}
+
+/* Hide avatars. Every call site pairs Avatar with the person's name as
+   visible text right next to it (components/ui/Avatar.tsx itself renders
+   aria-hidden, decorative-only) — the flex/grid gap it sits in collapses
+   cleanly once it's gone, so a single rule covers every screen without
+   leaving orphaned blank circles or a stranded gap. */
+:root[data-hide-avatars="true"] [data-avatar] {
+  display: none;
 }
 
 :focus-visible {

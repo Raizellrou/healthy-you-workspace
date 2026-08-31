@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icons/Icon";
+import { ConfirmModal } from "@/components/ui/Modal";
 import { searchIndex, type SearchItem } from "@/lib/search";
 import { useNudges } from "@/lib/nudge-context";
 import { startFocusSession, endFocusSession } from "@/app/(app)/focus/actions";
@@ -60,14 +61,27 @@ export function CommandPalette({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  // The F shortcut asks before it writes. Clicking a mode card on /focus
+  // has always gone through a ConfirmModal; the keyboard path went
+  // straight to startFocusSession, so a stray keystroke opened or closed
+  // a real focus_sessions row with no prompt and no undo. Same speed bump,
+  // both routes.
+  const [confirmFocusOpen, setConfirmFocusOpen] = useState(false);
+  const [focusPending, setFocusPending] = useState(false);
 
   async function toggleFocus(session: OpenFocusSession | null) {
-    if (session) {
-      await endFocusSession();
-    } else {
-      await startFocusSession({ mode: "focus", trigger: "manual" });
+    setFocusPending(true);
+    try {
+      if (session) {
+        await endFocusSession();
+      } else {
+        await startFocusSession({ mode: "focus", trigger: "manual" });
+      }
+      router.refresh();
+    } finally {
+      setFocusPending(false);
+      setConfirmFocusOpen(false);
     }
-    router.refresh();
   }
 
   // The keydown-registration effect below intentionally has an empty
@@ -84,7 +98,14 @@ export function CommandPalette({
     latestRef.current = { open, activeToast, resolveToast, openFocusSession, toggleFocus };
   });
 
-  const candidates = useMemo(() => searchIndex(index, query, CANDIDATE_LIMIT), [index, query]);
+  // An empty query used to render an empty dialog: a bare input with no
+  // indication of what it searched or that anything would come back. Seed it
+  // with the nav destinations the viewer can actually reach (already role-
+  // filtered upstream in lib/search.ts) so the first press explains itself.
+  const candidates = useMemo(() => {
+    if (!query.trim()) return index.filter((item) => item.type === "page").slice(0, GROUP_LIMIT);
+    return searchIndex(index, query, CANDIDATE_LIMIT);
+  }, [index, query]);
   const groups = useMemo(
     () =>
       GROUP_ORDER.map((type) => ({ type, items: candidates.filter((c) => c.type === type).slice(0, GROUP_LIMIT) })).filter(
@@ -108,9 +129,17 @@ export function CommandPalette({
       // only apply when it's closed.
       if (state.open) return;
 
+      // SELECT belongs here alongside the text controls: native <select>
+      // type-ahead is a keystroke the browser owns ("f" to jump to Friday),
+      // and without this guard it reached the bare-key shortcuts below and
+      // toggled Focus Mode instead of moving the selection.
       const target = event.target as HTMLElement | null;
       const typing = Boolean(
-        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+        target &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.tagName === "SELECT" ||
+            target.isContentEditable)
       );
       if (typing) return;
 
@@ -130,7 +159,7 @@ export function CommandPalette({
       }
 
       if (event.key === "f" || event.key === "F") {
-        void state.toggleFocus(state.openFocusSession);
+        setConfirmFocusOpen(true);
       }
     }
     function onOpenRequest() {
@@ -230,6 +259,7 @@ export function CommandPalette({
   }
 
   return (
+    <>
     <dialog
       ref={dialogRef}
       aria-label="Search"
@@ -298,5 +328,21 @@ export function CommandPalette({
         })}
       </div>
     </dialog>
+
+      <ConfirmModal
+        open={confirmFocusOpen}
+        onClose={() => setConfirmFocusOpen(false)}
+        onConfirm={() => void toggleFocus(openFocusSession)}
+        title={openFocusSession ? "End focus session" : "Start focus session"}
+        message={
+          openFocusSession
+            ? "End your current focus session and return the workspace to standard?"
+            : "Start a Focus session? Non-essential panels collapse and notifications are held."
+        }
+        confirmLabel={openFocusSession ? "End session" : "Start session"}
+        tone="default"
+        pending={focusPending}
+      />
+    </>
   );
 }

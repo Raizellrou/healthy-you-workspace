@@ -315,7 +315,7 @@ export function BoundaryClient({
                     <div className="flex items-center justify-between gap-2">
                       <Chip tone={displayTone}>{displayLabel}</Chip>
                       <span className="text-[11px] text-ink-mute">
-                        {new Date(entry.timestamp).toLocaleTimeString()}
+                        {new Date(entry.timestamp).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true })}
                       </span>
                     </div>
                     <p className="mt-1 text-xs font-medium text-ink-soft">To {entry.recipientName}</p>

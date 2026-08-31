@@ -108,7 +108,10 @@ export function MoodClient({
       <Card>
         {!pickedMood || isChangingMood ? (
           <>
-            <div role="group" aria-label="How are you feeling today?" className="mb-6 flex flex-wrap gap-3">
+            {/* grid, not flex-wrap: five options wrapped 4+1, which broke the
+                Awful->Great ordering the scale depends on. A scale has to read
+                as one row. */}
+            <div role="group" aria-label="How are you feeling today?" className="mb-6 grid grid-cols-5 gap-2">
               {MOODS.map((mood) => {
                 const isPicked = picked === mood.value;
                 return (

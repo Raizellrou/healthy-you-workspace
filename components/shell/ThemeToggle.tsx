@@ -1,28 +1,56 @@
 "use client";
 
-import { useTheme } from "@/lib/use-theme";
+import { useTheme, type ThemeMode } from "@/lib/use-theme";
+
+/**
+ * Three-way theme control for Appearance settings.
+ *
+ * "System" is first and is the default, because it is the one most people
+ * actually want: the device already knows, and it changes on a schedule
+ * that a manual toggle can't follow. This used to be a binary light/dark
+ * button, which meant a single click permanently opted someone out of
+ * following their OS with no way back short of clearing site data.
+ *
+ * Rendered as a radiogroup rather than three buttons so arrow keys move
+ * between the options and a screen reader announces "2 of 3" — this is a
+ * choice among alternatives, not three independent actions.
+ */
+
+const OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+];
 
 export function ThemeToggle() {
-  const { isDark, toggle } = useTheme();
+  const { mode, resolved, setTheme } = useTheme();
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-pressed={isDark}
-      className="flex w-full items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink-soft hover:bg-surface-2"
-    >
-      {isDark ? (
-        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-          <circle cx="10" cy="10" r="4.5" />
-          <path d="M10 1.5v2M10 16.5v2M3.5 3.5l1.4 1.4M15.1 15.1l1.4 1.4M1.5 10h2M16.5 10h2M3.5 16.5l1.4-1.4M15.1 4.9l1.4-1.4" />
-        </svg>
-      ) : (
-        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-          <path d="M17 11.5A7.5 7.5 0 018.5 3 7.5 7.5 0 1017 11.5z" strokeLinejoin="round" />
-        </svg>
-      )}
-      {isDark ? "Light mode" : "Dark mode"}
-    </button>
+    <div>
+      <div role="radiogroup" aria-label="Theme" className="flex gap-1 rounded-lg border border-line bg-surface-2 p-1">
+        {OPTIONS.map((option) => {
+          const active = mode === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setTheme(option.value)}
+              className={`flex-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                active ? "bg-surface text-ink shadow-sm" : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-xs text-ink-mute">
+        {mode === "system"
+          ? `Following your device — currently ${resolved}.`
+          : `Always ${mode}, whatever your device is set to.`}
+      </p>
+    </div>
   );
 }

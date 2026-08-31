@@ -1,17 +1,70 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BandChip } from "@/components/burnout/BandChip";
 import { computeBurnout } from "@/lib/burnout";
 import type { Employee } from "@/types/employee";
 
-const TEAM_PALETTE = ["#6F49A6", "#FFB5C5", "#87CEEB", "#A8D592", "#C7A2E5", "#FF8C73"];
+/**
+ * Team identity hues. These are used only as a dot and a card border accent
+ * — never as a text colour, and never as a fill behind text.
+ *
+ * They used to be both: the team chip rendered the hue as text on a 12%
+ * tint of itself (1.66:1 for Engineering, 1.67:1 for Sales) and the active
+ * filter button rendered white text on the raw hue, which for the pastel
+ * entries was worse still. A hex chosen in JS also cannot respond to the
+ * theme, so any text built from one is legible in at most one of them.
+ *
+ * Colour as a dot beside neutral text is the pattern NavPanel already uses
+ * for projects, and it works on either ground.
+ */
+const TEAM_PALETTE = ["#6F49A6", "#E0578A", "#3D8FD1", "#5BA150", "#9B6FD4", "#D96A4A"];
 
-export function DirectoryClient({ employees }: { employees: Employee[] }) {
-  const [query, setQuery] = useState("");
-  const [teamFilter, setTeamFilter] = useState<string | "All">("All");
+export function DirectoryClient({
+  employees,
+  bandVisibleIds,
+}: {
+  employees: Employee[];
+  /** Ids whose burnout band this viewer may see — computed with canSee() in
+   *  page.tsx. Everyone still appears in the directory; only the band is
+   *  withheld. */
+  bandVisibleIds: Set<string>;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Search and team filter live in the URL so a filtered view can be linked,
+  // bookmarked and survive a reload — the two things an HR user would
+  // actually want to send to a manager. Held in local state as well so
+  // typing stays responsive, with the URL written behind a debounce rather
+  // than once per keystroke.
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
+  const teamFilter = searchParams.get("team") ?? "All";
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const next = new URLSearchParams(searchParams.toString());
+      if (query.trim()) next.set("q", query);
+      else next.delete("q");
+      if (next.toString() !== searchParams.toString()) {
+        router.replace(next.toString() ? `${pathname}?${next}` : pathname, { scroll: false });
+      }
+    }, 250);
+    return () => clearTimeout(debounceRef.current);
+  }, [query, pathname, router, searchParams]);
+
+  function setTeamFilter(team: string) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (team === "All") next.delete("team");
+    else next.set("team", team);
+    router.replace(next.toString() ? `${pathname}?${next}` : pathname, { scroll: false });
+  }
 
   const teams = useMemo(() => Array.from(new Set(employees.map((e) => e.team))).sort(), [employees]);
   const teamColor = useMemo(() => {
@@ -62,19 +115,22 @@ export function DirectoryClient({ employees }: { employees: Employee[] }) {
         <div className="flex flex-wrap gap-1.5">
           {(["All", ...teams] as const).map((t) => {
             const active = teamFilter === t;
-            const color = t === "All" ? "#6F49A6" : teamColor.get(t);
+            const color = teamColor.get(t);
             return (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTeamFilter(t)}
-                className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                style={
+                aria-pressed={active}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                   active
-                    ? { background: color, color: "#FFFFFF" }
-                    : { border: "1px solid var(--line)", color: "var(--ink-mute)" }
-                }
+                    ? "border-transparent bg-brand-soft text-brand-ink"
+                    : "border-line text-ink-soft hover:bg-surface-2 hover:text-ink"
+                }`}
               >
+                {color ? (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} aria-hidden="true" />
+                ) : null}
                 {t}
               </button>
             );
@@ -106,13 +162,11 @@ export function DirectoryClient({ employees }: { employees: Employee[] }) {
                   <div className="text-sm font-semibold text-ink">{e.name}</div>
                   <div className="mt-0.5 text-xs text-ink-mute">{e.role}</div>
                 </div>
-                <span
-                  className="rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                  style={{ background: `${color}1F`, color }}
-                >
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-soft">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} aria-hidden="true" />
                   {e.team}
                 </span>
-                <BandChip band={scores.band} />
+                {bandVisibleIds.has(e.id) ? <BandChip band={scores.band} /> : null}
               </div>
             );
           })}

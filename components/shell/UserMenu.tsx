@@ -5,12 +5,19 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { Menu } from "@/components/ui/Menu";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/lib/use-theme";
 import { scopeLabel } from "@/lib/authz";
 import type { AppRole } from "@/types/person";
 
 /**
  * The identity block at the bottom of the sidebar, now also the sign-out
  * entry point — there wasn't one anywhere in the app before this.
+ *
+ * Theme lives here too. It was previously reachable only through Account >
+ * Appearance — three clicks — while the public marketing page had a
+ * one-click toggle in its nav. The hook is used directly rather than
+ * rendering <ThemeToggle />, which is a full-width bordered button built
+ * for the settings form and does not belong inside a menu.
  *
  * "Switch account" isn't a separate action from "sign out": `proxy.ts`
  * (frozen) redirects any authenticated visit to /login straight to
@@ -31,6 +38,7 @@ export function UserMenu({
 }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const { mode, isDark, setTheme, toggle: toggleTheme } = useTheme();
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -72,6 +80,23 @@ export function UserMenu({
           </svg>
         }
         items={[
+          {
+            key: "theme",
+            label: isDark ? "Light mode" : "Dark mode",
+            onSelect: toggleTheme,
+          },
+          // Only offered once an explicit choice has been made, so the menu
+          // stays at two items for the default case. Without it, the quick
+          // flip above would be a one-way door out of following the device.
+          ...(mode === "system"
+            ? []
+            : [
+                {
+                  key: "theme-system",
+                  label: "Match system",
+                  onSelect: () => setTheme("system"),
+                },
+              ]),
           {
             key: "sign-out",
             label: signingOut ? "Signing out…" : "Sign out",

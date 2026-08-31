@@ -6,6 +6,7 @@ import { getCurrentPulseQuestion, hasAnsweredPulse } from "@/lib/supabase/pulse"
 import { todayInTz } from "@/lib/date";
 import type { IconName } from "@/components/icons/Icon";
 import type { Person } from "@/types/person";
+import type { WorkScheduleSettings } from "@/lib/supabase/notifications";
 
 /**
  * Phase 05 dashboard, Zone B — additive only, no change to any existing
@@ -80,5 +81,30 @@ export async function getNeedsYou(me: Person): Promise<NeedsYouItem[]> {
     }
   }
 
+  return items;
+}
+
+/**
+ * One-time setup prompts for someone who has just been onboarded.
+ *
+ * Pure, and deliberately not a query: the dashboard already awaits
+ * getMySettings() for the session bar, so this reuses that result rather
+ * than adding a round trip (round trips are the cost that matters against a
+ * hosted Supabase, not payload size).
+ *
+ * These are invitations, not nagging — each disappears permanently once the
+ * corresponding thing is done, and existing employees were backfilled as
+ * configured in 0034 so nobody who has been using the app for months is
+ * suddenly told to set it up.
+ */
+export function getFirstRunItems(schedule: WorkScheduleSettings | null): NeedsYouItem[] {
+  const items: NeedsYouItem[] = [];
+  if (schedule && !schedule.configured) {
+    items.push({
+      icon: "settings",
+      label: "Set your working hours — you're on the 09:00–18:00 default",
+      href: "/settings/schedule",
+    });
+  }
   return items;
 }

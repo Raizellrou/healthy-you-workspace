@@ -60,12 +60,16 @@ export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
     <Card className="flex flex-col gap-5">
       <div>
         <div className="mb-3 text-sm font-semibold text-ink">Theme</div>
-        {/* Deliberately not part of the prefs form below: light/dark is a
+        {/* Deliberately not part of the prefs form below: theme is a
             browser-local, apply-instantly choice (see ThemeToggle), not an
             account-level row that waits on Save. It used to live in every
             page's nav panel instead of here, where the rest of the
-            appearance controls actually are. */}
-        <div className="w-44">
+            appearance controls actually are.
+
+            Browser-local is also why "System" is not stored per account:
+            the right answer genuinely differs per device, so a phone set to
+            dark and a desktop set to light should each just follow. */}
+        <div className="max-w-xs">
           <ThemeToggle />
         </div>
       </div>
@@ -161,8 +165,7 @@ export function AppearanceClient({ prefs: initial }: { prefs: UiPreferences }) {
         </Button>
       </div>
       <p className="text-xs text-ink-mute">
-        Reduced motion, high contrast, muted palette, and text size apply everywhere immediately after saving. Density,
-        single column, and hide avatars are saved but not yet wired into every screen.
+        All of these apply everywhere immediately after saving.
       </p>
     </Card>
   );

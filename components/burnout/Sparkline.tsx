@@ -51,26 +51,37 @@ export function Sparkline({
       </svg>
       {/* aria-label alone leaves screen-reader users with a single number for
           what's otherwise a multi-point trend — this table carries the same
-          data the shape encodes visually. */}
-      <table className="sr-only">
-        <caption>{ariaLabel}</caption>
-        <thead>
-          <tr>
-            {points.map((_, i) => (
-              <th key={i} scope="col">
-                Point {i + 1}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            {points.map((v, i) => (
-              <td key={i}>{v}</td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+          data the shape encodes visually.
+
+          sr-only goes on the wrapper, never on the <table> itself: a
+          display:table element treats sr-only's width:1px as a *minimum* and
+          grows to fit its cells (measured 2158px for 14 points), and
+          clip-path:inset(50%) hides it visually without taking it out of
+          scroll overflow. On the table directly, this pushed the document to
+          3264px wide and gave /burnout a real horizontal scrollbar at every
+          viewport. A div honours width:1px and clips the table along with
+          it. */}
+      <div className="sr-only">
+        <table>
+          <caption>{ariaLabel}</caption>
+          <thead>
+            <tr>
+              {points.map((_, i) => (
+                <th key={i} scope="col">
+                  Point {i + 1}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {points.map((v, i) => (
+                <td key={i}>{v}</td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

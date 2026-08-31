@@ -4,7 +4,13 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Chip } from "@/components/ui/Chip";
 import { clockIn, clockOut, startBreak, endBreak } from "@/app/(app)/attendance/actions";
-import { fmtClock, fmtDuration, fmtMinutes, minutesSinceMidnightInTz } from "@/lib/date";
+import { fmtClock as fmtStopwatch, fmtDuration, minutesSinceMidnightInTz } from "@/lib/date";
+// lib/date.ts's fmtClock is a stopwatch readout ("01:04:09") for the live
+// elapsed timer below — renamed on import so it can't be confused with
+// lib/time.ts's fmtClock, a 12-hour wall-clock formatter ("9:00 AM") used
+// for the schedule range beneath it. Same name, different job; the app had
+// been showing the schedule as "09:00–18:00" because nothing distinguished them.
+import { fmtClock } from "@/lib/time";
 import type { OpenSession } from "@/lib/supabase/attendance";
 
 /**
@@ -72,7 +78,7 @@ export function SessionBar({
           {punctuality ? <Chip tone={punctuality.tone}>{punctuality.label}</Chip> : null}
         </div>
         <div className="font-mono text-2xl font-bold tabular-nums text-ink">
-          {openSession && mounted ? fmtClock(elapsedMs) : "—:—:—"}
+          {openSession && mounted ? fmtStopwatch(elapsedMs) : "—:—:—"}
         </div>
         {openSession ? (
           <div className="flex gap-1.5">
@@ -124,7 +130,7 @@ export function SessionBar({
       <div className="flex flex-col justify-center gap-1 border-r border-line pr-6">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-mute">Breaks today</span>
         <span className="font-mono text-lg font-bold tabular-nums text-ink">
-          {openSession && mounted ? fmtClock(breaksTodayMs) : "—:—:—"}
+          {openSession && mounted ? fmtStopwatch(breaksTodayMs) : "—:—:—"}
         </span>
       </div>
 
@@ -132,7 +138,7 @@ export function SessionBar({
         <div className="flex flex-col justify-center gap-1">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-mute">Schedule</span>
           <span className="text-lg font-bold text-ink">
-            {fmtMinutes(schedule.startMin)}–{fmtMinutes(schedule.endMin)}
+            {fmtClock(schedule.startMin)} – {fmtClock(schedule.endMin)}
           </span>
         </div>
       ) : null}
